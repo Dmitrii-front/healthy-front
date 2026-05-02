@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import"],
+  "jsPlugins": [
+    {
+      "name": "react-hooks-js",
+      "specifier": "eslint-plugin-react-hooks"
+    }
+  ],
+  "rules": {
+    "react-hooks-js/rules-of-hooks": "error",
+    "react-hooks-js/exhaustive-deps": "warn"
+  },
+  "ignorePatterns": ["dist", "node_modules", "src/routeTree.gen.ts"]
+}

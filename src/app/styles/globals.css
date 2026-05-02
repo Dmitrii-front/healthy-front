@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Healthy Mobile design tokens — synced from DESIGN.md (project root) */
+@theme {
+  /* Colors */
+  --color-clinic-coral: oklch(56% 0.13 25);
+  --color-brick-coral: oklch(44% 0.13 25);
+  --color-tinted-linen: oklch(95% 0.025 25);
+  --color-warm-paper: oklch(98.8% 0.003 90);
+  --color-card-white: oklch(99.6% 0.002 90);
+  --color-linen-shade: oklch(95.5% 0.005 90);
+  --color-graphite: oklch(20% 0.005 90);
+  --color-soft-graphite: oklch(36% 0.005 90);
+  --color-distant-graphite: oklch(52% 0.005 90);
+  --color-mist-graphite: oklch(70% 0.005 90);
+  --color-hairline: oklch(91% 0.005 90);
+  --color-hairline-strong: oklch(85% 0.005 90);
+  --color-confirmed-sage: oklch(72% 0.14 160);
+  --color-pending-amber: oklch(78% 0.16 75);
+  --color-pending-amber-deep: oklch(52% 0.13 75);
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-pill: 999px;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--color-warm-paper);
+  color: var(--color-graphite);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv01";
+}
+
+body {
+  margin: 0;
+}
