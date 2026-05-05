@@ -25,7 +25,11 @@ export type IconName =
   | "arrow-right"
   | "check"
   | "phone"
-  | "clock";
+  | "clock"
+  | "eye"
+  | "eye-off"
+  | "alert-circle"
+  | "monogram-h";
 
 interface IconProps {
   name: IconName;
@@ -130,6 +134,28 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M12 7v5l3 2" />
     </>
   ),
+  eye: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  "eye-off": (
+    <>
+      <path d="M3 3 21 21" />
+      <path d="M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.3 4.05M6.1 6.1C3.3 8.05 2 12 2 12s3.5 6 10 6c1.6 0 3-.35 4.2-.9" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </>
+  ),
+  "alert-circle": (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4M12 16h.01" />
+    </>
+  ),
+  /* Editorial monogram-H — two stems with a slightly raised crossbar.
+     Replaces the generic heart in BrandMark to escape the medical-app cliché. */
+  "monogram-h": <path d="M6 5v14M18 5v14M6 11.5h12" />,
 };
 
 export function Icon({ name, size = 18, stroke = 1.6, className, style }: IconProps) {

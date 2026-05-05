@@ -1,23 +1,53 @@
 @import "tailwindcss";
 
-/* Healthy Mobile design tokens — synced from DESIGN.md (project root) */
+/* Healthy Mobile design tokens — synced from DESIGN.md (project root)
+ *
+ * Brand pivot 2026-05: theme moved from "Editorial Clinic / warm minimalism"
+ * to Linear-style cool monochrome. Neutrals are now on OKLCH hue 240
+ * (slightly blue-tinted) instead of the previous hue 90 (warm cream).
+ * Coral accent unchanged — single brand color anchoring identity.
+ *
+ * NOTE on naming: variable names like --color-warm-paper are legacy from
+ * the previous warm theme; renaming would require touching ~30+ files.
+ * Token NAMES stay; VALUES shift cool. DESIGN.md documents the migration.
+ */
 @theme {
-  /* Colors */
+  /* Colors — Linear cool palette */
   --color-clinic-coral: oklch(56% 0.13 25);
   --color-brick-coral: oklch(44% 0.13 25);
-  --color-tinted-linen: oklch(95% 0.025 25);
-  --color-warm-paper: oklch(98.8% 0.003 90);
-  --color-card-white: oklch(99.6% 0.002 90);
-  --color-linen-shade: oklch(95.5% 0.005 90);
-  --color-graphite: oklch(20% 0.005 90);
-  --color-soft-graphite: oklch(36% 0.005 90);
-  --color-distant-graphite: oklch(52% 0.005 90);
-  --color-mist-graphite: oklch(70% 0.005 90);
-  --color-hairline: oklch(91% 0.005 90);
-  --color-hairline-strong: oklch(85% 0.005 90);
+  --color-tinted-linen: oklch(95% 0.022 25);
+  --color-warm-paper: oklch(99% 0.004 240);
+  --color-card-white: oklch(99.5% 0.002 240);
+  --color-linen-shade: oklch(95.5% 0.005 240);
+  --color-graphite: oklch(20% 0.012 240);
+  --color-soft-graphite: oklch(36% 0.01 240);
+  --color-distant-graphite: oklch(52% 0.008 240);
+  --color-mist-graphite: oklch(70% 0.005 240);
+  --color-hairline: oklch(91% 0.005 240);
+  --color-hairline-strong: oklch(85% 0.006 240);
   --color-confirmed-sage: oklch(72% 0.14 160);
   --color-pending-amber: oklch(78% 0.16 75);
   --color-pending-amber-deep: oklch(52% 0.13 75);
+
+  /* Auth theme — teal pivot (scoped to auth screens, see widgets/auth-layout).
+     Source: claude design handoff "Healthy Mobile (Teal)" — values are kept in
+     hex on purpose to match the design 1:1 and avoid accidental drift through
+     OKLCH conversion. */
+  --color-teal-brand: #0e7c8c;
+  --color-teal-brand-hover: #0a6573;
+  --color-teal-brand-soft: #dceef1;
+  --color-auth-bg: #faf8f5;
+  --color-auth-ink: #0f1115;
+  --color-auth-ink-2: #2a2d33;
+  --color-auth-muted: #8a8e96;
+  --color-auth-border: #e2e2df;
+
+  /* Desktop auth shell — dramatic dark backdrop behind a floating warm
+     card. Two-stop linear gradient with three layered teal glows + SVG
+     noise overlay (rendered inline in AuthLayout). Hex values are kept
+     1:1 with the design handoff. */
+  --color-auth-shell-dark: #051116;
+  --color-auth-shell-dark-2: #0a1f25;
 
   /* Radius */
   --radius-xs: 4px;
@@ -31,6 +61,7 @@
   /* Typography */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  --font-auth: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
 html,
@@ -44,4 +75,189 @@ body {
 
 body {
   margin: 0;
+}
+
+/* Stagger-in cascade for top-level page sections.
+   Applied via .stagger-in on the immediate parent — its direct children fade up sequentially.
+   Pure CSS, transform-only (composited), respects prefers-reduced-motion.
+
+   Two ways to drive the delay:
+   1. Implicit (default): nth-child cascade below — works for any number of direct children.
+      Caveat: wrapping or reordering children silently shifts the timing.
+   2. Explicit: set `style={{ "--stagger-i": N }}` on a child to override its delay.
+      Use this when the child structure may change or when you need non-uniform timing.
+
+   The custom-property branch is read first; if `--stagger-i` is unset, the nth-child
+   fallbacks below take over. */
+@keyframes hm-fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stagger-in > * {
+  animation: hm-fadeup 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--stagger-i, 0) * 60ms);
+}
+.stagger-in > *:nth-child(1):not([style*="--stagger-i"]) {
+  animation-delay: 0ms;
+}
+.stagger-in > *:nth-child(2):not([style*="--stagger-i"]) {
+  animation-delay: 60ms;
+}
+.stagger-in > *:nth-child(3):not([style*="--stagger-i"]) {
+  animation-delay: 120ms;
+}
+.stagger-in > *:nth-child(4):not([style*="--stagger-i"]) {
+  animation-delay: 180ms;
+}
+.stagger-in > *:nth-child(5):not([style*="--stagger-i"]) {
+  animation-delay: 240ms;
+}
+.stagger-in > *:nth-child(6):not([style*="--stagger-i"]) {
+  animation-delay: 300ms;
+}
+.stagger-in > *:nth-child(7):not([style*="--stagger-i"]) {
+  animation-delay: 360ms;
+}
+.stagger-in > *:nth-child(n + 8):not([style*="--stagger-i"]) {
+  animation-delay: 420ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-in > * {
+    animation: none;
+  }
+}
+
+/* Coherent reveal for the auth wrapper — fires on cold load and as the
+   fallback when View Transitions API is unsupported (iOS Safari < 18).
+   Transform-only on purpose: an opacity 0 → 1 fade reads as «page
+   disappeared then appeared» on real devices, especially when the
+   fallback path is the only animation running. The wrapper stays at
+   opacity 1 throughout; only the slide carries the kinetic feel. */
+@keyframes hm-reveal {
+  from {
+    transform: translateY(10px);
+  }
+}
+
+.auth-reveal {
+  animation: hm-reveal 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Auth backdrop layer — mobile teal-tint at top vs desktop dark with
+   layered radial glows. Defined as a CSS class (not a Tailwind utility)
+   so the inline `view-transition-name` style on the same element doesn't
+   collide via the higher-specificity inline `background` property. The
+   media query swap is the source of truth for both registers. */
+.auth-bg-stack {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-teal-brand) 8%, transparent) 0%,
+    transparent 50%
+  );
+}
+
+@media (min-width: 1024px) {
+  .auth-bg-stack {
+    background:
+      radial-gradient(80% 60% at 20% 20%, rgba(14, 124, 140, 0.65), transparent 60%),
+      radial-gradient(70% 60% at 90% 90%, rgba(95, 180, 195, 0.32), transparent 65%),
+      radial-gradient(50% 40% at 70% 30%, rgba(210, 240, 245, 0.18), transparent 70%),
+      linear-gradient(180deg, var(--color-auth-shell-dark-2) 0%, var(--color-auth-shell-dark) 100%);
+  }
+}
+
+/* Route crossfade via View Transitions API — opt-in per navigation
+   through TanStack Router's `viewTransition: true`. Browsers without
+   support (iOS Safari < 18) silently fall back to no animation; the
+   .auth-reveal handles the cold-load entrance.
+
+   Pattern: new pseudo stays at opacity 1 throughout (no fade-in!) and
+   only translates 6px upward to settle. Old fades out *underneath* it.
+   This kills the "form briefly disappears" perception that pure
+   crossfades produce — at any midpoint t the new layer covers most of
+   the old at full opacity, so the eye never sees a translucency dip. */
+::view-transition-old(root) {
+  animation: hm-fade-out 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+::view-transition-new(root) {
+  /* The pseudo translates UPWARD from 0 to -10px while the captured
+     snapshot inside it is frozen at the wrapper's auth-reveal frame 0
+     (translateY(10px)). Net visual position: starts at +10, ends at 0
+     — exactly matching where the live DOM lands when auth-reveal also
+     completes at t=220ms. No visual jump when the pseudo dissolves and
+     the live DOM is exposed. Both animations are opacity-1 throughout. */
+  animation: hm-settle 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hm-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes hm-settle {
+  to {
+    transform: translateY(-10px);
+  }
+}
+
+/* Variant D shell-persistence — brand mark and tinted background carry
+   their own view-transition-names so they're lifted out of `root` and
+   each gets its own old/new pair. Both pages render them identically,
+   so disabling the animation makes the morph zero-cost: the user sees
+   them stay perfectly still while the rest of the page crossfades. */
+::view-transition-old(auth-brand),
+::view-transition-new(auth-brand),
+::view-transition-old(auth-bg),
+::view-transition-new(auth-bg) {
+  animation: none;
+  /* Both old and new pseudos render simultaneously; if both are visible
+     the user briefly sees a doubled brand mark. Hide the old layer so
+     only the new one (which is at the same place) is on screen. */
+}
+
+::view-transition-old(auth-brand),
+::view-transition-old(auth-bg) {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-reveal {
+    animation: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms;
+  }
+}
+
+/* Slow breathing pulse — used for the warm-light glow inside editorial illustrations.
+   Opacity-only, fully composited, no layout impact. */
+@keyframes hm-breathe {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.hm-breathe {
+  animation: hm-breathe 5.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-breathe {
+    animation: none;
+  }
 }

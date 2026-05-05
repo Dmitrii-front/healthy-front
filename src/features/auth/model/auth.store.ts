@@ -35,13 +35,15 @@ export const useAuthStore = create<AuthState>()(
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
         }),
-      clear: () =>
+      clear: () => {
         set({
           accessToken: null,
           refreshToken: null,
           userId: null,
           isAuthenticated: false,
-        }),
+        });
+        useAuthStore.persist.clearStorage();
+      },
     }),
     {
       name: "healthy.auth",

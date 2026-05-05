@@ -7,3 +7,4 @@ export { useSignUp } from "./lib/use-sign-up";
 export { useSignOut } from "./lib/use-sign-out";
 export { useCurrentUser } from "./lib/use-current-user";
 export { bootstrapAuth } from "./lib/register-adapter";
+export { getLastSignInEmail, rememberSignInEmail, hasPriorSignIn } from "./lib/last-email";

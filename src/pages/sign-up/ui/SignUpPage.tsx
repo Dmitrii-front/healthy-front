@@ -2,12 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { signUpSchema, type SignUpValues } from "../model/schema";
-import { Button } from "@/shared/ui/Button";
 import { FieldLabel } from "@/shared/ui/FieldLabel";
 import { Icon } from "@/shared/ui/Icon";
-import { Input } from "@/shared/ui/Input";
 import { useSignUp } from "@/features/auth";
 import { ApiError } from "@/shared/api/client";
+import { AuthLayout, AuthInput, AuthButton } from "@/widgets/auth-layout";
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -16,131 +15,172 @@ export function SignUpPage() {
     register,
     handleSubmit,
     setError,
+    clearErrors,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "", agree: true },
+    mode: "onTouched",
+    defaultValues: { email: "", password: "", agree: false },
   });
+
+  const agree = watch("agree");
+
+  const dismissRootError = () => {
+    if (errors.root) clearErrors("root");
+  };
 
   const onSubmit = handleSubmit(async ({ email, password }) => {
     try {
       await signUp.mutateAsync({ email, password });
       await navigate({ to: "/" });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        setError("email", { message: "Пользователь с таким email уже существует" });
-        return;
+      let message: string;
+      if (error instanceof ApiError && error.status >= 500) {
+        message = "На нашей стороне сбой. Попробуйте через минуту.";
+      } else if (error instanceof TypeError) {
+        message = "Нет связи. Проверьте интернет.";
+      } else {
+        message =
+          "Не удалось создать аккаунт. Проверьте данные или войдите, если уже регистрировались.";
       }
-      const message = "Не удалось создать аккаунт. Попробуйте ещё раз.";
       setError("root", { message });
     }
   });
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-warm-paper">
-      <div className="h-[60px] shrink-0" />
-      <div className="flex flex-1 flex-col px-6 pb-8 pt-5">
-        <Link
-          to="/sign-in"
-          className="mb-6 inline-flex items-center gap-1 self-start py-1.5 pr-2 text-[15px] font-medium text-clinic-coral"
-        >
-          <Icon name="chevron-left" size={18} stroke={2} />
-          Назад
-        </Link>
-
-        <h1 className="text-[32px] font-medium leading-[1.1] tracking-tight text-graphite">
-          Создайте аккаунт.
-        </h1>
-        <p className="mt-2.5 mb-7 text-[15px] leading-relaxed text-distant-graphite">
-          Это займёт минуту. Медкарту заполните позже.
-        </p>
-
-        <form onSubmit={onSubmit} className="flex flex-col gap-3.5" noValidate>
-          <FieldLabel htmlFor="name">Имя и фамилия</FieldLabel>
-          <Input
-            id="name"
-            icon="user"
-            autoComplete="name"
-            placeholder="Елена Марш"
-            invalid={Boolean(errors.name)}
-            {...register("name")}
-          />
-          {errors.name && (
-            <p className="-mt-2 text-[12.5px] text-clinic-coral">{errors.name.message}</p>
-          )}
-
-          <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input
+    <AuthLayout
+      title="Создайте аккаунт"
+      subtitle="Запишитесь к врачу за минуту"
+      footer={
+        <>
+          <p className="text-center text-[14px] text-auth-muted">Уже есть аккаунт?</p>
+          <AuthButton
+            variant="secondary"
+            type="button"
+            onClick={() => void navigate({ to: "/sign-in", viewTransition: true })}
+          >
+            Войти
+          </AuthButton>
+        </>
+      }
+    >
+      <form
+        onSubmit={onSubmit}
+        className="flex flex-col gap-[18px]"
+        noValidate
+        aria-describedby={errors.root ? "form-error" : undefined}
+      >
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor="email" className="text-[13px] font-medium text-auth-ink-2">
+            Email
+          </FieldLabel>
+          <AuthInput
             id="email"
             type="email"
             icon="mail"
             autoComplete="email"
             placeholder="you@email.com"
             invalid={Boolean(errors.email)}
-            {...register("email")}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            {...register("email", { onChange: dismissRootError })}
           />
           {errors.email && (
-            <p className="-mt-2 text-[12.5px] text-clinic-coral">{errors.email.message}</p>
+            <p
+              id="email-error"
+              role="alert"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+            >
+              <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
+              {errors.email.message}
+            </p>
           )}
+        </div>
 
-          <FieldLabel htmlFor="password">Пароль</FieldLabel>
-          <Input
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor="password" className="text-[13px] font-medium text-auth-ink-2">
+            Пароль
+          </FieldLabel>
+          <AuthInput
             id="password"
             type="password"
             icon="lock"
+            revealable
             autoComplete="new-password"
-            placeholder="Минимум 8 символов"
+            placeholder="••••••••"
             invalid={Boolean(errors.password)}
-            {...register("password")}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            {...register("password", { onChange: dismissRootError })}
           />
-          {errors.password && (
-            <p className="-mt-2 text-[12.5px] text-clinic-coral">{errors.password.message}</p>
+          {errors.password ? (
+            <p
+              id="password-error"
+              role="alert"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+            >
+              <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
+              {errors.password.message}
+            </p>
+          ) : (
+            <p className="text-[12px] text-auth-muted">
+              Минимум 8 символов, заглавная буква и цифра
+            </p>
           )}
+        </div>
 
-          <label className="mt-1 mb-1 flex items-start gap-2.5 text-[13px] leading-snug text-soft-graphite">
-            <input type="checkbox" className="mt-0.5 accent-clinic-coral" {...register("agree")} />
-            <span>
-              Я принимаю{" "}
-              <a href="#" className="font-medium text-graphite border-b border-mist-graphite">
-                Условия использования
-              </a>{" "}
-              и{" "}
-              <a href="#" className="font-medium text-graphite border-b border-mist-graphite">
-                Политику конфиденциальности
-              </a>
-              , включая согласие на обработку персональных данных.
-            </span>
-          </label>
-          {errors.agree && (
-            <p className="-mt-1 text-[12.5px] text-clinic-coral">{errors.agree.message}</p>
-          )}
+        <label className="-my-2 flex cursor-pointer items-start gap-3 py-2 text-[13px] leading-[1.45] text-auth-ink-2">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-[22px] w-[22px] shrink-0 cursor-pointer rounded-[6px] accent-teal-brand"
+            {...register("agree")}
+          />
+          <span>
+            Я принимаю{" "}
+            <a href="#" className="text-auth-ink underline underline-offset-2">
+              Условия использования
+            </a>{" "}
+            и{" "}
+            <a href="#" className="text-auth-ink underline underline-offset-2">
+              Политику конфиденциальности
+            </a>
+            , включая согласие на обработку персональных данных.
+          </span>
+        </label>
+        {errors.agree && (
+          <p role="alert" className="-mt-3 text-[12.5px] text-brick-coral">
+            {errors.agree.message}
+          </p>
+        )}
 
-          {errors.root && (
-            <p className="-mt-1 text-[12.5px] text-clinic-coral">{errors.root.message}</p>
-          )}
+        {errors.root && (
+          <p
+            id="form-error"
+            role="alert"
+            className="-mt-1 inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+          >
+            <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
+            {errors.root.message}
+          </p>
+        )}
 
-          <Button type="submit" size="lg" full disabled={isSubmitting}>
+        <div className="mt-2 lg:mt-1">
+          <AuthButton type="submit" disabled={!agree || isSubmitting}>
             {isSubmitting ? "Создаём…" : "Зарегистрироваться"}
-          </Button>
+          </AuthButton>
+        </div>
 
-          <div className="my-2.5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-hairline" />
-            <span className="text-[12px] text-distant-graphite">или</span>
-            <div className="h-px flex-1 bg-hairline" />
-          </div>
-
-          <Button type="button" variant="secondary" size="lg" full>
-            Войти по полису
-          </Button>
-        </form>
-
-        <p className="mt-auto pt-7 text-center text-[13.5px] text-distant-graphite">
+        {/* Desktop alt-action — inline link replaces the mobile pill in `footer`. */}
+        <p className="mt-1 hidden text-center text-[14px] text-auth-muted lg:block">
           Уже есть аккаунт?{" "}
-          <Link to="/sign-in" className="font-medium text-graphite border-b border-mist-graphite">
+          <Link
+            to="/sign-in"
+            viewTransition
+            className="font-semibold text-auth-ink underline underline-offset-[3px]"
+          >
             Войти
           </Link>
         </p>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 }

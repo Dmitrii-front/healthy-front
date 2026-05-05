@@ -1,10 +1,15 @@
-import { Outlet, createRootRouteWithContext, Link, redirect } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import {
+  Outlet,
+  createRootRouteWithContext,
+  Link,
+  redirect,
+  useMatches,
+} from "@tanstack/react-router";
 import { Suspense } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { TabBar } from "@/widgets/tab-bar";
 import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
-import { authStore } from "@/features/auth";
+import { authStore, hasPriorSignIn } from "@/features/auth";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -18,8 +23,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const { isAuthenticated } = authStore.getState();
 
     if (!isAuthenticated && !isPublic) {
+      const target = hasPriorSignIn() ? "/sign-in" : "/sign-up";
       throw redirect({
-        to: "/sign-in",
+        to: target,
         search: { redirect: location.href },
       });
     }
@@ -32,11 +38,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootLayout() {
+  const matches = useMatches();
+  const hideTabBar = matches.some((m) => m.staticData?.hideTabBar);
+
   return (
-    <div className="min-h-[100dvh] bg-warm-paper text-graphite">
+    <div className="min-h-dvh bg-warm-paper text-graphite">
       <ErrorBoundary
         fallback={(error, reset) => (
-          <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
             <p className="text-xs uppercase tracking-[0.16em] text-distant-graphite">
               Что-то пошло не так
             </p>
@@ -54,25 +63,24 @@ function RootLayout() {
       >
         <Suspense
           fallback={
-            <div className="flex min-h-[100dvh] items-center justify-center text-sm text-distant-graphite">
+            <div className="flex min-h-dvh items-center justify-center text-sm text-distant-graphite">
               Загрузка…
             </div>
           }
         >
-          <main className="pb-24">
+          <main className={hideTabBar ? undefined : "pb-24"}>
             <Outlet />
           </main>
         </Suspense>
       </ErrorBoundary>
       <TabBar />
-      {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
     </div>
   );
 }
 
 function NotFound() {
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="text-xs uppercase tracking-[0.16em] text-distant-graphite">404</p>
       <h1 className="text-2xl font-medium tracking-tight">Страница не найдена</h1>
       <Link
