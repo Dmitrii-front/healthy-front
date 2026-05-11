@@ -1,0 +1,348 @@
+---
+// One booking modal mounted per page. Triggers (BookingTrigger.astro) populate
+// it via data attributes on click. Vanilla TS only — no React.
+---
+
+<dialog
+  id="hm-booking-modal"
+  class="hm-dialog"
+  aria-label="Запись к врачу"
+  data-locked="false"
+  data-step="slot"
+  data-mode="login"
+>
+  <div class="hm-modal-body">
+      <div class="hm-modal-header">
+        <button type="button" class="hm-icon-btn" data-action="hm-book-back" aria-label="Назад" hidden>←</button>
+        <span class="hm-step-label" data-el="step-label">Шаг 1 из 2 · Время</span>
+        <button type="button" class="hm-icon-btn" data-action="hm-book-close" aria-label="Закрыть">✕</button>
+      </div>
+
+      <h2 class="hm-modal-title" data-el="doctor-name">Имя врача</h2>
+      <p class="hm-modal-subtitle" data-el="doctor-meta">Специальность · Клиника</p>
+
+      <!-- Step: slot -->
+      <div data-step-pane="slot">
+        <div class="hm-day-row" data-el="day-row" role="tablist"></div>
+        <div class="hm-slot-grid" data-el="slot-grid"></div>
+        <p class="hm-hint" style="margin-top:16px">
+          Выберите свободное время. Запись займёт меньше минуты.
+        </p>
+      </div>
+
+      <!-- Step: account -->
+      <div data-step-pane="account" hidden>
+        <div class="hm-summary">
+          <span class="hm-summary-label">Выбрано время</span>
+          <span class="hm-summary-value" data-el="picked-summary">—</span>
+        </div>
+
+        <div class="hm-tabs" role="tablist">
+          <button type="button" class="hm-tab-btn" role="tab" aria-selected="true" data-mode="login">
+            Войти
+          </button>
+          <button type="button" class="hm-tab-btn" role="tab" aria-selected="false" data-mode="register">
+            Создать аккаунт
+          </button>
+        </div>
+
+        <form data-el="account-form" novalidate>
+          <label class="hm-label" for="hm-book-email">Email</label>
+          <input
+            id="hm-book-email"
+            class="hm-input"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            required
+          />
+
+          <label class="hm-label" for="hm-book-password">Пароль</label>
+          <input
+            id="hm-book-password"
+            class="hm-input"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Ваш пароль"
+            required
+          />
+
+          <p class="hm-error" data-el="account-error" hidden></p>
+
+          <p class="hm-hint" data-el="account-hint">
+            Войдите в существующий аккаунт, чтобы подтвердить запись.
+          </p>
+
+          <button type="submit" class="hm-btn hm-btn-primary hm-btn-block-spacing" data-el="account-submit">
+            Войти и записаться
+          </button>
+        </form>
+      </div>
+
+      <!-- Step: success -->
+      <div data-step-pane="success" hidden>
+        <div class="hm-success">
+          <div class="hm-success-icon">✓</div>
+          <h3 class="hm-success-title">Запись подтверждена</h3>
+          <p class="hm-success-text">
+            <span data-el="success-doctor"></span><br />
+            <span data-el="success-when"></span>
+          </p>
+          <a href="/app/visits" class="hm-btn hm-btn-primary hm-btn-block-spacing">
+            В личный кабинет →
+          </a>
+          <button type="button" class="hm-btn hm-btn-ghost hm-btn-block-spacing" data-action="hm-book-close" style="margin-top:8px">
+            На главную
+          </button>
+        </div>
+      </div>
+    </div>
+</dialog>
+
+<script>
+  import { openModal, closeModal, lockModal, bindModalDismiss } from "../../lib/modal";
+  import {
+    loginWithEmail,
+    registerWithEmail,
+    quickBook,
+    isAuthed,
+  } from "../../lib/auth";
+  import {
+    generateMockSlots,
+    formatSlotForDisplay,
+    type DaySlots,
+    type Slot,
+  } from "../../lib/mock-slots";
+
+  const modal = document.getElementById("hm-booking-modal") as HTMLDialogElement | null;
+  if (modal) {
+    type Mode = "login" | "register";
+    type Step = "slot" | "account" | "success";
+
+    /* ── elements ─────────────────────────────────────────────────── */
+    const backBtn = modal.querySelector<HTMLButtonElement>('[data-action="hm-book-back"]');
+    const stepLabel = modal.querySelector<HTMLSpanElement>('[data-el="step-label"]');
+    const doctorNameEl = modal.querySelector<HTMLHeadingElement>('[data-el="doctor-name"]');
+    const doctorMetaEl = modal.querySelector<HTMLParagraphElement>('[data-el="doctor-meta"]');
+    const dayRow = modal.querySelector<HTMLDivElement>('[data-el="day-row"]');
+    const slotGrid = modal.querySelector<HTMLDivElement>('[data-el="slot-grid"]');
+    const pickedSummary = modal.querySelector<HTMLSpanElement>('[data-el="picked-summary"]');
+    const accountForm = modal.querySelector<HTMLFormElement>('[data-el="account-form"]');
+    const accountError = modal.querySelector<HTMLParagraphElement>('[data-el="account-error"]');
+    const accountHint = modal.querySelector<HTMLParagraphElement>('[data-el="account-hint"]');
+    const accountSubmit = modal.querySelector<HTMLButtonElement>('[data-el="account-submit"]');
+    const emailInput = modal.querySelector<HTMLInputElement>('#hm-book-email');
+    const passwordInput = modal.querySelector<HTMLInputElement>('#hm-book-password');
+    const tabs = modal.querySelectorAll<HTMLButtonElement>('[data-step-pane="account"] [role="tab"]');
+    const successDoctor = modal.querySelector<HTMLSpanElement>('[data-el="success-doctor"]');
+    const successWhen = modal.querySelector<HTMLSpanElement>('[data-el="success-when"]');
+
+    /* ── state ────────────────────────────────────────────────────── */
+    let days: DaySlots[] = [];
+    let activeDate = "";
+    let pickedSlot: Slot | null = null;
+    let doctorId = "";
+    let doctorName = "";
+
+    bindModalDismiss(modal);
+
+    /* ── triggers ─────────────────────────────────────────────────── */
+    document.querySelectorAll<HTMLButtonElement>('[data-action="hm-book-open"]').forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        doctorId = trigger.dataset.doctorId ?? "";
+        doctorName = trigger.dataset.doctorName ?? "";
+        const specialty = trigger.dataset.doctorSpecialty ?? "";
+        const clinic = trigger.dataset.doctorClinic ?? "";
+
+        if (doctorNameEl) doctorNameEl.textContent = doctorName;
+        if (doctorMetaEl) doctorMetaEl.textContent = `${specialty} · ${clinic}`;
+
+        days = generateMockSlots(doctorId);
+        activeDate = days[0]?.date ?? "";
+        pickedSlot = null;
+
+        renderDays();
+        renderSlots();
+        goToStep("slot");
+        openModal(modal);
+      });
+    });
+
+    modal.querySelectorAll<HTMLButtonElement>('[data-action="hm-book-close"]').forEach((b) => {
+      b.addEventListener("click", () => closeModal(modal));
+    });
+
+    backBtn?.addEventListener("click", () => {
+      if (modal.dataset.step === "account") goToStep("slot");
+    });
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => setMode(tab.dataset.mode as Mode));
+    });
+
+    accountForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const mode = (modal.dataset.mode ?? "login") as Mode;
+      const email = emailInput?.value.trim() ?? "";
+      const password = passwordInput?.value ?? "";
+      hideAccountError();
+      setAccountPending(true, mode);
+      try {
+        if (mode === "login") {
+          await loginWithEmail(email, password);
+        } else {
+          await registerWithEmail(email, password);
+        }
+        await finaliseBooking();
+      } catch (e) {
+        showAccountError(e instanceof Error ? e.message : "Не удалось войти");
+        setAccountPending(false, mode);
+      }
+    });
+
+    /* ── steps ────────────────────────────────────────────────────── */
+
+    function goToStep(step: Step): void {
+      modal.dataset.step = step;
+      if (backBtn) backBtn.hidden = step !== "account";
+      if (stepLabel) {
+        if (step === "slot") stepLabel.textContent = "Шаг 1 из 2 · Время";
+        else if (step === "account") {
+          const mode = (modal.dataset.mode ?? "login") as Mode;
+          stepLabel.textContent = mode === "login" ? "Шаг 2 из 2 · Вход" : "Шаг 2 из 2 · Регистрация";
+        } else stepLabel.textContent = "Готово";
+      }
+      modal.querySelectorAll<HTMLDivElement>("[data-step-pane]").forEach((pane) => {
+        pane.hidden = pane.dataset.stepPane !== step;
+      });
+    }
+
+    function renderDays(): void {
+      if (!dayRow) return;
+      dayRow.replaceChildren(
+        ...days.map((d) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "hm-day-chip";
+          btn.setAttribute("aria-selected", String(d.date === activeDate));
+          btn.textContent = d.shortLabel;
+          btn.addEventListener("click", () => {
+            activeDate = d.date;
+            renderDays();
+            renderSlots();
+          });
+          return btn;
+        }),
+      );
+    }
+
+    function renderSlots(): void {
+      if (!slotGrid) return;
+      const day = days.find((d) => d.date === activeDate);
+      if (!day) {
+        slotGrid.replaceChildren();
+        return;
+      }
+      slotGrid.replaceChildren(
+        ...day.slots.map((s) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "hm-slot-btn";
+          btn.disabled = !s.available;
+          btn.textContent = s.timeLabel;
+          btn.setAttribute("aria-selected", String(pickedSlot?.id === s.id));
+          btn.addEventListener("click", () => onPickSlot(s));
+          return btn;
+        }),
+      );
+    }
+
+    async function onPickSlot(slot: Slot): Promise<void> {
+      pickedSlot = slot;
+      renderSlots();
+
+      if (isAuthed()) {
+        await finaliseBooking();
+        return;
+      }
+
+      if (pickedSummary) pickedSummary.textContent = formatSlotForDisplay(slot.startsAt);
+      goToStep("account");
+    }
+
+    async function finaliseBooking(): Promise<void> {
+      if (!pickedSlot) return;
+      lockModal(modal, true);
+      try {
+        await quickBook({ doctorId, slotId: pickedSlot.id });
+        if (successDoctor) successDoctor.textContent = doctorName;
+        if (successWhen) successWhen.textContent = formatSlotForDisplay(pickedSlot.startsAt);
+        goToStep("success");
+      } catch (e) {
+        showAccountError(e instanceof Error ? e.message : "Ошибка записи");
+      } finally {
+        lockModal(modal, false);
+      }
+    }
+
+    /* ── account helpers ──────────────────────────────────────────── */
+
+    function setMode(mode: Mode | undefined): void {
+      if (mode !== "login" && mode !== "register") return;
+      modal.dataset.mode = mode;
+      tabs.forEach((tab) => {
+        tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
+      });
+      hideAccountError();
+
+      if (mode === "login") {
+        if (passwordInput) {
+          passwordInput.autocomplete = "current-password";
+          passwordInput.placeholder = "Ваш пароль";
+        }
+        if (accountSubmit) accountSubmit.textContent = "Войти и записаться";
+        if (accountHint) {
+          accountHint.textContent = "Войдите в существующий аккаунт, чтобы подтвердить запись.";
+        }
+      } else {
+        if (passwordInput) {
+          passwordInput.autocomplete = "new-password";
+          passwordInput.placeholder = "Минимум 8 символов";
+        }
+        if (accountSubmit) accountSubmit.textContent = "Создать и записаться";
+        if (accountHint) {
+          accountHint.textContent =
+            "Зарегистрируйтесь — пароль ≥ 8 символов, заглавная буква и цифра.";
+        }
+      }
+
+      // Update step label too if we're on the account step.
+      if (modal.dataset.step === "account") goToStep("account");
+    }
+
+    function setAccountPending(pending: boolean, mode: Mode): void {
+      if (accountSubmit) {
+        accountSubmit.disabled = pending;
+        accountSubmit.textContent = pending
+          ? mode === "login" ? "Входим…" : "Создаём…"
+          : mode === "login" ? "Войти и записаться" : "Создать и записаться";
+      }
+      if (emailInput) emailInput.disabled = pending;
+      if (passwordInput) passwordInput.disabled = pending;
+      lockModal(modal, pending);
+    }
+
+    function showAccountError(message: string): void {
+      if (!accountError) return;
+      accountError.textContent = message;
+      accountError.hidden = false;
+    }
+
+    function hideAccountError(): void {
+      if (!accountError) return;
+      accountError.textContent = "";
+      accountError.hidden = true;
+    }
+  }
+</script>

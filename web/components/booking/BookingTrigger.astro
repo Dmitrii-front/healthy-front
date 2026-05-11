@@ -1,0 +1,38 @@
+---
+// Trigger button for the public booking modal. Carries doctor metadata as
+// data-* attrs so the modal (mounted once per page) can populate itself on
+// click. Pure HTML — no JS in this component.
+
+interface Props {
+  doctorId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  doctorClinic: string;
+  /** Override the visible label. */
+  label?: string;
+  /** Use the smaller pill variant (catalog cards). */
+  compact?: boolean;
+}
+
+const {
+  doctorId,
+  doctorName,
+  doctorSpecialty,
+  doctorClinic,
+  label,
+  compact = false,
+} = Astro.props;
+---
+
+<button
+  type="button"
+  class={compact ? "hm-trigger hm-trigger-compact" : "hm-trigger"}
+  data-action="hm-book-open"
+  data-doctor-id={doctorId}
+  data-doctor-name={doctorName}
+  data-doctor-specialty={doctorSpecialty}
+  data-doctor-clinic={doctorClinic}
+>
+  {label ?? "Записаться на приём"}
+  {!compact && <span style="margin-left:8px">→</span>}
+</button>

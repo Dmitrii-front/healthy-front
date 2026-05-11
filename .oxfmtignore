@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.astro/
+.wrangler/
+src/app/routeTree.gen.ts
+pnpm-lock.yaml
+pnpm-lock.yaml.pre-astro
+public/_design/

@@ -1,0 +1,157 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import JsonLd from "../../components/seo/JsonLd.astro";
+import BookingTrigger from "../../components/booking/BookingTrigger.astro";
+import BookingModal from "../../components/booking/BookingModal.astro";
+import FavoriteButton from "../../components/catalog/FavoriteButton.astro";
+import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
+import { SPECIALTIES } from "@/entities/specialty";
+import { doctorSlug } from "../../lib/slug";
+
+export async function getStaticPaths() {
+  return SPECIALTIES.map((specialty) => ({
+    params: { slug: specialty.key },
+    props: {
+      specialty,
+      doctors: DOCTOR_MOCKS.filter((d) => d.specialty === specialty.doctorSpecialty),
+    },
+  }));
+}
+
+const { specialty, doctors } = Astro.props;
+
+const description = `${doctors.length} ${pluralize(doctors.length, ["врач", "врача", "врачей"])} специальности «${specialty.label}» в Бишкеке и Алматы. Запись онлайн.`;
+
+function pluralize(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return forms[2];
+  if (mod10 === 1) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4) return forms[1];
+  return forms[2];
+}
+
+const breadcrumbs = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: "https://sdoctorom.health/" },
+    { "@type": "ListItem", position: 2, name: "Поиск", item: "https://sdoctorom.health/search" },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: specialty.label,
+      item: `https://sdoctorom.health/specialty/${specialty.key}`,
+    },
+  ],
+};
+
+const itemListJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  itemListElement: doctors.map((d, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    item: {
+      "@type": "Physician",
+      name: d.name,
+      medicalSpecialty: d.specialty,
+      url: `https://sdoctorom.health/doctor/${doctorSlug(d)}`,
+      ...(d.rating
+        ? {
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: d.rating,
+              reviewCount: d.ratingCount ?? 0,
+            },
+          }
+        : {}),
+    },
+  })),
+};
+---
+
+<BaseLayout
+  title={`${specialty.label} в Бишкеке и Алматы — Healthy`}
+  description={description}
+>
+  <main class="mx-auto max-w-screen-md px-4 pb-24 pt-8">
+    <nav class="mb-4 text-[12.5px] text-distant-graphite">
+      <a href="/" class="hover:text-soft-graphite">Главная</a> ·
+      <a href="/search" class="hover:text-soft-graphite">Поиск</a> ·
+      <span>{specialty.label}</span>
+    </nav>
+
+    <header>
+      <p class="text-xs uppercase tracking-[0.16em] text-distant-graphite">Специальность</p>
+      <h1 class="mt-2 text-[28px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite">
+        {specialty.label}
+      </h1>
+      <p class="mt-3 text-[15px] text-soft-graphite">
+        {description}
+      </p>
+    </header>
+
+    <section class="mt-8">
+      {doctors.length === 0 ? (
+        <div class="rounded-[18px] border border-dashed border-hairline-strong bg-card-white p-6 text-center">
+          <p class="text-[15px] font-medium text-graphite">Пока нет врачей в этой специальности.</p>
+          <p class="mt-1 text-[13px] text-distant-graphite">
+            Скоро добавим. Загляните позже или посмотрите другие специальности.
+          </p>
+        </div>
+      ) : (
+        <ul class="flex flex-col gap-2.5">
+          {doctors.map((d) => (
+            <li class="rounded-[18px] border border-hairline-strong bg-card-white p-4 transition-colors hover:border-soft-graphite">
+              <div class="flex items-start gap-4">
+                <a href={`/doctor/${doctorSlug(d)}`} class="shrink-0">
+                  <span
+                    class="flex h-12 w-12 items-center justify-center rounded-full text-[14px] font-semibold text-graphite"
+                    style={`background-color: ${d.color}`}
+                  >
+                    {d.initials}
+                  </span>
+                </a>
+                <div class="flex-1 min-w-0">
+                  <a href={`/doctor/${doctorSlug(d)}`} class="block hover:underline">
+                    <p class="text-[15.5px] font-medium leading-[1.2] tracking-[-0.012em] text-graphite">{d.name}</p>
+                  </a>
+                  <p class="mt-0.5 text-[13px] text-distant-graphite">{d.clinic}</p>
+                  {d.rating && (
+                    <p class="mt-1.5 text-[12.5px] text-soft-graphite">
+                      ★ {d.rating.toFixed(1)}
+                      {d.ratingCount ? ` (${d.ratingCount})` : ""}
+                      {d.distance ? ` · ${d.distance}` : ""}
+                    </p>
+                  )}
+                </div>
+                <FavoriteButton doctorId={d.id} variant="icon" />
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <BookingTrigger
+                  doctorId={d.id}
+                  doctorName={d.name}
+                  doctorSpecialty={d.specialty}
+                  doctorClinic={d.clinic}
+                  label="Записаться"
+                  compact
+                />
+                <a
+                  href={`/doctor/${doctorSlug(d)}`}
+                  class="inline-flex h-9 items-center rounded-pill border border-hairline-strong px-4 text-[13px] font-medium text-graphite hover:border-soft-graphite"
+                >
+                  Подробнее
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  </main>
+
+  <JsonLd data={breadcrumbs} />
+  <JsonLd data={itemListJsonLd} />
+  <BookingModal />
+</BaseLayout>

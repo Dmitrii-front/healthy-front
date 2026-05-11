@@ -1,0 +1,233 @@
+---
+// Single login modal mounted once per page. Multiple <LoginButton /> triggers
+// (mobile + desktop header, etc.) share this instance.
+
+interface Props {
+  /** Where to redirect after success. Defaults to the SPA shell. */
+  returnTo?: string;
+}
+const { returnTo = "/app/" } = Astro.props;
+---
+
+<dialog
+  id="hm-login-modal"
+  class="hm-dialog"
+  aria-label="Вход в Healthy"
+  data-locked="false"
+  data-mode="login"
+  data-return-to={returnTo}
+>
+  <div class="hm-modal-body">
+      <div class="hm-modal-header">
+        <span class="hm-step-label" data-el="step-label">Вход</span>
+        <button type="button" class="hm-icon-btn" data-action="hm-login-close" aria-label="Закрыть">✕</button>
+      </div>
+
+      <div data-el="form-wrap">
+        <h2 class="hm-modal-title" data-el="title">С возвращением</h2>
+        <p class="hm-modal-subtitle" data-el="subtitle">
+          Введите email и пароль, чтобы войти в личный кабинет.
+        </p>
+
+        <div class="hm-tabs" role="tablist">
+          <button type="button" class="hm-tab-btn" role="tab" aria-selected="true" data-mode="login">
+            Войти
+          </button>
+          <button type="button" class="hm-tab-btn" role="tab" aria-selected="false" data-mode="register">
+            Создать аккаунт
+          </button>
+        </div>
+
+        <form data-el="form" novalidate>
+          <label class="hm-label" for="hm-login-email">Email</label>
+          <input
+            id="hm-login-email"
+            class="hm-input"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            required
+          />
+
+          <label class="hm-label" for="hm-login-password">Пароль</label>
+          <input
+            id="hm-login-password"
+            class="hm-input"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Ваш пароль"
+            required
+          />
+
+          <p class="hm-error" data-el="error" hidden></p>
+
+          <button type="submit" class="hm-btn hm-btn-primary hm-btn-block-spacing" data-el="submit">
+            Войти
+          </button>
+        </form>
+      </div>
+
+      <div data-el="success-wrap" hidden>
+        <div class="hm-success">
+          <div class="hm-success-icon">✓</div>
+          <h3 class="hm-success-title" data-el="success-title">С возвращением</h3>
+          <p class="hm-success-text">Вы вошли в аккаунт. Открываем личный кабинет…</p>
+          <a class="hm-btn hm-btn-primary hm-btn-block-spacing" data-el="success-link" href={returnTo}>
+            В личный кабинет →
+          </a>
+        </div>
+      </div>
+    </div>
+</dialog>
+
+<script>
+  import { openModal, closeModal, lockModal, bindModalDismiss } from "../../lib/modal";
+  import { loginWithEmail, registerWithEmail, isAuthed } from "../../lib/auth";
+
+  const modal = document.getElementById("hm-login-modal") as HTMLDialogElement | null;
+  if (modal) {
+    type Mode = "login" | "register";
+
+    const triggers = document.querySelectorAll<HTMLButtonElement>('[data-action="hm-login-open"]');
+    const closeBtn = modal.querySelector<HTMLButtonElement>('[data-action="hm-login-close"]');
+    const tabs = modal.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    const form = modal.querySelector<HTMLFormElement>('[data-el="form"]');
+    const formWrap = modal.querySelector<HTMLDivElement>('[data-el="form-wrap"]');
+    const successWrap = modal.querySelector<HTMLDivElement>('[data-el="success-wrap"]');
+    const stepLabel = modal.querySelector<HTMLSpanElement>('[data-el="step-label"]');
+    const title = modal.querySelector<HTMLHeadingElement>('[data-el="title"]');
+    const subtitle = modal.querySelector<HTMLParagraphElement>('[data-el="subtitle"]');
+    const errorEl = modal.querySelector<HTMLParagraphElement>('[data-el="error"]');
+    const submitBtn = modal.querySelector<HTMLButtonElement>('[data-el="submit"]');
+    const successTitle = modal.querySelector<HTMLHeadingElement>('[data-el="success-title"]');
+    const emailInput = modal.querySelector<HTMLInputElement>('#hm-login-email');
+    const passwordInput = modal.querySelector<HTMLInputElement>('#hm-login-password');
+
+    bindModalDismiss(modal);
+
+    // Swap each trigger with a "Personal cabinet →" anchor when already logged in.
+    if (isAuthed()) {
+      triggers.forEach((t) => {
+        const a = document.createElement("a");
+        a.href = "/app/";
+        a.className = "hm-trigger-anchor";
+        a.textContent = "Личный кабинет →";
+        t.replaceWith(a);
+      });
+    } else {
+      triggers.forEach((t) => {
+        t.addEventListener("click", () => {
+          resetForm();
+          openModal(modal);
+        });
+      });
+    }
+
+    closeBtn?.addEventListener("click", () => closeModal(modal));
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => setMode(tab.dataset.mode as Mode));
+    });
+
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const mode = (modal.dataset.mode ?? "login") as Mode;
+      const email = emailInput?.value.trim() ?? "";
+      const password = passwordInput?.value ?? "";
+
+      hideError();
+      setPending(true, mode);
+
+      try {
+        if (mode === "login") {
+          await loginWithEmail(email, password);
+        } else {
+          await registerWithEmail(email, password);
+        }
+        showSuccess(mode);
+      } catch (e) {
+        showError(e instanceof Error ? e.message : "Не удалось войти");
+        setPending(false, mode);
+      }
+    });
+
+    function setMode(mode: Mode | undefined): void {
+      if (mode !== "login" && mode !== "register") return;
+      modal.dataset.mode = mode;
+      tabs.forEach((tab) => {
+        tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
+      });
+      hideError();
+
+      if (mode === "login") {
+        if (stepLabel) stepLabel.textContent = "Вход";
+        if (title) title.textContent = "С возвращением";
+        if (subtitle) {
+          subtitle.textContent = "Введите email и пароль, чтобы войти в личный кабинет.";
+        }
+        if (passwordInput) {
+          passwordInput.autocomplete = "current-password";
+          passwordInput.placeholder = "Ваш пароль";
+        }
+        if (submitBtn) submitBtn.textContent = "Войти";
+      } else {
+        if (stepLabel) stepLabel.textContent = "Создать аккаунт";
+        if (title) title.textContent = "Создать аккаунт";
+        if (subtitle) {
+          subtitle.textContent =
+            "Зарегистрируйтесь по email — пароль ≥ 8 символов, заглавная буква и цифра.";
+        }
+        if (passwordInput) {
+          passwordInput.autocomplete = "new-password";
+          passwordInput.placeholder = "Минимум 8 символов";
+        }
+        if (submitBtn) submitBtn.textContent = "Создать аккаунт";
+      }
+    }
+
+    function setPending(pending: boolean, mode: Mode): void {
+      if (submitBtn) {
+        submitBtn.disabled = pending;
+        submitBtn.textContent = pending
+          ? mode === "login" ? "Входим…" : "Создаём…"
+          : mode === "login" ? "Войти" : "Создать аккаунт";
+      }
+      if (emailInput) emailInput.disabled = pending;
+      if (passwordInput) passwordInput.disabled = pending;
+      lockModal(modal, pending);
+    }
+
+    function showError(message: string): void {
+      if (!errorEl) return;
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+    }
+
+    function hideError(): void {
+      if (!errorEl) return;
+      errorEl.textContent = "";
+      errorEl.hidden = true;
+    }
+
+    function showSuccess(mode: Mode): void {
+      if (formWrap) formWrap.hidden = true;
+      if (successWrap) successWrap.hidden = false;
+      if (stepLabel) stepLabel.textContent = "Готово";
+      if (successTitle) {
+        successTitle.textContent = mode === "login" ? "С возвращением" : "Аккаунт создан";
+      }
+      lockModal(modal, false);
+    }
+
+    function resetForm(): void {
+      if (formWrap) formWrap.hidden = false;
+      if (successWrap) successWrap.hidden = true;
+      if (emailInput) emailInput.value = "";
+      if (passwordInput) passwordInput.value = "";
+      hideError();
+      setMode((modal.dataset.mode as Mode) ?? "login");
+      setPending(false, (modal.dataset.mode as Mode) ?? "login");
+    }
+  }
+</script>

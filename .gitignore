@@ -8,3 +8,11 @@ src/app/routeTree.gen.ts
 tsconfig.tsbuildinfo
 .claude
 CLAUDE.md
+
+# Astro
+.astro/
+.wrangler/
+pnpm-lock.yaml.pre-astro
+
+# Local design references (not for production)
+public/_design/

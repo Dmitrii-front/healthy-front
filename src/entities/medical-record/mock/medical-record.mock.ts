@@ -1,6 +1,6 @@
 import type { MedicalRecord } from "../model/types";
 
-// Default medical-record content for Елена Марш (overlaid with /auth/me data).
+// Default medical-record content for the demo patient (overlaid with /auth/me data).
 export const MEDICAL_RECORD_MOCK: MedicalRecord = {
   firstName: "Елена",
   lastName: "Марш",

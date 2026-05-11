@@ -1,0 +1,14 @@
+---
+// Trigger only. Mount <LoginModal /> once per page (e.g. inside BaseLayout
+// slot or page footer) so the modal is shared between multiple triggers
+// (mobile / desktop headers). All behaviour lives in the modal's script.
+---
+
+<button type="button" class="hm-trigger-ghost" data-action="hm-login-open">
+  Войти
+</button>
+
+<noscript>
+  <style>[data-action="hm-login-open"] { display: none; }</style>
+  <a href="/app/sign-in" class="hm-trigger-ghost">Войти</a>
+</noscript>

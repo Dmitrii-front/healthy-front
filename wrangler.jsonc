@@ -1,9 +1,23 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "healthy-front",
-  "compatibility_date": "2025-11-01",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    // The @astrojs/cloudflare adapter generates the full config at
+    // dist/server/wrangler.json after `pnpm build` (with main + the correct
+    // assets.directory). For local CF emulation, run:
+    //   pnpm exec wrangler dev --config dist/server/wrangler.json
+    //
+    // not_found_handling is intentionally omitted here: with "404-page",
+    // the Cloudflare assets handler intercepts navigations (Sec-Fetch-Mode:
+    // navigate) for paths without a static file and serves 404.html without
+    // forwarding the request to the worker. For our /app/* (SSR) this would
+    // block the SPA shell. The default behavior (none) — fall through to the
+    // worker — is what we want.
+    "directory": "./dist"
+  },
+  "vars": {
+    "PUBLIC_API_URL": "https://api.sdoctorom.health"
   }
 }

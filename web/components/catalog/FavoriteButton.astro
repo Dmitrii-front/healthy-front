@@ -1,0 +1,124 @@
+---
+// Vanilla favorite toggle. Stores doctor id in localStorage.healthy.favorites.
+// On unauth click — shows a brief tooltip prompting login via the native
+// Popover API (baseline 2024, all current browsers). One <div popover="manual">
+// is mounted per page and reused by every favorite button.
+
+interface Props {
+  doctorId: string;
+  /** "icon" — circle 36x36 ♡; "chip" — pill with "Сохранить" label. */
+  variant?: "icon" | "chip";
+}
+
+const { doctorId, variant = "icon" } = Astro.props;
+
+const isChip = variant === "chip";
+---
+
+<button
+  type="button"
+  class={isChip ? "hm-fav-chip" : "hm-fav"}
+  data-action="hm-fav-toggle"
+  data-doctor-id={doctorId}
+  aria-pressed="false"
+  aria-label={isChip ? undefined : "Сохранить врача"}
+>
+  {isChip ? "♡ Сохранить" : "♡"}
+</button>
+
+<script>
+  import { isAuthed } from "../../lib/auth";
+
+  const FAV_KEY = "healthy.favorites";
+  const TIP_ID = "hm-fav-tooltip";
+
+  function readFavs(): Set<string> {
+    try {
+      const raw = localStorage.getItem(FAV_KEY);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw) as string[];
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function writeFavs(favs: Set<string>): void {
+    localStorage.setItem(FAV_KEY, JSON.stringify([...favs]));
+  }
+
+  function paintButton(btn: HTMLButtonElement, active: boolean): void {
+    btn.setAttribute("aria-pressed", String(active));
+    if (btn.classList.contains("hm-fav-chip")) {
+      btn.textContent = active ? "♥ В избранном" : "♡ Сохранить";
+    } else {
+      btn.textContent = active ? "♥" : "♡";
+      btn.setAttribute("aria-label", active ? "Удалить из избранного" : "Сохранить врача");
+    }
+  }
+
+  /** Lazy-mount one popover element per page; reused by every fav button. */
+  function ensureTooltip(): HTMLDivElement {
+    let tip = document.getElementById(TIP_ID) as HTMLDivElement | null;
+    if (tip) return tip;
+    tip = document.createElement("div");
+    tip.id = TIP_ID;
+    tip.className = "hm-fav-tooltip";
+    tip.setAttribute("popover", "manual");
+    tip.setAttribute("role", "status");
+    tip.setAttribute("aria-live", "polite");
+    document.body.appendChild(tip);
+    return tip;
+  }
+
+  let tipTimer: number | undefined;
+
+  function showTooltip(anchor: HTMLElement, text: string): void {
+    const tip = ensureTooltip();
+    tip.textContent = text;
+
+    // Position before showing so the browser knows where to draw it.
+    const rect = anchor.getBoundingClientRect();
+    tip.style.top = `${rect.bottom + 6}px`;
+    tip.style.left = `${rect.left + rect.width / 2}px`;
+    tip.style.transform = "translateX(-50%)";
+
+    if ("showPopover" in tip) {
+      try { tip.showPopover(); } catch { /* already visible — fine */ }
+    } else {
+      // Older Safari fallback: simple visibility toggle
+      tip.style.display = "block";
+    }
+
+    if (tipTimer !== undefined) window.clearTimeout(tipTimer);
+    tipTimer = window.setTimeout(() => {
+      if ("hidePopover" in tip) {
+        try { tip.hidePopover(); } catch { /* not open — fine */ }
+      } else {
+        tip.style.display = "none";
+      }
+    }, 2200);
+  }
+
+  // Hydrate every favorite button on the page once.
+  const favs = readFavs();
+  document.querySelectorAll<HTMLButtonElement>('[data-action="hm-fav-toggle"]').forEach((btn) => {
+    const id = btn.dataset.doctorId ?? "";
+    paintButton(btn, favs.has(id));
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!isAuthed()) {
+        showTooltip(btn, "Войдите, чтобы сохранить врача");
+        return;
+      }
+
+      const current = readFavs();
+      if (current.has(id)) current.delete(id);
+      else current.add(id);
+      writeFavs(current);
+      paintButton(btn, current.has(id));
+    });
+  });
+</script>

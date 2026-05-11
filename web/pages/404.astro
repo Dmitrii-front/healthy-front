@@ -1,0 +1,31 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Страница не найдена — Healthy"
+  description="Запрошенная страница не найдена."
+>
+  <main class="mx-auto flex min-h-dvh max-w-screen-md flex-col items-center justify-center gap-4 px-6 text-center">
+    <p class="text-xs uppercase tracking-[0.16em] text-distant-graphite">404</p>
+    <h1 class="text-2xl font-medium tracking-tight text-graphite">Страница не найдена</h1>
+    <p class="max-w-md text-[14.5px] text-soft-graphite">
+      Возможно, страница была перемещена или удалена. Попробуйте начать с главной или поискать
+      нужного врача.
+    </p>
+    <div class="mt-2 flex gap-2">
+      <a
+        href="/"
+        class="inline-flex h-11 items-center rounded-pill bg-clinic-coral px-6 text-sm font-medium text-card-white hover:bg-brick-coral"
+      >
+        На главную
+      </a>
+      <a
+        href="/search"
+        class="inline-flex h-11 items-center rounded-pill border border-hairline-strong bg-card-white px-6 text-sm font-medium text-graphite hover:border-soft-graphite"
+      >
+        Найти врача
+      </a>
+    </div>
+  </main>
+</BaseLayout>

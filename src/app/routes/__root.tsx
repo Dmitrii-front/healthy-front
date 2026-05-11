@@ -1,38 +1,19 @@
-import {
-  Outlet,
-  createRootRouteWithContext,
-  Link,
-  redirect,
-  useMatches,
-} from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext, Link, useMatches } from "@tanstack/react-router";
 import { Suspense } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { TabBar } from "@/widgets/tab-bar";
 import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
-import { authStore, hasPriorSignIn } from "@/features/auth";
 
 interface RouterContext {
   queryClient: QueryClient;
 }
 
-const PUBLIC_ROUTES = new Set<string>(["/sign-in", "/sign-up", "/forgot-password"]);
+// TODO(auth-guard): re-enable beforeLoad redirect once Astro-side phone+SMS
+// flow lands. Temporarily disabled so the SPA is browseable without tokens
+// for prototype testing.
+// const PUBLIC_ROUTES = new Set<string>(["/sign-in", "/sign-up", "/forgot-password"]);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  beforeLoad: ({ location }) => {
-    const isPublic = PUBLIC_ROUTES.has(location.pathname);
-    const { isAuthenticated } = authStore.getState();
-
-    if (!isAuthenticated && !isPublic) {
-      const target = hasPriorSignIn() ? "/sign-in" : "/sign-up";
-      throw redirect({
-        to: target,
-        search: { redirect: location.href },
-      });
-    }
-    if (isAuthenticated && isPublic) {
-      throw redirect({ to: "/" });
-    }
-  },
   component: RootLayout,
   notFoundComponent: NotFound,
 });

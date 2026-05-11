@@ -1,16 +1,15 @@
 import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { routeTree } from "./routeTree.gen";
-import { queryClient } from "./providers/queryClient";
+import { routeTree } from "@/app/routeTree.gen";
+import { queryClient } from "@/app/providers/queryClient";
 import { bootstrapAuth } from "@/features/auth";
-import "./styles/globals.css";
 
 bootstrapAuth();
 
 const router = createRouter({
   routeTree,
+  basepath: "/app",
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
   context: {
@@ -25,10 +24,12 @@ declare module "@tanstack/react-router" {
   }
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-);
+export default function AppShell() {
+  return (
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </StrictMode>
+  );
+}

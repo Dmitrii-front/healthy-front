@@ -23,7 +23,10 @@ export function SearchPage() {
   const setSpecialty = (next: string) => {
     void navigate({
       to: "/search",
-      search: (prev) => ({ ...prev, specialty: next === "all" ? undefined : next }),
+      search: (prev: { q?: string; specialty?: string }) => ({
+        ...prev,
+        specialty: next === "all" ? undefined : next,
+      }),
       replace: true,
     });
   };

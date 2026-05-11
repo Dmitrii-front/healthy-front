@@ -1,0 +1,202 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import JsonLd from "../../components/seo/JsonLd.astro";
+import BookingTrigger from "../../components/booking/BookingTrigger.astro";
+import BookingModal from "../../components/booking/BookingModal.astro";
+import FavoriteButton from "../../components/catalog/FavoriteButton.astro";
+import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
+import { SPECIALTIES } from "@/entities/specialty";
+import { doctorSlug } from "../../lib/slug";
+
+export async function getStaticPaths() {
+  return DOCTOR_MOCKS.map((doctor) => ({
+    params: { id: doctorSlug(doctor) },
+    props: { doctor },
+  }));
+}
+
+const { doctor } = Astro.props;
+
+const specialty = SPECIALTIES.find((s) => s.doctorSpecialty === doctor.specialty);
+const description = doctor.bio
+  ? doctor.bio.slice(0, 155) + (doctor.bio.length > 155 ? "…" : "")
+  : `${doctor.name} — ${doctor.specialty} в клинике «${doctor.clinic}». Запись онлайн.`;
+
+const physicianJsonLd: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "Physician",
+  name: doctor.name,
+  medicalSpecialty: doctor.specialty,
+  worksFor: {
+    "@type": "MedicalOrganization",
+    name: doctor.clinic,
+    ...(doctor.address ? { address: doctor.address } : {}),
+  },
+  ...(doctor.education ? { alumniOf: doctor.education } : {}),
+  ...(doctor.languages ? { knowsLanguage: doctor.languages } : {}),
+  ...(doctor.rating
+    ? {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: doctor.rating,
+          reviewCount: doctor.ratingCount ?? 0,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      }
+    : {}),
+  ...(doctor.reviews && doctor.reviews.length
+    ? {
+        review: doctor.reviews.map((r) => ({
+          "@type": "Review",
+          author: { "@type": "Person", name: r.author },
+          datePublished: r.date,
+          reviewRating: {
+            "@type": "Rating",
+            ratingValue: r.rating,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          reviewBody: r.text,
+        })),
+      }
+    : {}),
+};
+
+const breadcrumbs = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: "https://sdoctorom.health/" },
+    { "@type": "ListItem", position: 2, name: "Поиск", item: "https://sdoctorom.health/search" },
+    ...(specialty
+      ? [
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: specialty.label,
+            item: `https://sdoctorom.health/specialty/${specialty.key}`,
+          },
+          { "@type": "ListItem", position: 4, name: doctor.name },
+        ]
+      : [{ "@type": "ListItem", position: 3, name: doctor.name }]),
+  ],
+};
+---
+
+<BaseLayout
+  title={`${doctor.name} — ${doctor.specialty} | Healthy`}
+  description={description}
+>
+  <main class="mx-auto max-w-screen-md px-4 pb-24 pt-8">
+    <nav class="mb-4 text-[12.5px] text-distant-graphite">
+      <a href="/" class="hover:text-soft-graphite">Главная</a> ·
+      <a href="/search" class="hover:text-soft-graphite">Поиск</a>
+      {specialty && (
+        <>
+          {" "}
+          ·
+          <a href={`/specialty/${specialty.key}`} class="hover:text-soft-graphite">{specialty.label}</a>
+        </>
+      )}
+    </nav>
+
+    <header class="flex items-start gap-5">
+      <span
+        class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-[20px] font-semibold text-graphite"
+        style={`background-color: ${doctor.color}`}
+      >
+        {doctor.initials}
+      </span>
+      <div class="flex-1 min-w-0">
+        <p class="text-[12.5px] uppercase tracking-[0.14em] text-distant-graphite">{doctor.specialty}</p>
+        <h1 class="mt-1 text-[26px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite">
+          {doctor.name}
+        </h1>
+        {doctor.subspecialty && (
+          <p class="mt-1 text-[14px] text-soft-graphite">{doctor.subspecialty}</p>
+        )}
+        <p class="mt-1.5 text-[13px] text-distant-graphite">
+          {doctor.clinic}{doctor.distance ? ` · ${doctor.distance}` : ""}
+        </p>
+        {doctor.rating && (
+          <p class="mt-2 text-[13.5px] text-soft-graphite">
+            ★ {doctor.rating.toFixed(1)}
+            {doctor.ratingCount ? ` · ${doctor.ratingCount} отзывов` : ""}
+            {doctor.yearsExperience ? ` · стаж ${doctor.yearsExperience} лет` : ""}
+          </p>
+        )}
+      </div>
+    </header>
+
+    <div class="mt-6 flex flex-wrap items-center gap-3">
+      <BookingTrigger
+        doctorId={doctor.id}
+        doctorName={doctor.name}
+        doctorSpecialty={doctor.specialty}
+        doctorClinic={doctor.clinic}
+      />
+      <FavoriteButton doctorId={doctor.id} variant="chip" />
+    </div>
+
+    {doctor.bio && (
+      <section class="mt-10">
+        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">О докторе</h2>
+        <p class="text-[15px] leading-relaxed text-soft-graphite">{doctor.bio}</p>
+      </section>
+    )}
+
+    {doctor.education && (
+      <section class="mt-8">
+        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Образование</h2>
+        <p class="text-[14.5px] leading-relaxed text-soft-graphite">{doctor.education}</p>
+      </section>
+    )}
+
+    {doctor.conditionsTreated && doctor.conditionsTreated.length > 0 && (
+      <section class="mt-8">
+        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Что лечит</h2>
+        <ul class="flex flex-wrap gap-2">
+          {doctor.conditionsTreated.map((c) => (
+            <li class="rounded-pill border border-hairline-strong bg-card-white px-3 py-1.5 text-[13px] text-graphite">
+              {c}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {doctor.languages && doctor.languages.length > 0 && (
+      <section class="mt-8">
+        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Языки</h2>
+        <p class="text-[14.5px] text-soft-graphite">{doctor.languages.join(", ")}</p>
+      </section>
+    )}
+
+    {doctor.reviews && doctor.reviews.length > 0 && (
+      <section class="mt-10">
+        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Отзывы</h2>
+        <ul class="flex flex-col gap-3">
+          {doctor.reviews.map((r) => (
+            <li class="rounded-[16px] border border-hairline-strong bg-card-white p-4">
+              <p class="text-[13.5px] font-medium text-graphite">
+                {r.author} <span class="text-distant-graphite">· {r.date}</span> · ★ {r.rating}
+              </p>
+              <p class="mt-1.5 text-[14px] leading-relaxed text-soft-graphite">{r.text}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <section class="mt-10 rounded-[18px] border border-hairline-strong bg-card-white p-5">
+      <h2 class="text-[16px] font-medium tracking-tight text-graphite">Клиника</h2>
+      <p class="mt-1 text-[14.5px] text-graphite">{doctor.clinic}</p>
+      {doctor.address && <p class="mt-1 text-[13.5px] text-soft-graphite">{doctor.address}</p>}
+    </section>
+  </main>
+
+  <JsonLd data={physicianJsonLd} />
+  <JsonLd data={breadcrumbs} />
+  <BookingModal />
+</BaseLayout>

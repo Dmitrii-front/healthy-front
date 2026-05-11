@@ -1,12 +1,12 @@
 import type { CSSProperties } from "react";
-import brainSrc from "@/shared/assets/body-icons/brain.svg";
-import eyeSrc from "@/shared/assets/body-icons/eye.svg";
-import heartSrc from "@/shared/assets/body-icons/heart.svg";
-import jointsSrc from "@/shared/assets/body-icons/joints.svg";
-import odsSrc from "@/shared/assets/body-icons/ods.svg";
-import stomachSrc from "@/shared/assets/body-icons/stomach.svg";
-import toothSrc from "@/shared/assets/body-icons/tooth.svg";
-import traumaSrc from "@/shared/assets/body-icons/trauma.svg";
+import brainSrc from "@/shared/assets/body-icons/brain.svg?url";
+import eyeSrc from "@/shared/assets/body-icons/eye.svg?url";
+import heartSrc from "@/shared/assets/body-icons/heart.svg?url";
+import jointsSrc from "@/shared/assets/body-icons/joints.svg?url";
+import odsSrc from "@/shared/assets/body-icons/ods.svg?url";
+import stomachSrc from "@/shared/assets/body-icons/stomach.svg?url";
+import toothSrc from "@/shared/assets/body-icons/tooth.svg?url";
+import traumaSrc from "@/shared/assets/body-icons/trauma.svg?url";
 
 export type BodyIconName =
   | "heart"

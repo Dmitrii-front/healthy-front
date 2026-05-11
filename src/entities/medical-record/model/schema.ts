@@ -7,7 +7,7 @@ export const MedicalRecordSchema = z.object({
   middleName: z.string().nullable().optional(),
   gender: z.enum(["female", "male", "other"]),
   dob: z.string(), // ISO date
-  avatarUrl: z.string().url().nullable().optional(),
+  avatarUrl: z.url().nullable().optional(),
 
   // Contacts
   phone: z.string().nullable().optional(),

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const ReviewSchema = z.object({
   author: z.string(),
-  date: z.string(), // already-formatted ru month label, e.g. "апр. 2026"
+  date: z.string(), // pre-formatted Russian short-month label (e.g. abbreviated month + year)
   rating: z.number().int().min(1).max(5),
   text: z.string(),
 });
@@ -19,7 +19,7 @@ export const DoctorSchema = z.object({
   ratingCount: z.number().int().nonnegative().optional(),
   distance: z.string().optional(),
   nextAvailable: z.string().optional(),
-  photoUrl: z.string().url().optional(),
+  photoUrl: z.url().optional(),
 
   // Detail-page fields (optional — only fully populated for a few mocks).
   yearsExperience: z.number().int().nonnegative().optional(),

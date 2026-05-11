@@ -1,0 +1,1893 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import JsonLd from "../components/seo/JsonLd.astro";
+import LoginButton from "../components/auth/LoginButton.astro";
+import LoginModal from "../components/auth/LoginModal.astro";
+import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
+import { SPECIALTIES } from "@/entities/specialty";
+import { doctorSlug } from "../lib/slug";
+
+// ── Design tokens (TEAL + N) ───────────────────────────────
+const TEAL = {
+  brand: "#0E7C8C",
+  brandHover: "#0A6573",
+  brandSoft: "#DCEEF1",
+  brandSofter: "#EEF6F8",
+};
+const N = {
+  cream: "#FCFBF8",
+  ink: "#0F1115",
+  muted: "#5F636A",
+  line: "#E2E2DF",
+  borderSoft: "#EDEBE6",
+};
+
+// ── Hero banners (from design) ─────────────────────────────
+const BANNERS = [
+  {
+    tag: "Чек-ап со скидкой 30%",
+    title: "Полный чек-ап организма за 6 900 ₽",
+    desc: "Кровь, моча, ЭКГ, УЗИ + консультация терапевта. Готово за 1 день.",
+    cta: "Записаться на чек-ап",
+    bg: "linear-gradient(135deg, #DCEEF1 0%, #EEF6F8 60%, #F1E8E0 100%)",
+    dark: false,
+    art: "lab",
+  },
+  {
+    tag: "Новое",
+    title: "Онлайн-консультации — 24/7",
+    desc: "Терапевт, педиатр, психолог по видео. Подключение за 5 минут, без очередей.",
+    cta: "Подключить онлайн-врача",
+    bg: "linear-gradient(135deg, #0A1F25 0%, #0E7C8C 100%)",
+    dark: true,
+    art: "video",
+  },
+  {
+    tag: "Семейная программа",
+    title: "Здоровье всей семьи — 20% выгоднее",
+    desc: "Безлимит на консультации педиатра и терапевта на год. До 4 человек.",
+    cta: "Узнать о программе",
+    bg: "linear-gradient(135deg, #F6EFE2 0%, #EFE4D0 60%, #DCEEF1 100%)",
+    dark: false,
+    art: "family",
+  },
+  {
+    tag: "Только до конца месяца",
+    title: "Стоматология — 15% на первый визит",
+    desc: "Лечение, имплантация, отбеливание. 528 врачей, рейтинг 4.9.",
+    cta: "Найти стоматолога",
+    bg: "linear-gradient(135deg, #EEF6F8 0%, #DCEEF1 100%)",
+    dark: false,
+    art: "tooth",
+  },
+] as const;
+
+const QUICK_CHIPS = [
+  { label: "Онлайн сейчас", live: true, href: "/search" },
+  { label: "Сегодня", href: "/search" },
+  { label: "Рядом 2 км", href: "/search" },
+  { label: "Детский врач", href: "/specialty/family-medicine" },
+  { label: "Дом", href: "/search" },
+  { label: "Высокий рейтинг", href: "/search" },
+];
+
+const SERVICES = [
+  {
+    name: "Анализы",
+    desc: "1 200+ анализов · скидка до 30%",
+    count: "52 лаборатории",
+    icon: "lab",
+    bg: "linear-gradient(135deg, #DCEEF1, #EEF6F8)",
+  },
+  {
+    name: "Диагностика",
+    desc: "УЗИ, МРТ, КТ, рентген, ЭКГ",
+    count: "180+ центров",
+    icon: "scan",
+    bg: "linear-gradient(135deg, #F6EFE2, #EFE4D0)",
+  },
+  {
+    name: "Медицинские процедуры",
+    desc: "Капельницы, инъекции, физиотерапия",
+    count: "320+ кабинетов",
+    icon: "syringe",
+    bg: "linear-gradient(135deg, #EEF6F8, #F1E8E0)",
+  },
+];
+
+// Tile tints for specialty grid (cycling)
+const TILE_TINTS = [
+  "#DCEEF1",
+  "#F1E8E0",
+  "#EFE4D0",
+  "#E8EFE2",
+  "#F1E2E2",
+  "#EAE4F0",
+  "#F2EAD7",
+  "#E2EBEF",
+];
+
+// Specialty SVG glyphs (from design, mapped to project specialty labels)
+const SPECIALTY_GLYPHS: Record<string, string[]> = {
+  Семейный: [
+    "M6 3v8a4 4 0 0 0 8 0V3",
+    "M10 15v3a4 4 0 0 0 8 0v-3",
+    "M18 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  ],
+  Скорая: [
+    "M14.5 3.5 3.5 14.5a3 3 0 0 0 4.2 4.2L18.7 7.7a3 3 0 0 0-4.2-4.2z",
+    "M9 12.5l5.5-5.5",
+    "M11 14.5l-5.5 5.5",
+  ],
+  Кардиология: [
+    "M12 21s-7-4-9-9c-1-3 1-7 4-7 2 0 4 2 5 3 1-1 3-3 5-3 3 0 5 4 4 7-2 5-9 9-9 9z",
+    "M3 12h4l2-3 3 5 2-2",
+  ],
+  Неврология: [
+    "M9.5 4.5a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0-3 4 2.5 2.5 0 0 0 0 4 2.5 2.5 0 0 0 3 4 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 3-4 2.5 2.5 0 0 0 0-4 2.5 2.5 0 0 0-3-4 2.5 2.5 0 0 0-2.5-2.5 2.5 2.5 0 0 0-2.5 1.5 2.5 2.5 0 0 0-2.5-1.5z",
+    "M12 6v14",
+  ],
+  Окулист: [
+    "M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z",
+    "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  ],
+  ЖКТ: [
+    "M8 4v3c0 4-2 5-2 8a4 4 0 0 0 7-2 4 4 0 0 0 7-1c0-3-2-4-2-7V4",
+    "M8 4h10",
+    "M12 8h6",
+  ],
+  Ортопедия: [
+    "M5 4a2 2 0 1 0 4 0v0a1 1 0 0 0 1 1l8 8a1 1 0 0 0 1 1v0a2 2 0 1 0 0 4v0a2 2 0 1 0-4 0v0a1 1 0 0 0-1-1l-8-8a1 1 0 0 0-1-1v0a2 2 0 1 0-4 0z",
+  ],
+  Стоматология: [
+    "M8 3c-2 0-4 1.6-4 4.5 0 2.8.7 5 1.5 9 .3 1.5 1 2 1.7 2 .8 0 1.3-.7 1.5-2l1.3-3.5L10.3 13l1.5 0 1.5 0 -1.7-3.4 1.3 3.5c.2 1.3.7 2 1.5 2s1.4-.5 1.7-2c.8-4 1.5-6.2 1.5-9 0-2.9-2-4.5-4-4.5-1 0-2 .5-3 .5s-2-.5-3-.5z",
+  ],
+};
+
+// Service icon paths
+const SERVICE_GLYPHS: Record<string, string[]> = {
+  lab: [
+    "M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3",
+    "M9 3h6",
+  ],
+  scan: [
+    "M3 8V5a2 2 0 0 1 2-2h3",
+    "M21 8V5a2 2 0 0 0-2-2h-3",
+    "M3 16v3a2 2 0 0 0 2 2h3",
+    "M21 16v3a2 2 0 0 1-2 2h-3",
+    "M7 12h10",
+  ],
+  syringe: [
+    "m18 2 4 4",
+    "m17 7 3-3",
+    "m19 9-8.5 8.5a2 2 0 0 1-2.8 0L6 16l8-8z",
+    "m9 11 4 4",
+    "m6 16-3 3 2 2 3-3",
+  ],
+};
+
+// Pick "online" doctors heuristically — first 4 with highest ratingCount
+const onlineDoctors = [...DOCTOR_MOCKS]
+  .sort((a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0))
+  .slice(0, 4);
+const nearbyDoctors = DOCTOR_MOCKS.slice(0, 6);
+
+const orgJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "MedicalBusiness",
+  name: "Healthy",
+  url: "https://sdoctorom.health",
+  description:
+    "Сервис записи к проверенным врачам в Бишкеке и Алматы. Кардиологи, терапевты, педиатры и другие специалисты.",
+  areaServed: [
+    { "@type": "City", name: "Бишкек" },
+    { "@type": "City", name: "Алматы" },
+  ],
+  medicalSpecialty: SPECIALTIES.map((s) => s.doctorSpecialty),
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Healthy",
+  url: "https://sdoctorom.health",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: "https://sdoctorom.health/search?q={search_term_string}",
+    "query-input": "required name=search_term_string",
+  },
+  inLanguage: "ru-RU",
+};
+---
+
+<BaseLayout
+  title="Healthy — запись к врачу в Бишкеке и Алматы"
+  description="Запись к проверенным врачам онлайн. Кардиологи, терапевты, педиатры, дерматологи, неврологи и другие специалисты в Бишкеке и Алматы."
+>
+  <div class="mw-shell">
+    {/* ── TOP BAR ─────────────────────────── */}
+    <header class="mw-topbar" id="mw-topbar">
+      <div class="mw-logo">
+        <span class="mw-logo-mark">H</span>
+        <span class="mw-logo-text">Healthy</span>
+      </div>
+      <button type="button" class="mw-city-pill tap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z" />
+          <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" />
+        </svg>
+        Бишкек
+      </button>
+      <div class="mw-spacer" />
+      <div class="mw-cta-slot"><LoginButton /></div>
+    </header>
+
+    {/* ── HERO CAROUSEL ─────────────────────── */}
+    <section class="mw-hero-wrap">
+      <div class="mw-hero" id="mw-hero">
+        {BANNERS.map((b, i) => (
+          <article
+            class={`mw-banner${b.dark ? " mw-banner-dark" : ""}${i === 0 ? " is-active" : ""}`}
+            style={`background:${b.bg}`}
+            data-idx={i}
+          >
+            <div class="mw-banner-art" set:html={
+              b.art === "video"
+                ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.7" opacity="0.5"><rect x="40" y="60" width="100" height="70" rx="8"/><path d="M140 80l30-15v60l-30-15z"/><circle cx="90" cy="95" r="12"/><path d="M70 130c0-11 9-20 20-20s20 9 20 20"/></svg>'
+                : b.art === "family"
+                ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><circle cx="70" cy="80" r="14"/><path d="M50 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="130" cy="80" r="14"/><path d="M110 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="100" cy="140" r="9"/><path d="M88 165c0-7 5-12 12-12s12 5 12 12"/></svg>'
+                : b.art === "tooth"
+                ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M70 60c-10 0-18 9-18 22 0 18 8 28 12 50 2 14 6 28 12 28s8-14 12-22 6-12 12-12 8 4 12 12 6 22 12 22 10-14 12-28c4-22 12-32 12-50 0-13-8-22-18-22-12 0-16 8-30 8s-18-8-30-8z"/></svg>'
+                : '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M80 50v40l-25 50c-3 7 2 14 9 14h72c7 0 12-7 9-14l-25-50V50"/><path d="M80 50h40"/><circle cx="100" cy="140" r="5"/><circle cx="85" cy="125" r="3"/><circle cx="115" cy="130" r="4"/></svg>'
+            } />
+            <span class="mw-banner-tag">{b.tag}</span>
+            <h1 class="mw-banner-title">{b.title}</h1>
+            <p class="mw-banner-desc">{b.desc}</p>
+            <a href="/search" class="mw-banner-cta tap">
+              {b.cta}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+            </a>
+          </article>
+        ))}
+        <div class="mw-banner-dots" id="mw-hero-dots">
+          {BANNERS.map((_, k) => (
+            <button type="button" data-idx={k} class={k === 0 ? "is-active" : ""} aria-label={`Слайд ${k + 1}`} />
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* ── SEARCH + CHIPS ───────────────────── */}
+    <div class="mw-sticky-search" id="mw-sticky-search">
+      <form class="mw-search-row" action="/search" method="get" role="search">
+        <label class="mw-search-input">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/><path d="m21 21-4.3-4.3"/></svg>
+          <input name="q" type="search" placeholder="Врач, специальность, клиника" autocomplete="off" />
+        </label>
+        <button type="button" class="mw-search-filter tap" aria-label="Фильтры">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>
+        </button>
+      </form>
+      <div class="mw-chips hide-sb">
+        {QUICK_CHIPS.map((c, k) => (
+          <a href={c.href} class={`mw-chip tap${k === 0 ? " is-active" : ""}`}>
+            {c.live && <span class={`mw-chip-dot${k === 0 ? " pulse-dot" : ""}`} />}
+            {c.label}
+          </a>
+        ))}
+      </div>
+    </div>
+
+    {/* ── SPECIALTY GRID ──────────────────── */}
+    <section class="mw-section">
+      <div class="mw-section-head">
+        <h2>Что вас беспокоит?</h2>
+        <a href="/search" class="mw-section-link">
+          Все
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="mw-tile-grid">
+        {SPECIALTIES.map((s, k) => {
+          const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
+          return (
+            <a
+              href={`/specialty/${s.key}`}
+              class="mw-tile tap"
+              style={`background:${TILE_TINTS[k % TILE_TINTS.length]}`}
+            >
+              <span class="mw-tile-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={N.ink} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  {paths.map((d) => <path d={d} />)}
+                </svg>
+              </span>
+              <span class="mw-tile-name">{s.label}</span>
+              <span class="mw-tile-count">{s.count} врачей</span>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+
+    {/* ── ONLINE DOCTORS RAIL ─────────────── */}
+    <section class="mw-section">
+      <div class="mw-section-head">
+        <h2>Онлайн сейчас</h2>
+        <a href="/search" class="mw-section-link">
+          Все врачи
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="mw-rail hide-sb">
+        {onlineDoctors.map((d) => (
+          <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
+            <div class="mw-doctor-head">
+              <div class="mw-avatar-wrap">
+                <span class="mw-avatar" style={`background:${d.color}`}>{d.initials}</span>
+                <span class="mw-avatar-online" />
+              </div>
+              <div class="mw-doctor-titles">
+                <span class="mw-doctor-name">{d.name.split(" ").slice(0, 2).join(" ")}</span>
+                <span class="mw-doctor-spec">{d.specialty}</span>
+              </div>
+            </div>
+            <div class="mw-doctor-meta">
+              <span class="mw-rating">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                {d.rating?.toFixed(1) ?? "—"}
+              </span>
+              <span class="mw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+              {d.yearsExperience && <span class="mw-doctor-muted">· {d.yearsExperience} лет</span>}
+            </div>
+            <div class="mw-doctor-slot mw-doctor-slot-online">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
+              Видео — сегодня
+            </div>
+            <div class="mw-doctor-cta-row">
+              <span class="mw-doctor-price">от <strong>2 200 ₽</strong></span>
+              <span class="mw-book-btn">Записаться</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    {/* ── SERVICES ────────────────────────── */}
+    <section class="mw-section">
+      <div class="mw-section-head">
+        <h2>Здоровье под контролем</h2>
+      </div>
+      <div class="mw-services">
+        {SERVICES.map((s) => (
+          <a href="/search" class="mw-service tap" style={`background:${s.bg}`}>
+            <span class="mw-service-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={TEAL.brand} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                {(SERVICE_GLYPHS[s.icon] ?? []).map((d) => <path d={d} />)}
+              </svg>
+            </span>
+            <div class="mw-service-body">
+              <span class="mw-service-name">{s.name}</span>
+              <span class="mw-service-desc">{s.desc}</span>
+              <span class="mw-service-count">{s.count}</span>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="mw-service-arrow"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    {/* ── TRUST STRIP ─────────────────────── */}
+    <section class="mw-trust">
+      <span class="mw-trust-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </span>
+      <div class="mw-trust-body">
+        <div class="mw-trust-title">Только проверенные врачи</div>
+        <div class="mw-trust-desc">Дипломы, лицензии и отзывы пациентов проверены вручную.</div>
+      </div>
+    </section>
+
+    {/* ── NEARBY DOCTORS RAIL ─────────────── */}
+    <section class="mw-section">
+      <div class="mw-section-head">
+        <h2>Рядом с вами</h2>
+        <a href="/search" class="mw-section-link">
+          На карте
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="mw-rail hide-sb">
+        {nearbyDoctors.map((d) => (
+          <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
+            <div class="mw-doctor-head">
+              <span class="mw-avatar" style={`background:${d.color}`}>{d.initials}</span>
+              <div class="mw-doctor-titles">
+                <span class="mw-doctor-name">{d.name.split(" ").slice(0, 2).join(" ")}</span>
+                <span class="mw-doctor-spec">{d.specialty}</span>
+              </div>
+            </div>
+            <div class="mw-doctor-meta">
+              <span class="mw-rating">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                {d.rating?.toFixed(1) ?? "—"}
+              </span>
+              <span class="mw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+            </div>
+            <div class="mw-doctor-slot">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+              {d.clinic}
+            </div>
+            <div class="mw-doctor-cta-row">
+              <span class="mw-doctor-price">от <strong>3 500 ₽</strong></span>
+              <span class="mw-book-btn">Записаться</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    {/* ── FOOTER ──────────────────────────── */}
+    <footer class="mw-footer">
+      <div class="mw-logo" style="margin-bottom:16px">
+        <span class="mw-logo-mark">H</span>
+        <span class="mw-logo-text">Healthy</span>
+      </div>
+      <nav class="mw-footer-links">
+        <a href="/search">О сервисе</a>
+        <a href="/search">Помощь</a>
+        <a href="/search">Контакты</a>
+        <a href="/search">Стать партнёром</a>
+        <a href="/app/sign-in">Войти</a>
+      </nav>
+      <div class="mw-footer-fine">
+        <div>© 2026 Healthy. Сервис записи к врачам.</div>
+        <div>Лицензия № ЛО-77-01-019384</div>
+        <div>Информация на сайте не является публичной офертой.</div>
+      </div>
+    </footer>
+  </div>
+
+  {/* ════════════════════════════════════════════════════════════ */}
+  {/*  DESKTOP LAYOUT (visible at >= 1024px)                       */}
+  {/* ════════════════════════════════════════════════════════════ */}
+  <div class="dw-page">
+    {/* ── HEADER ─────────────────────────────────── */}
+    <header class="dw-header">
+      <div class="dw-header-inner">
+        <div class="dw-header-left">
+          <a href="/" class="mw-logo dw-logo">
+            <span class="mw-logo-mark">H</span>
+            <span class="mw-logo-text">Healthy</span>
+          </a>
+          <nav class="dw-nav">
+            <a href="/search">Найти врача</a>
+            <a href="/search">Клиники</a>
+            <a href="/search">Лаборатории</a>
+            <a href="/search">Аптеки</a>
+          </nav>
+        </div>
+        <div class="dw-header-right">
+          <a href="#" class="dw-city">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+            Бишкек
+          </a>
+          <div class="dw-auth-slot"><LoginButton /></div>
+        </div>
+      </div>
+    </header>
+
+    {/* ── HERO CAROUSEL ─────────────────────────── */}
+    <section class="dw-hero-section">
+      <div class="dw-hero" id="dw-hero">
+        {BANNERS.map((b, i) => (
+          <article
+            class={`dw-banner${b.dark ? " dw-banner-dark" : ""}${i === 0 ? " is-active" : ""}`}
+            style={`background:${b.bg}`}
+            data-idx={i}
+          >
+            <div class="dw-banner-text">
+              <span class="dw-banner-tag">{b.tag}</span>
+              <h2 class="dw-banner-title">{b.title}</h2>
+              <p class="dw-banner-desc">{b.desc}</p>
+              <a href="/search" class="dw-banner-cta">
+                {b.cta}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+              </a>
+            </div>
+            <div class="dw-banner-art" set:html={
+              b.art === "video"
+                ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.7" opacity="0.5"><rect x="40" y="60" width="100" height="70" rx="8"/><path d="M140 80l30-15v60l-30-15z"/><circle cx="90" cy="95" r="12"/><path d="M70 130c0-11 9-20 20-20s20 9 20 20"/></svg>'
+                : b.art === "family"
+                ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><circle cx="70" cy="80" r="14"/><path d="M50 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="130" cy="80" r="14"/><path d="M110 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="100" cy="140" r="9"/><path d="M88 165c0-7 5-12 12-12s12 5 12 12"/></svg>'
+                : b.art === "tooth"
+                ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M70 60c-10 0-18 9-18 22 0 18 8 28 12 50 2 14 6 28 12 28s8-14 12-22 6-12 12-12 8 4 12 12 6 22 12 22 10-14 12-28c4-22 12-32 12-50 0-13-8-22-18-22-12 0-16 8-30 8s-18-8-30-8z"/></svg>'
+                : '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M80 50v40l-25 50c-3 7 2 14 9 14h72c7 0 12-7 9-14l-25-50V50"/><path d="M80 50h40"/><circle cx="100" cy="140" r="5"/><circle cx="85" cy="125" r="3"/><circle cx="115" cy="130" r="4"/></svg>'
+            } />
+          </article>
+        ))}
+        <button type="button" class="dw-hero-arrow dw-hero-prev" aria-label="Предыдущий слайд">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>
+        </button>
+        <button type="button" class="dw-hero-arrow dw-hero-next" aria-label="Следующий слайд">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+        <div class="dw-hero-dots" id="dw-hero-dots">
+          {BANNERS.map((_, k) => (
+            <button type="button" data-idx={k} class={k === 0 ? "is-active" : ""} aria-label={`Слайд ${k + 1}`} />
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* ── HERO SEARCH PILL ───────────────────────── */}
+    <section class="dw-search-hero">
+      <div class="dw-search-hero-inner">
+        {/* LEFT — promise + live availability */}
+        <div class="dw-search-promise">
+          <h2>Найдите своего врача</h2>
+          <p>Более 2 000 проверенных специалистов. Онлайн-консультации и приём в клиниках по всему городу.</p>
+          <div class="dw-live-stack">
+            <div class="dw-avatars">
+              {nearbyDoctors.slice(0, 6).map((d) => (
+                <span
+                  class="dw-stack-avatar"
+                  style={`background:${d.color};color:${N.ink}`}
+                  title={d.name}
+                >
+                  {d.initials}
+                </span>
+              ))}
+              <span class="dw-stack-avatar dw-stack-avatar-more">+192</span>
+            </div>
+            <div class="dw-live-row">
+              <span class="dw-live-pulse" aria-hidden="true" />
+              <span><strong>192 врача</strong> доступны прямо сейчас</span>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT — stacked search card */}
+        <div class="dw-search-card-wrap">
+          <form class="dw-search-card" action="/search" method="get" role="search">
+            <label class="dw-search-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/><path d="m21 21-4.3-4.3"/></svg>
+              <span class="dw-row-body">
+                <span class="dw-row-label">Имя или фамилия</span>
+                <input name="q" type="search" placeholder="Например, Соколова" autocomplete="off" />
+              </span>
+            </label>
+            <label class="dw-search-row dw-search-row-div">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
+              <span class="dw-row-body">
+                <span class="dw-row-label">Специальность</span>
+                <select name="specialty">
+                  <option value="">Все специальности</option>
+                  {SPECIALTIES.map((s) => (
+                    <option value={s.doctorSpecialty}>{s.label}</option>
+                  ))}
+                </select>
+              </span>
+            </label>
+            <label class="dw-search-row dw-search-row-div">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+              <span class="dw-row-body">
+                <span class="dw-row-label">Город</span>
+                <select name="city">
+                  <option>Бишкек</option>
+                  <option>Алматы</option>
+                  <option>Астана</option>
+                </select>
+              </span>
+            </label>
+            <div class="dw-search-refine">
+              <div class="dw-format-toggle" role="tablist">
+                <button type="button" class="is-active" data-fmt="all">Все</button>
+                <button type="button" data-fmt="online">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
+                  Онлайн
+                </button>
+                <button type="button" data-fmt="offline">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+                  В клинике
+                </button>
+              </div>
+              <div class="dw-chip-row">
+                <span class="dw-chip">Все районы ▾</span>
+                <span class="dw-chip">Все клиники ▾</span>
+              </div>
+            </div>
+            <button type="submit" class="dw-search-submit-wide">
+              Найти 2 800+ врачей
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    {/* ── SPECIALTIES (6-col bold pastel) ─────── */}
+    <section class="dw-section dw-specs-section">
+      <div class="dw-section-head">
+        <div>
+          <h2>Популярные специальности</h2>
+          <p>Найдите врача по нужному направлению</p>
+        </div>
+        <a href="/search" class="dw-section-link">
+          Все специальности
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+        </a>
+      </div>
+      <div class="dw-specs-grid">
+        {SPECIALTIES.map((s, i) => {
+          const palette = [
+            { bg: "#B9DCE2", icon: "#0E7C8C" },
+            { bg: "#EBDBBE", icon: "#A07842" },
+            { bg: "#C5E2D2", icon: "#3A8E64" },
+            { bg: "#E8D2BC", icon: "#8E5A2E" },
+            { bg: "#C5E0E5", icon: "#2A9DAE" },
+            { bg: "#EFC8C8", icon: "#A93A35" },
+            { bg: "#D2CFE3", icon: "#473D87" },
+            { bg: "#F2D2A8", icon: "#A85518" },
+          ];
+          const c = palette[i % palette.length]!;
+          const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
+          const isLarge = i < 3;
+          return (
+            <a
+              href={`/specialty/${s.key}`}
+              class={`dw-spec-card${isLarge ? " is-large" : ""}`}
+              style={`background:${c.bg}`}
+            >
+              <span class="dw-spec-icon" style={`color:${c.icon}`}>
+                <svg width={isLarge ? "44" : "32"} height={isLarge ? "44" : "32"} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  {paths.map((d) => <path d={d} />)}
+                </svg>
+              </span>
+              <span class="dw-spec-name">{s.label}</span>
+              <span class="dw-spec-count">{s.count} врачей</span>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+
+    {/* ── SERVICES BENTO ──────────────────────── */}
+    <section class="dw-section dw-services-section">
+      <div class="dw-section-head">
+        <div>
+          <h2>Здоровье под контролем</h2>
+          <p>Анализы, диагностика и процедуры в проверенных центрах</p>
+        </div>
+      </div>
+      <div class="dw-services-bento">
+        {SERVICES.map((s, i) => {
+          const isHero = i === 0;
+          const paths = SERVICE_GLYPHS[s.icon] ?? [];
+          return (
+            <a
+              href="/search"
+              class={`dw-service-card${isHero ? " dw-service-hero" : ""}`}
+              style={`background:${s.bg}`}
+            >
+              <span class="dw-service-icon">
+                <svg width={isHero ? "44" : "32"} height={isHero ? "44" : "32"} viewBox="0 0 24 24" fill="none" stroke="#0A1F25" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  {paths.map((d) => <path d={d} />)}
+                </svg>
+              </span>
+              <div class="dw-service-body">
+                <h3>{s.name}</h3>
+                <p>{s.desc}</p>
+                <div class="dw-service-meta">
+                  <span class="dw-service-count">{s.count}</span>
+                  <span class="dw-service-more">
+                    Подробнее
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+                  </span>
+                </div>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+
+    {/* ── ONLINE DOCTORS (cream card with aurora) ─ */}
+    <section class="dw-section dw-online-section">
+      <div class="dw-online-card">
+        <div class="dw-aurora" aria-hidden="true"><span /></div>
+        <div class="dw-online-head">
+          <div>
+            <span class="dw-tag dw-tag-online">
+              <span class="dw-live-dot" />
+              Онлайн
+            </span>
+            <h2>Онлайн-консультации</h2>
+            <p>Подключение по видео за 5 минут, без очередей · {onlineDoctors.length} {onlineDoctors.length === 1 ? "врач" : "врача"}</p>
+          </div>
+          <a href="/search" class="dw-text-link">Все онлайн-врачи →</a>
+        </div>
+        <div class="dw-online-grid">
+          {onlineDoctors.map((d, i) => (
+            <a href={`/doctor/${doctorSlug(d)}`} class={`dw-doctor${i === 0 ? " dw-doctor-featured" : ""}`}>
+              <div class="dw-doctor-head">
+                <div class="dw-doctor-avatar-wrap">
+                  <span class="dw-doctor-avatar" style={`background:${d.color}`}>{d.initials}</span>
+                  <span class="dw-doctor-online-dot" />
+                </div>
+                <div>
+                  <span class="dw-doctor-name">{d.name}</span>
+                  <span class="dw-doctor-spec">{d.specialty}</span>
+                </div>
+              </div>
+              <div class="dw-doctor-meta">
+                <span class="dw-doctor-rating">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                  {d.rating?.toFixed(1) ?? "—"}
+                </span>
+                <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+                {d.yearsExperience && <span class="dw-doctor-muted">· {d.yearsExperience} лет</span>}
+              </div>
+              <div class="dw-doctor-slot dw-doctor-slot-online">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
+                Видео — через 15 мин
+              </div>
+              <div class="dw-doctor-cta-row">
+                <span class="dw-doctor-price">от <strong>2 200 ₽</strong></span>
+                <span class="dw-doctor-book">Записаться</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
+    <section class="dw-section dw-offline-section">
+      <div class="dw-section-head">
+        <div>
+          <span class="dw-tag dw-tag-offline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+            В клинике
+          </span>
+          <h2>По записи в клинику</h2>
+          <p>Запись с подтверждением, ближайшие даты приёма · {nearbyDoctors.length} врачей</p>
+        </div>
+        <a href="/search" class="dw-text-link">Все врачи →</a>
+      </div>
+      <div class="dw-offline-grid">
+        {nearbyDoctors.slice(0, 4).map((d) => (
+          <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor">
+            <div class="dw-doctor-head">
+              <span class="dw-doctor-avatar" style={`background:${d.color}`}>{d.initials}</span>
+              <div>
+                <span class="dw-doctor-name">{d.name}</span>
+                <span class="dw-doctor-spec">{d.specialty}</span>
+              </div>
+            </div>
+            <div class="dw-doctor-meta">
+              <span class="dw-doctor-rating">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                {d.rating?.toFixed(1) ?? "—"}
+              </span>
+              <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+            </div>
+            <div class="dw-doctor-slot">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+              {d.clinic}
+            </div>
+            <div class="dw-doctor-cta-row">
+              <span class="dw-doctor-price">от <strong>3 500 ₽</strong></span>
+              <span class="dw-doctor-book">Записаться</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    {/* ── APP BANNER ───────────────────────── */}
+    <section class="dw-app-section">
+      <div class="dw-app-banner">
+        <div class="dw-app-glow" />
+        <div class="dw-app-content">
+          <span class="dw-app-tag">Мобильное приложение</span>
+          <h2 class="dw-app-title">Запись, рецепты и анализы<br />— всегда под рукой</h2>
+          <p class="dw-app-desc">
+            Видеоконсультации в один клик, напоминания о приёмах и история здоровья всей семьи в одном приложении.
+          </p>
+          <div class="dw-app-buttons">
+            <a href="#" class="dw-store-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+              <span><span class="dw-store-small">Скачать в</span><span class="dw-store-big">App Store</span></span>
+            </a>
+            <a href="#" class="dw-store-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.6 1.93c-.39.4-.6.94-.6 1.5v17.14c0 .56.21 1.1.6 1.5l.07.07L13.6 12l-9.93-10.07-.07-.07zM17.5 16.07l-3-3 9.07-9.07c.4.07.7.34.7.85 0 .54-.34.96-.97 1.32l-5.8 9.9zm-1.6-1.6L13.07 12l2.83-2.47L19.93 12l-4.03 2.47zm-2.3 2.3-9.5 5.43c-.6.34-1.2.34-1.7 0l9.27-9.27 1.93 3.84z"/></svg>
+              <span><span class="dw-store-small">Доступно в</span><span class="dw-store-big">Google Play</span></span>
+            </a>
+          </div>
+        </div>
+        <div class="dw-app-art" aria-hidden="true">
+          <svg viewBox="0 0 320 360" width="100%" height="100%" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.2">
+            <rect x="80" y="40" width="160" height="280" rx="28" />
+            <rect x="92" y="60" width="136" height="48" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
+            <rect x="92" y="120" width="136" height="80" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
+            <rect x="92" y="212" width="64" height="64" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
+            <rect x="164" y="212" width="64" height="64" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
+            <circle cx="160" cy="332" r="4" fill="rgba(255,255,255,0.4)" stroke="none" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    {/* ── DESKTOP FOOTER ────────────────────── */}
+    <footer class="dw-footer">
+      <div class="dw-footer-inner">
+        <div class="dw-footer-grid">
+          <div class="dw-footer-brand">
+            <div class="mw-logo dw-logo-light">
+              <span class="mw-logo-mark">H</span>
+              <span class="mw-logo-text" style="color:#fff">Healthy</span>
+            </div>
+            <p>Сервис записи к врачу: 2 800+ специалистов, 50 000+ записей в месяц.</p>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Пациентам</div>
+            <a href="/search">Найти врача</a>
+            <a href="/search">Найти клинику</a>
+            <a href="/search">Лаборатории</a>
+            <a href="/search">Аптеки</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Врачам</div>
+            <a href="#">Подключить клинику</a>
+            <a href="#">Личный кабинет</a>
+            <a href="#">Документация</a>
+            <a href="#">API</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Компания</div>
+            <a href="#">О нас</a>
+            <a href="#">Карьера</a>
+            <a href="#">Пресс-центр</a>
+            <a href="#">Контакты</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Поддержка</div>
+            <a href="#">Помощь</a>
+            <a href="#">Безопасность</a>
+            <a href="#">Условия</a>
+            <a href="#">Политика</a>
+          </div>
+        </div>
+        <div class="dw-footer-bottom">
+          <span>© 2026 Healthy. Все права защищены.</span>
+          <span>Лицензия № ЛО-77-01-019384</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <JsonLd data={orgJsonLd} />
+  <JsonLd data={websiteJsonLd} />
+
+  <style is:global>
+    :root {
+      --teal: #0e7c8c;
+      --teal-hover: #0a6573;
+      --teal-soft: #dceef1;
+      --teal-softer: #eef6f8;
+      --n-cream: #fcfbf8;
+      --n-ink: #0f1115;
+      --n-muted: #5f636a;
+      --n-line: #e2e2df;
+    }
+    body {
+      background: var(--n-cream);
+      color: var(--n-ink);
+      overscroll-behavior-y: none;
+    }
+    .hide-sb::-webkit-scrollbar { display: none; }
+    .hide-sb { scrollbar-width: none; -ms-overflow-style: none; }
+    .tap { -webkit-tap-highlight-color: transparent; transition: transform .14s ease, opacity .14s ease; }
+    .tap:active { transform: scale(0.98); opacity: 0.9; }
+    .pulse-dot { animation: mwPulse 1.6s ease-out infinite; }
+    @keyframes mwPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(14,124,140,0.4); }
+      70%  { box-shadow: 0 0 0 8px rgba(14,124,140,0); }
+      100% { box-shadow: 0 0 0 0 rgba(14,124,140,0); }
+    }
+
+    /* ── Shell ─────────────────────────── */
+    .mw-shell { min-height: 100dvh; background: var(--n-cream); }
+    @media (min-width: 700px) {
+      .mw-shell {
+        max-width: 520px;
+        margin: 0 auto;
+        box-shadow: 0 0 0 1px var(--n-line), 0 24px 80px -32px rgba(15,17,21,0.18);
+      }
+      body { background: linear-gradient(180deg, #ECE6DA, var(--n-cream) 30%, var(--n-cream)); }
+    }
+
+    /* ── Top bar ───────────────────────── */
+    .mw-topbar {
+      position: sticky; top: 0; z-index: 30;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+      background: rgba(252,251,248,0);
+      display: flex; align-items: center; gap: 10px;
+      transition: background .18s ease, border-color .18s ease;
+      border-bottom: 1px solid transparent;
+    }
+    .mw-topbar.is-scrolled {
+      background: rgba(252,251,248,0.86);
+      backdrop-filter: saturate(160%) blur(18px);
+      -webkit-backdrop-filter: saturate(160%) blur(18px);
+      border-bottom-color: var(--n-line);
+    }
+    .mw-logo { display: inline-flex; align-items: center; gap: 10px; }
+    .mw-logo-mark {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--teal); color: #fff;
+      display: grid; place-items: center; font-weight: 700; font-size: 18px;
+    }
+    .mw-logo-text { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+    .mw-city-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px 6px 8px; border-radius: 999px;
+      border: 1px solid var(--n-line); background: #fff;
+      font-size: 13px; font-weight: 600; color: var(--n-ink); margin-left: 4px;
+      cursor: pointer; font-family: inherit;
+    }
+    .mw-spacer { flex: 1; }
+    .mw-cta-slot { display: inline-flex; }
+    .mw-cta-slot a { padding: 8px 14px !important; height: auto !important; font-size: 13px !important; }
+
+    /* ── Hero ──────────────────────────── */
+    .mw-hero-wrap { padding: 8px 16px 16px; }
+    .mw-hero { position: relative; }
+    .mw-banner {
+      display: none;
+      position: relative;
+      border-radius: 22px;
+      padding: 20px 22px 22px;
+      min-height: 220px;
+      overflow: hidden;
+      color: var(--n-ink);
+      box-shadow: 0 1px 0 rgba(15,17,21,0.04), 0 18px 40px -28px rgba(15,17,21,0.25);
+    }
+    .mw-banner.is-active { display: block; }
+    .mw-banner-dark { color: #fff; }
+    .mw-banner-art { position: absolute; right: -16px; top: -6px; width: 170px; height: 170px; opacity: 1; }
+    .mw-banner-dark .mw-banner-art { opacity: 0.9; }
+    .mw-banner-tag {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.3px; text-transform: uppercase;
+      padding: 5px 10px; border-radius: 999px;
+      background: rgba(15,17,21,0.06); color: var(--n-ink);
+      margin-bottom: 12px;
+    }
+    .mw-banner-dark .mw-banner-tag { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.9); }
+    .mw-banner-title {
+      margin: 0; font-size: 22px; line-height: 1.18; font-weight: 800;
+      letter-spacing: -0.2px; max-width: 240px;
+    }
+    .mw-banner-desc {
+      margin: 8px 0 16px; font-size: 13.5px; line-height: 1.45;
+      color: var(--n-muted); max-width: 260px;
+    }
+    .mw-banner-dark .mw-banner-desc { color: rgba(255,255,255,0.8); }
+    .mw-banner-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 16px; border-radius: 999px;
+      background: var(--teal); color: #fff;
+      font-size: 14px; font-weight: 700;
+      box-shadow: 0 6px 14px -6px rgba(14,124,140,0.55);
+    }
+    .mw-banner-dark .mw-banner-cta { background: #fff; color: var(--teal); box-shadow: none; }
+    .mw-banner-dots {
+      position: absolute; bottom: 12px; right: 14px;
+      display: flex; gap: 6px;
+    }
+    .mw-banner-dots button {
+      width: 6px; height: 6px; border-radius: 6px;
+      background: rgba(15,17,21,0.18); border: none; cursor: pointer; padding: 0;
+      transition: width .28s ease, background .28s ease;
+    }
+    .mw-banner-dots button.is-active { width: 18px; background: var(--teal); }
+
+    /* ── Sticky search ─────────────────── */
+    .mw-sticky-search {
+      position: sticky; top: calc(env(safe-area-inset-top, 0px) + 52px);
+      z-index: 20;
+      background: var(--n-cream);
+      border-bottom: 1px solid transparent;
+      transition: background .18s ease, border-color .18s ease;
+    }
+    .mw-sticky-search.is-scrolled {
+      background: rgba(252,251,248,0.92);
+      backdrop-filter: saturate(160%) blur(18px);
+      -webkit-backdrop-filter: saturate(160%) blur(18px);
+      border-bottom-color: var(--n-line);
+    }
+    .mw-search-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px 8px;
+    }
+    .mw-search-input {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      background: #fff; border: 1px solid var(--n-line);
+      border-radius: 999px; box-shadow: 0 1px 0 rgba(15,17,21,0.02);
+      color: var(--n-muted);
+    }
+    .mw-search-input input {
+      flex: 1; border: none; outline: none; background: transparent;
+      font-size: 14.5px; color: var(--n-ink); min-width: 0; font-family: inherit;
+    }
+    .mw-search-filter {
+      width: 44px; height: 44px; border-radius: 22px;
+      border: 1px solid var(--n-line); background: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--n-ink); cursor: pointer;
+    }
+    .mw-chips {
+      display: flex; gap: 8px;
+      padding: 4px 16px 18px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
+    }
+    .mw-chip {
+      flex: 0 0 auto;
+      padding: 9px 14px; border-radius: 999px;
+      border: 1px solid var(--n-line); background: #fff;
+      color: var(--n-ink); font-size: 13.5px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 8px;
+      scroll-snap-align: start;
+    }
+    .mw-chip.is-active { border-color: var(--teal); background: var(--teal); color: #fff; }
+    .mw-chip-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: var(--teal); display: inline-block;
+    }
+    .mw-chip.is-active .mw-chip-dot { background: #fff; }
+
+    /* ── Section heads ─────────────────── */
+    .mw-section { margin-bottom: 32px; }
+    .mw-section-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 0 16px; margin-bottom: 12px;
+    }
+    .mw-section-head h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
+    .mw-section-link {
+      color: var(--teal); font-size: 13px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+
+    /* ── Specialty tiles ───────────────── */
+    .mw-tile-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+      padding: 0 16px;
+    }
+    .mw-tile {
+      min-width: 0; min-height: 110px;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+      padding: 14px; border-radius: 16px;
+      color: var(--n-ink);
+    }
+    .mw-tile-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(255,255,255,0.6);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .mw-tile-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .mw-tile-count { font-size: 11.5px; color: var(--n-muted); margin-top: auto; }
+
+    /* ── Doctor rail ───────────────────── */
+    .mw-rail {
+      display: flex; gap: 12px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x mandatory;
+      padding: 0 16px 4px;
+    }
+    .mw-doctor-card {
+      flex: 0 0 268px; scroll-snap-align: start;
+      background: #fff; border-radius: 18px;
+      border: 1px solid var(--n-line);
+      padding: 14px;
+      display: flex; flex-direction: column; gap: 12px;
+      color: var(--n-ink);
+    }
+    .mw-doctor-head { display: flex; align-items: center; gap: 12px; }
+    .mw-avatar-wrap { position: relative; }
+    .mw-avatar {
+      width: 48px; height: 48px; border-radius: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: var(--n-ink);
+      flex: 0 0 auto;
+    }
+    .mw-avatar-online {
+      position: absolute; right: -1px; bottom: -1px;
+      width: 13px; height: 13px; border-radius: 7px;
+      background: #22C55E; border: 2px solid #fff;
+    }
+    .mw-doctor-titles { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .mw-doctor-name {
+      font-size: 14px; font-weight: 700; line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mw-doctor-spec {
+      font-size: 12px; color: var(--n-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mw-doctor-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .mw-rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+    .mw-doctor-muted { color: var(--n-muted); }
+    .mw-doctor-slot {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--n-muted); font-weight: 600;
+    }
+    .mw-doctor-slot-online { color: var(--teal); }
+    .mw-doctor-cta-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 2px;
+    }
+    .mw-doctor-price { font-size: 11px; color: var(--n-muted); }
+    .mw-doctor-price strong { color: var(--n-ink); font-size: 14px; font-weight: 800; margin-left: 2px; }
+    .mw-book-btn {
+      padding: 8px 14px; border-radius: 999px;
+      background: var(--teal); color: #fff;
+      font-size: 12.5px; font-weight: 700;
+    }
+
+    /* ── Services ───────────────────────── */
+    .mw-services {
+      display: flex; flex-direction: column; gap: 10px; padding: 0 16px;
+    }
+    .mw-service {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px; border-radius: 18px;
+      color: var(--n-ink);
+    }
+    .mw-service-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      background: rgba(255,255,255,0.7);
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+    }
+    .mw-service-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .mw-service-name { font-size: 15px; font-weight: 700; }
+    .mw-service-desc {
+      font-size: 12.5px; color: var(--n-muted); margin-top: 2px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .mw-service-count { font-size: 11.5px; color: var(--teal); font-weight: 700; margin-top: 6px; }
+    .mw-service-arrow { color: var(--n-muted); flex: 0 0 auto; }
+
+    /* ── Trust ──────────────────────────── */
+    .mw-trust {
+      margin: 0 16px 32px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--n-line);
+      background: #fff;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .mw-trust-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--teal-softer); color: var(--teal);
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+    }
+    .mw-trust-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .mw-trust-title { font-size: 13.5px; font-weight: 700; }
+    .mw-trust-desc { font-size: 12px; color: var(--n-muted); }
+
+    /* ── Footer ─────────────────────────── */
+    .mw-footer {
+      margin-top: 12px;
+      padding: 28px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+      background: #F4EFE3;
+      border-top: 1px solid var(--n-line);
+    }
+    .mw-footer-links {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      row-gap: 10px; column-gap: 16px; margin-bottom: 22px;
+    }
+    .mw-footer-links a { font-size: 14px; font-weight: 600; color: var(--n-ink); }
+    .mw-footer-fine {
+      font-size: 11.5px; line-height: 1.5; color: var(--n-muted);
+      border-top: 1px solid var(--n-line); padding-top: 14px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    /* ════════════════════════════════════════════════════════════ */
+    /*  DESKTOP LAYOUT (>= 1024px)                                  */
+    /* ════════════════════════════════════════════════════════════ */
+    .dw-page { display: none; }
+
+    @media (min-width: 1024px) {
+      body {
+        background: var(--n-cream);
+      }
+      .mw-shell { display: none !important; }
+      .dw-page {
+        display: block;
+        font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        color: var(--n-ink);
+      }
+
+      /* ── Header ─────────────────────────────── */
+      .dw-header {
+        position: sticky; top: 0; z-index: 30;
+        background: rgba(250,248,245,0.95);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--n-line);
+      }
+      .dw-header-inner {
+        max-width: 1440px; margin: 0 auto;
+        padding: 20px 64px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .dw-header-left { display: flex; align-items: center; gap: 40px; }
+      .dw-logo { text-decoration: none; }
+      .dw-nav { display: flex; gap: 28px; }
+      .dw-nav a {
+        font-size: 14px; font-weight: 500; color: #2A2D33;
+        text-decoration: none; transition: color .15s;
+      }
+      .dw-nav a:hover { color: var(--teal); }
+      .dw-header-right { display: flex; align-items: center; gap: 16px; }
+      .dw-city {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 13px; color: var(--n-muted); text-decoration: none;
+      }
+      .dw-auth-slot a {
+        height: 38px !important; padding: 0 18px !important;
+        font-size: 13px !important;
+      }
+
+      /* ── Hero ──────────────────────────────── */
+      .dw-hero-section {
+        max-width: 1440px; margin: 0 auto;
+        padding: 24px 64px 0;
+      }
+      .dw-hero {
+        position: relative;
+        border-radius: 28px;
+        overflow: hidden;
+      }
+      .dw-banner {
+        display: none;
+        min-height: 444px;
+        padding: 44px 56px;
+        color: var(--n-ink);
+        align-items: center;
+        gap: 40px;
+      }
+      .dw-banner.is-active {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+      }
+      .dw-banner-dark { color: #fff; }
+      .dw-banner-text { display: flex; flex-direction: column; gap: 14px; }
+      .dw-banner-tag {
+        display: inline-block; align-self: flex-start;
+        padding: 6px 14px; border-radius: 999px;
+        background: rgba(255,255,255,0.85); color: var(--teal);
+        font-size: 12px; font-weight: 700;
+        letter-spacing: 0.02em; text-transform: uppercase;
+      }
+      .dw-banner-dark .dw-banner-tag {
+        background: rgba(255,255,255,0.15); color: #fff;
+      }
+      .dw-banner-title {
+        margin: 0;
+        font-size: 48px; line-height: 1.05;
+        letter-spacing: -0.03em; font-weight: 700;
+      }
+      .dw-banner-desc {
+        margin: 0;
+        font-size: 16px; line-height: 1.5;
+        color: #2A2D33; max-width: 480px;
+      }
+      .dw-banner-dark .dw-banner-desc { color: rgba(255,255,255,0.8); }
+      .dw-banner-cta {
+        align-self: flex-start; margin-top: 14px;
+        height: 52px; padding: 0 26px;
+        background: var(--teal); color: #fff;
+        border-radius: 999px;
+        font-size: 15px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 8px;
+        transition: background .15s, transform .08s;
+      }
+      .dw-banner-cta:hover { background: var(--teal-hover); transform: translateY(-1px); }
+      .dw-banner-dark .dw-banner-cta { background: #fff; color: var(--teal); }
+      .dw-banner-dark .dw-banner-cta:hover { background: rgba(255,255,255,0.92); }
+      .dw-banner-art {
+        height: 100%; min-height: 240px;
+        display: grid; place-items: center;
+      }
+      .dw-hero-arrow {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        width: 44px; height: 44px; border-radius: 50%;
+        background: rgba(255,255,255,0.85); color: var(--n-ink);
+        border: none; cursor: pointer;
+        display: grid; place-items: center;
+        backdrop-filter: blur(8px);
+        transition: background .15s;
+      }
+      .dw-hero-arrow:hover { background: #fff; }
+      .dw-hero-prev { left: 16px; }
+      .dw-hero-next { right: 16px; }
+      .dw-banner-dark ~ .dw-hero-arrow,
+      .dw-hero:has(.dw-banner-dark.is-active) .dw-hero-arrow {
+        background: rgba(255,255,255,0.15); color: #fff;
+      }
+      .dw-hero-dots {
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        display: flex; gap: 8px;
+      }
+      .dw-hero-dots button {
+        width: 8px; height: 8px; border-radius: 999px;
+        background: rgba(0,0,0,0.2); border: none; cursor: pointer; padding: 0;
+        transition: width .3s, background .3s;
+      }
+      .dw-hero-dots button.is-active { width: 28px; background: var(--teal); }
+      .dw-hero:has(.dw-banner-dark.is-active) .dw-hero-dots button { background: rgba(255,255,255,0.4); }
+      .dw-hero:has(.dw-banner-dark.is-active) .dw-hero-dots button.is-active { background: #fff; }
+
+      /* ── Hero search (5fr / 7fr split) ─────── */
+      .dw-search-hero {
+        max-width: 1440px; margin: 0 auto;
+        padding: 56px 64px;
+      }
+      .dw-search-hero-inner {
+        display: grid; grid-template-columns: 5fr 7fr;
+        gap: 56px; align-items: center;
+      }
+      .dw-search-promise h2 {
+        margin: 0; font-size: 44px; font-weight: 700;
+        letter-spacing: -0.025em; color: var(--n-ink); line-height: 1.05;
+      }
+      .dw-search-promise p {
+        margin: 18px 0 0; font-size: 17px; color: var(--n-muted);
+        line-height: 1.5; max-width: 380px;
+      }
+      .dw-live-stack { margin-top: 36px; }
+      .dw-avatars { display: flex; align-items: center; }
+      .dw-stack-avatar {
+        width: 40px; height: 40px; border-radius: 50%;
+        margin-left: -12px;
+        border: 2px solid var(--n-cream);
+        background-color: var(--teal-softer);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 13px; font-weight: 700; color: var(--n-ink);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+      }
+      .dw-stack-avatar:first-child { margin-left: 0; }
+      .dw-stack-avatar-more {
+        background: var(--teal-softer); color: var(--teal);
+        font-size: 12px; letter-spacing: -0.02em;
+      }
+      .dw-live-row {
+        margin-top: 14px;
+        display: flex; align-items: center; gap: 10px;
+        font-size: 14px; color: #2A2D33;
+      }
+      .dw-live-row strong { color: var(--n-ink); font-weight: 700; }
+      .dw-live-pulse {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #22C55E; display: inline-block;
+        animation: dwLivePulse 1.6s ease-out infinite;
+      }
+      @keyframes dwLivePulse {
+        0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+        70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+        100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+      }
+
+      .dw-search-card {
+        background: #fff; border: 1px solid var(--n-line);
+        border-radius: 24px;
+        box-shadow: 0 2px 8px rgba(10,31,37,0.05);
+        overflow: hidden;
+      }
+      .dw-search-row {
+        display: flex; align-items: center; gap: 14px;
+        padding: 16px 20px;
+        color: var(--n-muted);
+      }
+      .dw-search-row-div { border-top: 1px solid var(--borderSoft, #EDEBE6); }
+      .dw-row-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      .dw-row-label {
+        font-size: 11px; color: var(--n-muted);
+        font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase;
+      }
+      .dw-search-row input,
+      .dw-search-row select {
+        border: none; outline: none; padding: 0; margin: 0;
+        font-family: inherit; font-size: 15px; font-weight: 600; color: var(--n-ink);
+        background: transparent; width: 100%; appearance: none;
+        cursor: pointer;
+      }
+      .dw-search-refine {
+        border-top: 1px solid #EDEBE6;
+        padding: 14px 20px;
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .dw-format-toggle {
+        display: inline-flex; align-self: flex-start;
+        border: 1px solid var(--n-line); border-radius: 16px;
+        background: #fff; overflow: hidden;
+      }
+      .dw-format-toggle button {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 16px; cursor: pointer; border: none;
+        background: transparent; color: #2A2D33;
+        font-family: inherit; font-weight: 600; font-size: 13px;
+        transition: background .15s, color .15s;
+      }
+      .dw-format-toggle button + button { border-left: 1px solid #EDEBE6; }
+      .dw-format-toggle button:hover:not(.is-active) { background: #EDEBE6; }
+      .dw-format-toggle button.is-active {
+        background: var(--teal-softer); color: var(--teal);
+      }
+      .dw-chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+      .dw-chip {
+        display: inline-flex; align-items: center;
+        padding: 7px 14px; border-radius: 999px;
+        background: #fff; border: 1px solid var(--n-line);
+        font-size: 13px; color: var(--n-ink); font-weight: 600;
+        cursor: pointer;
+      }
+      .dw-search-submit-wide {
+        margin: 16px; width: calc(100% - 32px); height: 56px; padding: 0 24px;
+        background: var(--teal); color: #fff; border: none;
+        border-radius: 16px;
+        font-family: inherit; font-weight: 600; font-size: 16px;
+        cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+        box-shadow: 0 2px 8px rgba(14,124,140,0.22);
+        transition: background .15s, transform .08s;
+      }
+      .dw-search-submit-wide:hover { background: var(--teal-hover); transform: translateY(-1px); }
+
+      /* ── Section heads ─────────────────────── */
+      .dw-section { max-width: 1440px; margin: 0 auto; padding: 48px 64px; }
+      .dw-section + .dw-section { padding-top: 0; }
+      .dw-search-hero + .dw-section { padding-top: 0; }
+      .dw-specs-section { border-top: 1px solid var(--borderSoft, #EDEBE6); }
+      .dw-section-head {
+        display: flex; justify-content: space-between; align-items: flex-end;
+        gap: 24px; margin-bottom: 32px;
+      }
+      .dw-section-head h2 {
+        margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
+      }
+      .dw-section-head p {
+        margin: 8px 0 0; font-size: 15px; color: var(--n-muted);
+      }
+      .dw-section-link {
+        display: inline-flex; align-items: center; gap: 6px;
+        color: var(--teal); font-size: 14px; font-weight: 600;
+        text-decoration: none;
+      }
+      .dw-section-link:hover { color: var(--teal-hover); }
+
+      /* ── Specialty grid ────────────────────── */
+      .dw-specs-grid {
+        display: grid; grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+      }
+      .dw-spec-card {
+        display: flex; flex-direction: column; gap: 12px;
+        padding: 24px;
+        border-radius: 18px;
+        text-decoration: none; color: var(--n-ink);
+        transition: transform .15s, box-shadow .2s;
+        min-height: 140px;
+      }
+      .dw-spec-card.is-large {
+        grid-column: span 2;
+        min-height: 200px;
+      }
+      .dw-spec-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(10,31,37,0.08);
+      }
+      .dw-spec-icon {
+        width: 56px; height: 56px; border-radius: 14px;
+        background: rgba(255,255,255,0.6);
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .dw-spec-card.is-large .dw-spec-icon { width: 64px; height: 64px; }
+      .dw-spec-name {
+        font-size: 16px; font-weight: 700; line-height: 1.2;
+        margin-top: auto;
+      }
+      .dw-spec-card.is-large .dw-spec-name { font-size: 22px; letter-spacing: -0.01em; }
+      .dw-spec-count { font-size: 12.5px; color: var(--n-muted); }
+
+      /* ── Services bento ────────────────────── */
+      .dw-services-bento {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 16px;
+        min-height: 380px;
+      }
+      .dw-service-card {
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 24px 26px; gap: 16px;
+        border-radius: 24px;
+        text-decoration: none; color: var(--n-ink);
+        position: relative; overflow: hidden;
+        transition: transform .15s, box-shadow .2s;
+      }
+      .dw-service-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(10,31,37,0.08);
+      }
+      .dw-service-hero {
+        grid-column: 1; grid-row: 1 / 3;
+        padding: 36px 36px 32px; gap: 32px;
+      }
+      .dw-service-icon { color: #0A1F25; }
+      .dw-service-body h3 {
+        margin: 0; font-size: 20px; font-weight: 700;
+        letter-spacing: -0.02em; line-height: 1.05;
+      }
+      .dw-service-hero .dw-service-body h3 { font-size: 32px; }
+      .dw-service-body p {
+        margin: 10px 0 18px;
+        font-size: 13px; color: #2A2D33; line-height: 1.5;
+      }
+      .dw-service-hero .dw-service-body p { font-size: 15px; max-width: 320px; }
+      .dw-service-meta {
+        display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      }
+      .dw-service-count {
+        font-size: 12px; color: var(--n-muted); font-weight: 500;
+      }
+      .dw-service-hero .dw-service-count { font-size: 13px; }
+      .dw-service-more {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 13px; font-weight: 600; color: var(--teal);
+      }
+      .dw-service-hero .dw-service-more { font-size: 14px; }
+
+      /* ── Tags (online / offline) ───────────── */
+      .dw-tag {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 6px 12px; border-radius: 999px;
+        font-size: 12px; font-weight: 700;
+        letter-spacing: 0.02em; text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+      .dw-tag-online {
+        background: var(--teal-softer); color: var(--teal);
+        border: 1px solid rgba(14,124,140,0.13);
+      }
+      .dw-tag-offline {
+        background: #F6EFE2; color: #7A5A2E;
+      }
+      .dw-live-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #FF4D4F; display: inline-block;
+        animation: dwLiveDotPulse 1.6s ease-out infinite;
+      }
+      @keyframes dwLiveDotPulse {
+        0% { box-shadow: 0 0 0 0 rgba(255,77,79,0.6); }
+        70% { box-shadow: 0 0 0 10px rgba(255,77,79,0); }
+        100% { box-shadow: 0 0 0 0 rgba(255,77,79,0); }
+      }
+      .dw-text-link {
+        font-size: 14px; color: var(--n-ink);
+        text-decoration: underline; text-underline-offset: 4px;
+        font-weight: 500; white-space: nowrap;
+      }
+
+      /* ── Online doctors (cream card + aurora) ─ */
+      .dw-online-section { max-width: 1440px; margin: 0 auto; padding: 32px 64px 16px; }
+      .dw-online-card {
+        position: relative; overflow: hidden;
+        background: #FAF6EE;
+        border-radius: 24px; padding: 40px 40px 44px;
+      }
+      .dw-aurora {
+        position: absolute; inset: 0; pointer-events: none;
+        border-radius: 24px; overflow: hidden;
+      }
+      .dw-aurora::before, .dw-aurora::after, .dw-aurora > span {
+        content: ""; position: absolute; border-radius: 50%;
+        filter: blur(60px); will-change: transform;
+      }
+      .dw-aurora::before {
+        width: 540px; height: 540px; background: #5FB4C3; opacity: 0.45;
+        top: -120px; left: -80px;
+        animation: dwDrift1 22s ease-in-out infinite alternate;
+      }
+      .dw-aurora::after {
+        width: 460px; height: 460px; background: #E8B96A; opacity: 0.45;
+        bottom: -160px; right: -60px;
+        animation: dwDrift2 26s ease-in-out infinite alternate;
+      }
+      .dw-aurora > span {
+        width: 380px; height: 380px; background: #B5DDC7; opacity: 0.35;
+        top: 30%; left: 40%;
+        animation: dwDrift3 30s ease-in-out infinite alternate;
+      }
+      @keyframes dwDrift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(140px,80px) scale(1.10); } }
+      @keyframes dwDrift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-180px,-60px) scale(0.95); } }
+      @keyframes dwDrift3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-120px,100px) scale(1.15); } }
+
+      .dw-online-head {
+        position: relative;
+        display: flex; justify-content: space-between; align-items: flex-end;
+        gap: 24px; margin-bottom: 28px;
+      }
+      .dw-online-head h2 {
+        margin: 0; font-size: 32px; font-weight: 700;
+        letter-spacing: -0.02em; color: var(--n-ink);
+      }
+      .dw-online-head p {
+        margin: 8px 0 0; font-size: 15px; color: var(--n-muted);
+      }
+      .dw-online-grid {
+        position: relative;
+        display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 16px;
+      }
+
+      /* ── Offline doctors ────────────────────── */
+      .dw-offline-section { max-width: 1440px; margin: 0 auto; padding: 32px 64px; }
+      .dw-offline-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+      }
+
+      /* ── Doctor card (shared) ───────────────── */
+      .dw-doctor {
+        background: #fff;
+        border: 1px solid var(--n-line);
+        border-radius: 18px;
+        padding: 20px;
+        display: flex; flex-direction: column; gap: 14px;
+        text-decoration: none; color: var(--n-ink);
+        transition: transform .15s, box-shadow .2s, border-color .15s;
+      }
+      .dw-doctor:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(10,31,37,0.08);
+        border-color: var(--teal);
+      }
+      .dw-doctor-head { display: flex; align-items: center; gap: 12px; }
+      .dw-doctor-avatar-wrap { position: relative; }
+      .dw-doctor-avatar {
+        width: 56px; height: 56px; border-radius: 28px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 16px; font-weight: 700; color: var(--n-ink);
+      }
+      .dw-doctor-online-dot {
+        position: absolute; right: -1px; bottom: -1px;
+        width: 14px; height: 14px; border-radius: 8px;
+        background: #22C55E; border: 2px solid #fff;
+      }
+      .dw-doctor-name {
+        display: block;
+        font-size: 15px; font-weight: 700; line-height: 1.2;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .dw-doctor-spec {
+        display: block;
+        font-size: 13px; color: var(--n-muted); margin-top: 4px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .dw-doctor-meta {
+        display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap;
+      }
+      .dw-doctor-rating {
+        display: inline-flex; align-items: center; gap: 4px; font-weight: 600;
+      }
+      .dw-doctor-muted { color: var(--n-muted); }
+      .dw-doctor-clinic {
+        font-size: 13px; color: var(--n-muted);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .dw-doctor-cta-row {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: auto;
+      }
+      .dw-doctor-price { font-size: 12px; color: var(--n-muted); }
+      .dw-doctor-price strong { color: var(--n-ink); font-size: 15px; font-weight: 800; margin-left: 4px; }
+      .dw-doctor-book {
+        padding: 9px 16px; border-radius: 999px;
+        background: var(--teal); color: #fff;
+        font-size: 13px; font-weight: 700;
+      }
+
+      /* ── App banner ─────────────────────────── */
+      .dw-app-section { max-width: 1440px; margin: 0 auto; padding: 32px 64px 56px; }
+      .dw-app-banner {
+        background: linear-gradient(120deg, #0A1F25 0%, var(--teal) 100%);
+        border-radius: 24px; padding: 56px 64px;
+        position: relative; overflow: hidden;
+        color: #fff;
+        display: grid; grid-template-columns: 1.4fr 1fr;
+        gap: 56px; align-items: center;
+        min-height: 320px;
+      }
+      .dw-app-glow {
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(60% 80% at 90% 50%, rgba(255,255,255,0.18), transparent 60%);
+      }
+      .dw-app-content { position: relative; z-index: 1; }
+      .dw-app-tag {
+        display: inline-block; padding: 6px 14px; border-radius: 999px;
+        background: rgba(255,255,255,0.18); color: #fff;
+        font-size: 12px; font-weight: 700;
+        letter-spacing: 0.02em; text-transform: uppercase;
+      }
+      .dw-app-title {
+        margin: 20px 0 14px;
+        font-size: 44px; line-height: 1.05; letter-spacing: -0.03em;
+        font-weight: 700; color: #fff;
+      }
+      .dw-app-desc {
+        margin: 0; font-size: 16px; line-height: 1.5;
+        color: rgba(255,255,255,0.8); max-width: 460px;
+      }
+      .dw-app-buttons { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+      .dw-store-btn {
+        display: inline-flex; align-items: center; gap: 12px;
+        padding: 12px 20px;
+        background: #000; color: #fff;
+        border-radius: 16px; text-decoration: none;
+        min-width: 180px;
+        transition: transform .12s;
+      }
+      .dw-store-btn:hover { transform: translateY(-1px); }
+      .dw-store-btn span { display: flex; flex-direction: column; line-height: 1.1; }
+      .dw-store-small { font-size: 11px; opacity: 0.8; }
+      .dw-store-big { font-size: 17px; font-weight: 600; }
+      .dw-app-art { position: relative; z-index: 1; }
+
+      /* ── Desktop footer ─────────────────────── */
+      .dw-footer {
+        background: #0A1F25; color: rgba(255,255,255,0.7);
+        padding: 64px 0 32px;
+      }
+      .dw-footer-inner { max-width: 1440px; margin: 0 auto; padding: 0 64px; }
+      .dw-footer-grid {
+        display: grid; grid-template-columns: 1.5fr repeat(4, 1fr);
+        gap: 48px;
+      }
+      .dw-footer-brand p {
+        font-size: 13px; line-height: 1.6; margin: 16px 0 0; max-width: 280px;
+      }
+      .dw-footer-col { display: flex; flex-direction: column; gap: 10px; }
+      .dw-footer-title {
+        color: #fff; font-size: 13px; font-weight: 600; margin-bottom: 6px;
+      }
+      .dw-footer-col a {
+        font-size: 13px; color: rgba(255,255,255,0.7);
+        text-decoration: none; transition: color .15s;
+      }
+      .dw-footer-col a:hover { color: #fff; }
+      .dw-footer-bottom {
+        border-top: 1px solid rgba(255,255,255,0.1);
+        margin-top: 48px; padding-top: 24px;
+        display: flex; justify-content: space-between;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 1023.98px) {
+      .dw-page { display: none !important; }
+    }
+  </style>
+
+  <script>
+    // ── Hero carousel auto-rotate + dots ─────────────────
+    (() => {
+      const root = document.getElementById("mw-hero");
+      if (!root) return;
+      const slides = root.querySelectorAll<HTMLElement>(".mw-banner");
+      const dots = root.querySelectorAll<HTMLButtonElement>("#mw-hero-dots button");
+      if (!slides.length) return;
+      let idx = 0;
+      let timer: ReturnType<typeof setInterval> | null = null;
+
+      const show = (next: number) => {
+        slides[idx]?.classList.remove("is-active");
+        dots[idx]?.classList.remove("is-active");
+        idx = (next + slides.length) % slides.length;
+        slides[idx]?.classList.add("is-active");
+        dots[idx]?.classList.add("is-active");
+      };
+      const start = () => {
+        timer = setInterval(() => show(idx + 1), 5500);
+      };
+      const stop = () => {
+        if (timer) clearInterval(timer);
+        timer = null;
+      };
+
+      dots.forEach((dot, k) => {
+        dot.addEventListener("click", () => {
+          stop();
+          show(k);
+          start();
+        });
+      });
+
+      start();
+
+      // touch swipe
+      let startX: number | null = null;
+      root.addEventListener("touchstart", (e) => {
+        startX = e.touches[0]?.clientX ?? null;
+        stop();
+      }, { passive: true });
+      root.addEventListener("touchend", (e) => {
+        if (startX === null) return;
+        const dx = (e.changedTouches[0]?.clientX ?? 0) - startX;
+        if (Math.abs(dx) > 40) show(idx + (dx < 0 ? 1 : -1));
+        startX = null;
+        start();
+      });
+    })();
+
+    // ── Sticky bg blur on scroll ─────────────────────────
+    (() => {
+      const topbar = document.getElementById("mw-topbar");
+      const stickySearch = document.getElementById("mw-sticky-search");
+      const onScroll = () => {
+        const y = window.scrollY;
+        topbar?.classList.toggle("is-scrolled", y > 8);
+        stickySearch?.classList.toggle("is-scrolled", y > 240);
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    })();
+
+    // ── Desktop hero carousel ────────────────────────────
+    (() => {
+      const root = document.getElementById("dw-hero");
+      if (!root) return;
+      const slides = root.querySelectorAll<HTMLElement>(".dw-banner");
+      const dots = root.querySelectorAll<HTMLButtonElement>("#dw-hero-dots button");
+      const prev = root.querySelector<HTMLButtonElement>(".dw-hero-prev");
+      const next = root.querySelector<HTMLButtonElement>(".dw-hero-next");
+      if (!slides.length) return;
+      let idx = 0;
+      let timer: ReturnType<typeof setInterval> | null = null;
+
+      const show = (n: number) => {
+        slides[idx]?.classList.remove("is-active");
+        dots[idx]?.classList.remove("is-active");
+        idx = (n + slides.length) % slides.length;
+        slides[idx]?.classList.add("is-active");
+        dots[idx]?.classList.add("is-active");
+      };
+      const start = () => {
+        timer = setInterval(() => show(idx + 1), 5000);
+      };
+      const stop = () => {
+        if (timer) clearInterval(timer);
+        timer = null;
+      };
+
+      dots.forEach((dot, k) => {
+        dot.addEventListener("click", () => { stop(); show(k); start(); });
+      });
+      prev?.addEventListener("click", () => { stop(); show(idx - 1); start(); });
+      next?.addEventListener("click", () => { stop(); show(idx + 1); start(); });
+
+      start();
+    })();
+  </script>
+
+  <LoginModal />
+</BaseLayout>

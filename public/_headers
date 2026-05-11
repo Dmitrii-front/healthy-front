@@ -1,0 +1,28 @@
+# Content-hashed Astro/Vite chunks. The filename embeds a hash of the
+# contents, so the file is effectively immutable between deploys.
+# Tells the browser to cache for a year and skip revalidation entirely —
+# this is what makes the prefetch warm-up in BaseLayout actually pay off
+# on the next navigation (otherwise CF's default `max-age=0,
+# must-revalidate` forces a round-trip every time).
+#
+# Override Vary to drop "Origin" (CF Workers Assets adds it by default
+# for CORS). Without this override, the prefetch fetch() — which sends
+# an Origin request header — and the subsequent top-level navigation —
+# which does NOT — produce two separate cache entries, so the warmed
+# entry is never reused.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+  Vary: Accept-Encoding
+
+# Plain static assets shipped from /public — fonts, images, icons.
+# Not fingerprinted, so use a shorter window with stale-while-revalidate.
+/*.svg
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/*.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/*.jpg
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/*.webp
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/*.woff2
+  Cache-Control: public, max-age=2592000, immutable

@@ -1,0 +1,92 @@
+---
+import "@/styles/globals.css";
+import "../styles/modals.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  ogImage?: string;
+}
+
+const {
+  title = "Healthy — запись к врачу онлайн",
+  description = "Запись к проверенным врачам в Бишкеке и Алматы. Кардиологи, терапевты, педиатры и другие специалисты.",
+  canonical,
+  ogImage = "/og-default.jpg",
+} = Astro.props;
+
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site).toString();
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf7f0" />
+    <meta name="view-transition" content="same-origin" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    {/* TODO(launch): remove this line when the site is ready to be indexed.
+        Paired with the unconditional Disallow: / in web/pages/robots.txt.ts —
+        revert both together. */}
+    <meta name="robots" content="noindex, nofollow" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="ru_RU" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    {/* Low-priority SPA warm-up. After the SEO page loads, warms the HTTP
+        cache for the /app/ shell and every chunk it depends on. The URL
+        list is computed at build time by the hm-prefetch-list Astro
+        integration, which scans dist/client/_astro/ and substitutes the
+        JSON array in place of __HM_PREFETCH_LIST__ below. At runtime we
+        just fire fetch() at each URL in parallel.
+
+        Why fetch() rather than <link rel="prefetch">: Safari does not
+        honor rel="prefetch", so a uniform fetch()-based approach is the
+        only way to warm Safari's HTTP cache. fetch(url, { priority: "low" })
+        tells the browser these requests are background work — modern
+        engines (Chrome, Safari 17+, Firefox 132+) deprioritize them in
+        the connection queue behind anything the page actually needs to
+        render. No need for requestIdleCallback on top of that.
+
+        In dev (no build step) the placeholder is left as-is and the
+        runtime check below treats it as an empty list — script is a no-op. */}
+    <script is:inline>
+      addEventListener("load", function () {
+        var urls = "__HM_PREFETCH_LIST__";
+        if (!Array.isArray(urls)) return;
+        for (var i = 0; i < urls.length; i++) {
+          // mode: "no-cors" prevents the browser from sending an Origin
+          // request header. The subsequent <script type=module> load and
+          // top-level navigation (for /app/) also do not send Origin, so
+          // the cache key matches and the warmed entry is reused. Without
+          // this, Vary: Origin (which CF Workers Assets adds by default)
+          // would split the cache into two unrelated entries.
+          fetch(urls[i], { priority: "low", mode: "no-cors" }).catch(function () {});
+        }
+      });
+    </script>
+  </head>
+  <body class="bg-warm-paper text-graphite">
+    <slot />
+  </body>
+</html>
