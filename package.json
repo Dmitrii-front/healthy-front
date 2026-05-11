@@ -52,7 +52,8 @@
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.2.0",
     "typescript": "^5.8",
-    "vite": "^7.3.3"
+    "vite": "^7.3.3",
+    "wrangler": "^4.90.0"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged && pnpm exec oxlint --type-aware && pnpm exec tsc -b --noEmit"

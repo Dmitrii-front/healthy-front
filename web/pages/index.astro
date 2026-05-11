@@ -25,51 +25,42 @@ const N = {
 // ── Hero banners (from design) ─────────────────────────────
 const BANNERS = [
   {
-    tag: "Чек-ап со скидкой 30%",
-    title: "Полный чек-ап организма за 6 900 ₽",
-    desc: "Кровь, моча, ЭКГ, УЗИ + консультация терапевта. Готово за 1 день.",
-    cta: "Записаться на чек-ап",
+    tag: "Запись к врачу",
+    title: "Доктор рядом, когда нужен",
+    desc: "Найдите специалиста, выберите слот и подтвердите визит — без звонков и ожидания на линии.",
+    cta: "Найти врача",
     bg: "linear-gradient(135deg, #DCEEF1 0%, #EEF6F8 60%, #F1E8E0 100%)",
     dark: false,
-    art: "lab",
+    art: "family",
   },
   {
-    tag: "Новое",
-    title: "Онлайн-консультации — 24/7",
-    desc: "Терапевт, педиатр, психолог по видео. Подключение за 5 минут, без очередей.",
-    cta: "Подключить онлайн-врача",
+    tag: "Видеоконсультация",
+    title: "Онлайн-приём за 5 минут",
+    desc: "Терапевт, педиатр, психолог по видео. Подключение из приложения, без очередей.",
+    cta: "Подключить врача",
     bg: "linear-gradient(135deg, #0A1F25 0%, #0E7C8C 100%)",
     dark: true,
     art: "video",
   },
   {
-    tag: "Семейная программа",
-    title: "Здоровье всей семьи — 20% выгоднее",
-    desc: "Безлимит на консультации педиатра и терапевта на год. До 4 человек.",
-    cta: "Узнать о программе",
+    tag: "Каталог специалистов",
+    title: "2 800+ врачей в одном приложении",
+    desc: "Все клиники Бишкека: проверенные специалисты, прозрачные отзывы, реальные слоты.",
+    cta: "Смотреть всех",
     bg: "linear-gradient(135deg, #F6EFE2 0%, #EFE4D0 60%, #DCEEF1 100%)",
     dark: false,
     art: "family",
   },
   {
-    tag: "Только до конца месяца",
-    title: "Стоматология — 15% на первый визит",
-    desc: "Лечение, имплантация, отбеливание. 528 врачей, рейтинг 4.9.",
-    cta: "Найти стоматолога",
+    tag: "В одном месте",
+    title: "История визитов и медкарта",
+    desc: "Прошлые приёмы, назначения и анализы всегда под рукой — для вас и всей семьи.",
+    cta: "Открыть медкарту",
     bg: "linear-gradient(135deg, #EEF6F8 0%, #DCEEF1 100%)",
     dark: false,
     art: "tooth",
   },
 ] as const;
-
-const QUICK_CHIPS = [
-  { label: "Онлайн сейчас", live: true, href: "/search" },
-  { label: "Сегодня", href: "/search" },
-  { label: "Рядом 2 км", href: "/search" },
-  { label: "Детский врач", href: "/specialty/family-medicine" },
-  { label: "Дом", href: "/search" },
-  { label: "Высокий рейтинг", href: "/search" },
-];
 
 const SERVICES = [
   {
@@ -166,11 +157,50 @@ const SERVICE_GLYPHS: Record<string, string[]> = {
   ],
 };
 
-// Pick "online" doctors heuristically — first 4 with highest ratingCount
+// Top-10 doctors by review count for the online carousel; first 10 for the
+// in-clinic carousel (mocks only have 12 entries, so both pools overlap).
 const onlineDoctors = [...DOCTOR_MOCKS]
   .sort((a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0))
-  .slice(0, 4);
-const nearbyDoctors = DOCTOR_MOCKS.slice(0, 6);
+  .slice(0, 10);
+const nearbyDoctors = DOCTOR_MOCKS.slice(0, 10);
+
+// Fake portraits keyed by doctor id, gender-matched to first name.
+// Sourced from randomuser.me (stable mirrored stock photos).
+// Russian plural for the noun "врач" — 1 врач, 2–4 врача, 5+ врачей.
+function pluralizeDoctor(n: number): string {
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  if (mod100 >= 11 && mod100 <= 14) return "врачей";
+  if (mod10 === 1) return "врач";
+  if (mod10 >= 2 && mod10 <= 4) return "врача";
+  return "врачей";
+}
+
+const DOCTOR_PHOTOS: Record<string, string> = {
+  d1: "https://randomuser.me/api/portraits/men/22.jpg",
+  d2: "https://randomuser.me/api/portraits/men/41.jpg",
+  d3: "https://randomuser.me/api/portraits/women/45.jpg",
+  d4: "https://randomuser.me/api/portraits/men/67.jpg",
+  d5: "https://randomuser.me/api/portraits/women/68.jpg",
+  d6: "https://randomuser.me/api/portraits/men/55.jpg",
+  d7: "https://randomuser.me/api/portraits/women/52.jpg",
+  d8: "https://randomuser.me/api/portraits/men/85.jpg",
+  d9: "https://randomuser.me/api/portraits/men/14.jpg",
+  d10: "https://randomuser.me/api/portraits/men/36.jpg",
+  d11: "https://randomuser.me/api/portraits/women/65.jpg",
+  d12: "https://randomuser.me/api/portraits/men/72.jpg",
+};
+
+// Fake female doctor portraits for the live availability avatar stack.
+// Sourced from randomuser.me (stable mirrored stock photos).
+const nearbyAvatars = [
+  "https://randomuser.me/api/portraits/women/44.jpg",
+  "https://randomuser.me/api/portraits/women/68.jpg",
+  "https://randomuser.me/api/portraits/women/12.jpg",
+  "https://randomuser.me/api/portraits/women/79.jpg",
+  "https://randomuser.me/api/portraits/women/33.jpg",
+  "https://randomuser.me/api/portraits/women/90.jpg",
+];
 
 const orgJsonLd = {
   "@context": "https://schema.org",
@@ -211,77 +241,101 @@ const websiteJsonLd = {
         <span class="mw-logo-mark">H</span>
         <span class="mw-logo-text">Healthy</span>
       </div>
-      <button type="button" class="mw-city-pill tap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z" />
-          <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" />
-        </svg>
-        Бишкек
-      </button>
       <div class="mw-spacer" />
       <div class="mw-cta-slot"><LoginButton /></div>
     </header>
 
-    {/* ── HERO CAROUSEL ─────────────────────── */}
+    {/* ── HERO CAROUSEL (pure CSS auto-rotate) ─ */}
     <section class="mw-hero-wrap">
-      <div class="mw-hero" id="mw-hero">
-        {BANNERS.map((b, i) => (
-          <article
-            class={`mw-banner${b.dark ? " mw-banner-dark" : ""}${i === 0 ? " is-active" : ""}`}
-            style={`background:${b.bg}`}
-            data-idx={i}
-          >
-            <div class="mw-banner-art" set:html={
-              b.art === "video"
-                ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.7" opacity="0.5"><rect x="40" y="60" width="100" height="70" rx="8"/><path d="M140 80l30-15v60l-30-15z"/><circle cx="90" cy="95" r="12"/><path d="M70 130c0-11 9-20 20-20s20 9 20 20"/></svg>'
-                : b.art === "family"
-                ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><circle cx="70" cy="80" r="14"/><path d="M50 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="130" cy="80" r="14"/><path d="M110 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="100" cy="140" r="9"/><path d="M88 165c0-7 5-12 12-12s12 5 12 12"/></svg>'
-                : b.art === "tooth"
-                ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M70 60c-10 0-18 9-18 22 0 18 8 28 12 50 2 14 6 28 12 28s8-14 12-22 6-12 12-12 8 4 12 12 6 22 12 22 10-14 12-28c4-22 12-32 12-50 0-13-8-22-18-22-12 0-16 8-30 8s-18-8-30-8z"/></svg>'
-                : '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M80 50v40l-25 50c-3 7 2 14 9 14h72c7 0 12-7 9-14l-25-50V50"/><path d="M80 50h40"/><circle cx="100" cy="140" r="5"/><circle cx="85" cy="125" r="3"/><circle cx="115" cy="130" r="4"/></svg>'
-            } />
-            <span class="mw-banner-tag">{b.tag}</span>
-            <h1 class="mw-banner-title">{b.title}</h1>
-            <p class="mw-banner-desc">{b.desc}</p>
-            <a href="/search" class="mw-banner-cta tap">
-              {b.cta}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
-            </a>
-          </article>
-        ))}
-        <div class="mw-banner-dots" id="mw-hero-dots">
-          {BANNERS.map((_, k) => (
-            <button type="button" data-idx={k} class={k === 0 ? "is-active" : ""} aria-label={`Слайд ${k + 1}`} />
+      <div class="mw-hero">
+        <div class="mw-hero-track">
+          {BANNERS.map((b) => (
+            <article
+              class={`mw-banner${b.dark ? " mw-banner-dark" : ""}`}
+              style={`background:${b.bg}`}
+            >
+              <div class="mw-banner-art" set:html={
+                b.art === "video"
+                  ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.7" opacity="0.5"><rect x="40" y="60" width="100" height="70" rx="8"/><path d="M140 80l30-15v60l-30-15z"/><circle cx="90" cy="95" r="12"/><path d="M70 130c0-11 9-20 20-20s20 9 20 20"/></svg>'
+                  : b.art === "family"
+                  ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><circle cx="70" cy="80" r="14"/><path d="M50 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="130" cy="80" r="14"/><path d="M110 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="100" cy="140" r="9"/><path d="M88 165c0-7 5-12 12-12s12 5 12 12"/></svg>'
+                  : b.art === "tooth"
+                  ? '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M70 60c-10 0-18 9-18 22 0 18 8 28 12 50 2 14 6 28 12 28s8-14 12-22 6-12 12-12 8 4 12 12 6 22 12 22 10-14 12-28c4-22 12-32 12-50 0-13-8-22-18-22-12 0-16 8-30 8s-18-8-30-8z"/></svg>'
+                  : '<svg viewBox="0 0 200 200" width="170" height="170" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M80 50v40l-25 50c-3 7 2 14 9 14h72c7 0 12-7 9-14l-25-50V50"/><path d="M80 50h40"/><circle cx="100" cy="140" r="5"/><circle cx="85" cy="125" r="3"/><circle cx="115" cy="130" r="4"/></svg>'
+              } />
+              <span class="mw-banner-tag">{b.tag}</span>
+              <h2 class="mw-banner-title">{b.title}</h2>
+              <p class="mw-banner-desc">{b.desc}</p>
+              <a href="/search" class="mw-banner-cta tap">
+                {b.cta}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+              </a>
+            </article>
           ))}
+        </div>
+        <div class="mw-banner-dots" aria-hidden="true">
+          {BANNERS.map(() => <span class="mw-banner-dot" />)}
         </div>
       </div>
     </section>
 
     {/* ── SEARCH + CHIPS ───────────────────── */}
     <div class="mw-sticky-search" id="mw-sticky-search">
+      <input type="checkbox" id="mw-filters-toggle" class="mw-sr-only" />
       <form class="mw-search-row" action="/search" method="get" role="search">
         <label class="mw-search-input">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/><path d="m21 21-4.3-4.3"/></svg>
           <input name="q" type="search" placeholder="Врач, специальность, клиника" autocomplete="off" />
         </label>
-        <button type="button" class="mw-search-filter tap" aria-label="Фильтры">
+        <label class="mw-search-filter tap" for="mw-filters-toggle" aria-label="Фильтры">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>
-        </button>
+        </label>
       </form>
-      <div class="mw-chips hide-sb">
-        {QUICK_CHIPS.map((c, k) => (
-          <a href={c.href} class={`mw-chip tap${k === 0 ? " is-active" : ""}`}>
-            {c.live && <span class={`mw-chip-dot${k === 0 ? " pulse-dot" : ""}`} />}
-            {c.label}
-          </a>
-        ))}
+      <div class="mw-filters hide-sb">
+        <div class="mw-format-toggle" role="tablist">
+          <input type="radio" name="mw-fmt" id="mw-fmt-all" class="mw-sr-only" checked />
+          <label for="mw-fmt-all" class="mw-fmt-pill">Все</label>
+          <input type="radio" name="mw-fmt" id="mw-fmt-online" class="mw-sr-only" />
+          <label for="mw-fmt-online" class="mw-fmt-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
+            Онлайн
+          </label>
+          <input type="radio" name="mw-fmt" id="mw-fmt-offline" class="mw-sr-only" />
+          <label for="mw-fmt-offline" class="mw-fmt-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+            В клинике
+          </label>
+        </div>
+        <label class="mw-filter-chip">
+          <select name="district">
+            <option>Все районы</option>
+            <option>Свердловский</option>
+            <option>Ленинский</option>
+            <option>Первомайский</option>
+            <option>Октябрьский</option>
+          </select>
+        </label>
+        <label class="mw-filter-chip">
+          <select name="clinic">
+            <option>Все клиники</option>
+            <option>Медцентр «На Набережной»</option>
+            <option>Семейный центр «Северный»</option>
+            <option>Клиника «Дерматолог Плюс»</option>
+            <option>Травмцентр «Опора»</option>
+            <option>Кардиоцентр «Пульс»</option>
+            <option>Нейроцентр «Аксон»</option>
+            <option>Клиника «ЖКТ-Центр»</option>
+            <option>Клиника «Окулюс»</option>
+            <option>Стоматология «Жемчуг»</option>
+          </select>
+        </label>
       </div>
     </div>
 
     {/* ── SPECIALTY GRID ──────────────────── */}
     <section class="mw-section">
       <div class="mw-section-head">
-        <h2>Что вас беспокоит?</h2>
+        <h2>Популярные специальности</h2>
         <a href="/search" class="mw-section-link">
           Все
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
@@ -312,7 +366,7 @@ const websiteJsonLd = {
     {/* ── ONLINE DOCTORS RAIL ─────────────── */}
     <section class="mw-section">
       <div class="mw-section-head">
-        <h2>Онлайн сейчас</h2>
+        <h2>Онлайн-консультации</h2>
         <a href="/search" class="mw-section-link">
           Все врачи
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
@@ -323,7 +377,15 @@ const websiteJsonLd = {
           <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
             <div class="mw-doctor-head">
               <div class="mw-avatar-wrap">
-                <span class="mw-avatar" style={`background:${d.color}`}>{d.initials}</span>
+                <img
+                  class="mw-avatar mw-avatar-img"
+                  src={DOCTOR_PHOTOS[d.id]}
+                  alt={d.name}
+                  loading="lazy"
+                  decoding="async"
+                  width="44"
+                  height="44"
+                />
                 <span class="mw-avatar-online" />
               </div>
               <div class="mw-doctor-titles">
@@ -341,10 +403,57 @@ const websiteJsonLd = {
             </div>
             <div class="mw-doctor-slot mw-doctor-slot-online">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
-              Видео — сегодня
+              Видео — через 15 мин
             </div>
             <div class="mw-doctor-cta-row">
               <span class="mw-doctor-price">от <strong>2 200 ₽</strong></span>
+              <span class="mw-book-btn">Записаться</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    {/* ── NEARBY DOCTORS RAIL ─────────────── */}
+    <section class="mw-section">
+      <div class="mw-section-head">
+        <h2>По записи в клинику</h2>
+        <a href="/search" class="mw-section-link">
+          На карте
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="mw-rail hide-sb">
+        {nearbyDoctors.map((d) => (
+          <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
+            <div class="mw-doctor-head">
+              <img
+                class="mw-avatar mw-avatar-img"
+                src={DOCTOR_PHOTOS[d.id]}
+                alt={d.name}
+                loading="lazy"
+                decoding="async"
+                width="44"
+                height="44"
+              />
+              <div class="mw-doctor-titles">
+                <span class="mw-doctor-name">{d.name.split(" ").slice(0, 2).join(" ")}</span>
+                <span class="mw-doctor-spec">{d.specialty}</span>
+              </div>
+            </div>
+            <div class="mw-doctor-meta">
+              <span class="mw-rating">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                {d.rating?.toFixed(1) ?? "—"}
+              </span>
+              <span class="mw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+            </div>
+            <div class="mw-doctor-slot">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+              {d.clinic}
+            </div>
+            <div class="mw-doctor-cta-row">
+              <span class="mw-doctor-price">от <strong>3 500 ₽</strong></span>
               <span class="mw-book-btn">Записаться</span>
             </div>
           </a>
@@ -376,72 +485,35 @@ const websiteJsonLd = {
       </div>
     </section>
 
-    {/* ── TRUST STRIP ─────────────────────── */}
-    <section class="mw-trust">
-      <span class="mw-trust-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/>
-          <path d="M9 12l2 2 4-4"/>
-        </svg>
-      </span>
-      <div class="mw-trust-body">
-        <div class="mw-trust-title">Только проверенные врачи</div>
-        <div class="mw-trust-desc">Дипломы, лицензии и отзывы пациентов проверены вручную.</div>
-      </div>
-    </section>
-
-    {/* ── NEARBY DOCTORS RAIL ─────────────── */}
-    <section class="mw-section">
-      <div class="mw-section-head">
-        <h2>Рядом с вами</h2>
-        <a href="/search" class="mw-section-link">
-          На карте
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-        </a>
-      </div>
-      <div class="mw-rail hide-sb">
-        {nearbyDoctors.map((d) => (
-          <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
-            <div class="mw-doctor-head">
-              <span class="mw-avatar" style={`background:${d.color}`}>{d.initials}</span>
-              <div class="mw-doctor-titles">
-                <span class="mw-doctor-name">{d.name.split(" ").slice(0, 2).join(" ")}</span>
-                <span class="mw-doctor-spec">{d.specialty}</span>
-              </div>
-            </div>
-            <div class="mw-doctor-meta">
-              <span class="mw-rating">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                {d.rating?.toFixed(1) ?? "—"}
-              </span>
-              <span class="mw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-            </div>
-            <div class="mw-doctor-slot">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-              {d.clinic}
-            </div>
-            <div class="mw-doctor-cta-row">
-              <span class="mw-doctor-price">от <strong>3 500 ₽</strong></span>
-              <span class="mw-book-btn">Записаться</span>
-            </div>
-          </a>
-        ))}
-      </div>
-    </section>
-
     {/* ── FOOTER ──────────────────────────── */}
     <footer class="mw-footer">
       <div class="mw-logo" style="margin-bottom:16px">
         <span class="mw-logo-mark">H</span>
         <span class="mw-logo-text">Healthy</span>
       </div>
-      <nav class="mw-footer-links">
-        <a href="/search">О сервисе</a>
-        <a href="/search">Помощь</a>
-        <a href="/search">Контакты</a>
-        <a href="/search">Стать партнёром</a>
-        <a href="/app/sign-in">Войти</a>
-      </nav>
+      <div class="mw-footer-cols">
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Пациентам</div>
+          <a href="/search">Найти врача</a>
+          <a href="/search">Лаборатории</a>
+          <a href="/search">Аптеки</a>
+        </div>
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Врачам</div>
+          <a href="#">Личный кабинет</a>
+        </div>
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Компания</div>
+          <a href="#">О нас</a>
+          <a href="#">Контакты</a>
+        </div>
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Поддержка</div>
+          <a href="#">Помощь</a>
+          <a href="#">Условия</a>
+          <a href="#">Политика</a>
+        </div>
+      </div>
       <div class="mw-footer-fine">
         <div>© 2026 Healthy. Сервис записи к врачам.</div>
         <div>Лицензия № ЛО-77-01-019384</div>
@@ -470,54 +542,43 @@ const websiteJsonLd = {
           </nav>
         </div>
         <div class="dw-header-right">
-          <a href="#" class="dw-city">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-            Бишкек
-          </a>
           <div class="dw-auth-slot"><LoginButton /></div>
         </div>
       </div>
     </header>
 
-    {/* ── HERO CAROUSEL ─────────────────────────── */}
+    {/* ── HERO CAROUSEL (pure CSS auto-rotate) ─── */}
     <section class="dw-hero-section">
-      <div class="dw-hero" id="dw-hero">
-        {BANNERS.map((b, i) => (
-          <article
-            class={`dw-banner${b.dark ? " dw-banner-dark" : ""}${i === 0 ? " is-active" : ""}`}
-            style={`background:${b.bg}`}
-            data-idx={i}
-          >
-            <div class="dw-banner-text">
-              <span class="dw-banner-tag">{b.tag}</span>
-              <h2 class="dw-banner-title">{b.title}</h2>
-              <p class="dw-banner-desc">{b.desc}</p>
-              <a href="/search" class="dw-banner-cta">
-                {b.cta}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
-              </a>
-            </div>
-            <div class="dw-banner-art" set:html={
-              b.art === "video"
-                ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.7" opacity="0.5"><rect x="40" y="60" width="100" height="70" rx="8"/><path d="M140 80l30-15v60l-30-15z"/><circle cx="90" cy="95" r="12"/><path d="M70 130c0-11 9-20 20-20s20 9 20 20"/></svg>'
-                : b.art === "family"
-                ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><circle cx="70" cy="80" r="14"/><path d="M50 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="130" cy="80" r="14"/><path d="M110 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="100" cy="140" r="9"/><path d="M88 165c0-7 5-12 12-12s12 5 12 12"/></svg>'
-                : b.art === "tooth"
-                ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M70 60c-10 0-18 9-18 22 0 18 8 28 12 50 2 14 6 28 12 28s8-14 12-22 6-12 12-12 8 4 12 12 6 22 12 22 10-14 12-28c4-22 12-32 12-50 0-13-8-22-18-22-12 0-16 8-30 8s-18-8-30-8z"/></svg>'
-                : '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M80 50v40l-25 50c-3 7 2 14 9 14h72c7 0 12-7 9-14l-25-50V50"/><path d="M80 50h40"/><circle cx="100" cy="140" r="5"/><circle cx="85" cy="125" r="3"/><circle cx="115" cy="130" r="4"/></svg>'
-            } />
-          </article>
-        ))}
-        <button type="button" class="dw-hero-arrow dw-hero-prev" aria-label="Предыдущий слайд">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>
-        </button>
-        <button type="button" class="dw-hero-arrow dw-hero-next" aria-label="Следующий слайд">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-        </button>
-        <div class="dw-hero-dots" id="dw-hero-dots">
-          {BANNERS.map((_, k) => (
-            <button type="button" data-idx={k} class={k === 0 ? "is-active" : ""} aria-label={`Слайд ${k + 1}`} />
+      <div class="dw-hero">
+        <div class="dw-hero-track">
+          {BANNERS.map((b) => (
+            <article
+              class={`dw-banner${b.dark ? " dw-banner-dark" : ""}`}
+              style={`background:${b.bg}`}
+            >
+              <div class="dw-banner-text">
+                <span class="dw-banner-tag">{b.tag}</span>
+                <h2 class="dw-banner-title">{b.title}</h2>
+                <p class="dw-banner-desc">{b.desc}</p>
+                <a href="/search" class="dw-banner-cta">
+                  {b.cta}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+                </a>
+              </div>
+              <div class="dw-banner-art" set:html={
+                b.art === "video"
+                  ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.7" opacity="0.5"><rect x="40" y="60" width="100" height="70" rx="8"/><path d="M140 80l30-15v60l-30-15z"/><circle cx="90" cy="95" r="12"/><path d="M70 130c0-11 9-20 20-20s20 9 20 20"/></svg>'
+                  : b.art === "family"
+                  ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><circle cx="70" cy="80" r="14"/><path d="M50 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="130" cy="80" r="14"/><path d="M110 130c0-11 9-20 20-20s20 9 20 20"/><circle cx="100" cy="140" r="9"/><path d="M88 165c0-7 5-12 12-12s12 5 12 12"/></svg>'
+                  : b.art === "tooth"
+                  ? '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M70 60c-10 0-18 9-18 22 0 18 8 28 12 50 2 14 6 28 12 28s8-14 12-22 6-12 12-12 8 4 12 12 6 22 12 22 10-14 12-28c4-22 12-32 12-50 0-13-8-22-18-22-12 0-16 8-30 8s-18-8-30-8z"/></svg>'
+                  : '<svg viewBox="0 0 200 200" width="280" height="280" fill="none" stroke="#0E7C8C" stroke-width="0.7" opacity="0.5"><path d="M80 50v40l-25 50c-3 7 2 14 9 14h72c7 0 12-7 9-14l-25-50V50"/><path d="M80 50h40"/><circle cx="100" cy="140" r="5"/><circle cx="85" cy="125" r="3"/><circle cx="115" cy="130" r="4"/></svg>'
+              } />
+            </article>
           ))}
+        </div>
+        <div class="dw-hero-dots" aria-hidden="true">
+          {BANNERS.map(() => <span class="dw-hero-dot" />)}
         </div>
       </div>
     </section>
@@ -531,14 +592,17 @@ const websiteJsonLd = {
           <p>Более 2 000 проверенных специалистов. Онлайн-консультации и приём в клиниках по всему городу.</p>
           <div class="dw-live-stack">
             <div class="dw-avatars">
-              {nearbyDoctors.slice(0, 6).map((d) => (
-                <span
-                  class="dw-stack-avatar"
-                  style={`background:${d.color};color:${N.ink}`}
+              {nearbyDoctors.slice(0, 6).map((d, i) => (
+                <img
+                  class="dw-stack-avatar dw-stack-avatar-img"
+                  src={nearbyAvatars[i]}
+                  alt={d.name}
                   title={d.name}
-                >
-                  {d.initials}
-                </span>
+                  loading="lazy"
+                  decoding="async"
+                  width="40"
+                  height="40"
+                />
               ))}
               <span class="dw-stack-avatar dw-stack-avatar-more">+192</span>
             </div>
@@ -571,17 +635,14 @@ const websiteJsonLd = {
                 </select>
               </span>
             </label>
-            <label class="dw-search-row dw-search-row-div">
+            <div class="dw-search-row dw-search-row-div dw-search-row-static">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
               <span class="dw-row-body">
                 <span class="dw-row-label">Город</span>
-                <select name="city">
-                  <option>Бишкек</option>
-                  <option>Алматы</option>
-                  <option>Астана</option>
-                </select>
+                <span class="dw-row-static">Бишкек</span>
               </span>
-            </label>
+              <input type="hidden" name="city" value="Бишкек" />
+            </div>
             <div class="dw-search-refine">
               <div class="dw-format-toggle" role="tablist">
                 <button type="button" class="is-active" data-fmt="all">Все</button>
@@ -634,7 +695,7 @@ const websiteJsonLd = {
           ];
           const c = palette[i % palette.length]!;
           const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
-          const isLarge = i < 3;
+          const isLarge = i < 2;
           return (
             <a
               href={`/specialty/${s.key}`}
@@ -651,6 +712,118 @@ const websiteJsonLd = {
             </a>
           );
         })}
+      </div>
+    </section>
+
+    {/* ── ONLINE DOCTORS (cream card with aurora) ─ */}
+    <section class="dw-section dw-online-section">
+      <div class="dw-online-card">
+        <div class="dw-aurora" aria-hidden="true"><span /></div>
+        <div class="dw-online-head">
+          <div>
+            <span class="dw-tag dw-tag-online">
+              <span class="dw-live-dot" />
+              Онлайн
+            </span>
+            <h2>Онлайн-консультации</h2>
+            <p>Подключение по видео за 5 минут, без очередей · {onlineDoctors.length} {pluralizeDoctor(onlineDoctors.length)}</p>
+          </div>
+          <a href="/search" class="dw-text-link">Все онлайн-врачи →</a>
+        </div>
+        <div class="dw-carousel">
+          <div class="dw-carousel-track">
+            {onlineDoctors.map((d) => (
+              <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor dw-doctor-slide">
+                <div class="dw-doctor-head">
+                  <div class="dw-doctor-avatar-wrap">
+                    <img
+                      class="dw-doctor-avatar dw-doctor-avatar-img"
+                      src={DOCTOR_PHOTOS[d.id]}
+                      alt={d.name}
+                      loading="lazy"
+                      decoding="async"
+                      width="56"
+                      height="56"
+                    />
+                    <span class="dw-doctor-online-dot" />
+                  </div>
+                  <div class="dw-doctor-head-body">
+                    <span class="dw-doctor-name">{d.name}</span>
+                    <span class="dw-doctor-spec">{d.specialty}</span>
+                  </div>
+                </div>
+                <div class="dw-doctor-meta">
+                  <span class="dw-doctor-rating">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                    {d.rating?.toFixed(1) ?? "—"}
+                  </span>
+                  <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+                </div>
+                <div class="dw-doctor-slot dw-doctor-slot-online">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
+                  Видео — через 15 мин
+                </div>
+                <div class="dw-doctor-cta-row">
+                  <span class="dw-doctor-price">от <strong>2 200 ₽</strong></span>
+                  <span class="dw-doctor-book">Записаться</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
+    <section class="dw-section dw-offline-section">
+      <div class="dw-section-head">
+        <div>
+          <span class="dw-tag dw-tag-offline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+            В клинике
+          </span>
+          <h2>По записи в клинику</h2>
+          <p>Запись с подтверждением, ближайшие даты приёма · {nearbyDoctors.length} врачей</p>
+        </div>
+        <a href="/search" class="dw-text-link">Все врачи →</a>
+      </div>
+      <div class="dw-carousel">
+        <div class="dw-carousel-track">
+          {nearbyDoctors.map((d) => (
+            <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor dw-doctor-slide">
+              <div class="dw-doctor-head">
+                <img
+                  class="dw-doctor-avatar dw-doctor-avatar-img"
+                  src={DOCTOR_PHOTOS[d.id]}
+                  alt={d.name}
+                  loading="lazy"
+                  decoding="async"
+                  width="56"
+                  height="56"
+                />
+                <div class="dw-doctor-head-body">
+                  <span class="dw-doctor-name">{d.name}</span>
+                  <span class="dw-doctor-spec">{d.specialty}</span>
+                </div>
+              </div>
+            <div class="dw-doctor-meta">
+              <span class="dw-doctor-rating">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                {d.rating?.toFixed(1) ?? "—"}
+              </span>
+              <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
+            </div>
+            <div class="dw-doctor-slot">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+              {d.clinic}
+            </div>
+            <div class="dw-doctor-cta-row">
+              <span class="dw-doctor-price">от <strong>3 500 ₽</strong></span>
+              <span class="dw-doctor-book">Записаться</span>
+            </div>
+          </a>
+        ))}
+        </div>
       </div>
     </section>
 
@@ -694,133 +867,6 @@ const websiteJsonLd = {
       </div>
     </section>
 
-    {/* ── ONLINE DOCTORS (cream card with aurora) ─ */}
-    <section class="dw-section dw-online-section">
-      <div class="dw-online-card">
-        <div class="dw-aurora" aria-hidden="true"><span /></div>
-        <div class="dw-online-head">
-          <div>
-            <span class="dw-tag dw-tag-online">
-              <span class="dw-live-dot" />
-              Онлайн
-            </span>
-            <h2>Онлайн-консультации</h2>
-            <p>Подключение по видео за 5 минут, без очередей · {onlineDoctors.length} {onlineDoctors.length === 1 ? "врач" : "врача"}</p>
-          </div>
-          <a href="/search" class="dw-text-link">Все онлайн-врачи →</a>
-        </div>
-        <div class="dw-online-grid">
-          {onlineDoctors.map((d, i) => (
-            <a href={`/doctor/${doctorSlug(d)}`} class={`dw-doctor${i === 0 ? " dw-doctor-featured" : ""}`}>
-              <div class="dw-doctor-head">
-                <div class="dw-doctor-avatar-wrap">
-                  <span class="dw-doctor-avatar" style={`background:${d.color}`}>{d.initials}</span>
-                  <span class="dw-doctor-online-dot" />
-                </div>
-                <div>
-                  <span class="dw-doctor-name">{d.name}</span>
-                  <span class="dw-doctor-spec">{d.specialty}</span>
-                </div>
-              </div>
-              <div class="dw-doctor-meta">
-                <span class="dw-doctor-rating">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                  {d.rating?.toFixed(1) ?? "—"}
-                </span>
-                <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-                {d.yearsExperience && <span class="dw-doctor-muted">· {d.yearsExperience} лет</span>}
-              </div>
-              <div class="dw-doctor-slot dw-doctor-slot-online">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
-                Видео — через 15 мин
-              </div>
-              <div class="dw-doctor-cta-row">
-                <span class="dw-doctor-price">от <strong>2 200 ₽</strong></span>
-                <span class="dw-doctor-book">Записаться</span>
-              </div>
-            </a>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
-    <section class="dw-section dw-offline-section">
-      <div class="dw-section-head">
-        <div>
-          <span class="dw-tag dw-tag-offline">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
-            В клинике
-          </span>
-          <h2>По записи в клинику</h2>
-          <p>Запись с подтверждением, ближайшие даты приёма · {nearbyDoctors.length} врачей</p>
-        </div>
-        <a href="/search" class="dw-text-link">Все врачи →</a>
-      </div>
-      <div class="dw-offline-grid">
-        {nearbyDoctors.slice(0, 4).map((d) => (
-          <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor">
-            <div class="dw-doctor-head">
-              <span class="dw-doctor-avatar" style={`background:${d.color}`}>{d.initials}</span>
-              <div>
-                <span class="dw-doctor-name">{d.name}</span>
-                <span class="dw-doctor-spec">{d.specialty}</span>
-              </div>
-            </div>
-            <div class="dw-doctor-meta">
-              <span class="dw-doctor-rating">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                {d.rating?.toFixed(1) ?? "—"}
-              </span>
-              <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-            </div>
-            <div class="dw-doctor-slot">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-              {d.clinic}
-            </div>
-            <div class="dw-doctor-cta-row">
-              <span class="dw-doctor-price">от <strong>3 500 ₽</strong></span>
-              <span class="dw-doctor-book">Записаться</span>
-            </div>
-          </a>
-        ))}
-      </div>
-    </section>
-
-    {/* ── APP BANNER ───────────────────────── */}
-    <section class="dw-app-section">
-      <div class="dw-app-banner">
-        <div class="dw-app-glow" />
-        <div class="dw-app-content">
-          <span class="dw-app-tag">Мобильное приложение</span>
-          <h2 class="dw-app-title">Запись, рецепты и анализы<br />— всегда под рукой</h2>
-          <p class="dw-app-desc">
-            Видеоконсультации в один клик, напоминания о приёмах и история здоровья всей семьи в одном приложении.
-          </p>
-          <div class="dw-app-buttons">
-            <a href="#" class="dw-store-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-              <span><span class="dw-store-small">Скачать в</span><span class="dw-store-big">App Store</span></span>
-            </a>
-            <a href="#" class="dw-store-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.6 1.93c-.39.4-.6.94-.6 1.5v17.14c0 .56.21 1.1.6 1.5l.07.07L13.6 12l-9.93-10.07-.07-.07zM17.5 16.07l-3-3 9.07-9.07c.4.07.7.34.7.85 0 .54-.34.96-.97 1.32l-5.8 9.9zm-1.6-1.6L13.07 12l2.83-2.47L19.93 12l-4.03 2.47zm-2.3 2.3-9.5 5.43c-.6.34-1.2.34-1.7 0l9.27-9.27 1.93 3.84z"/></svg>
-              <span><span class="dw-store-small">Доступно в</span><span class="dw-store-big">Google Play</span></span>
-            </a>
-          </div>
-        </div>
-        <div class="dw-app-art" aria-hidden="true">
-          <svg viewBox="0 0 320 360" width="100%" height="100%" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.2">
-            <rect x="80" y="40" width="160" height="280" rx="28" />
-            <rect x="92" y="60" width="136" height="48" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
-            <rect x="92" y="120" width="136" height="80" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
-            <rect x="92" y="212" width="64" height="64" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
-            <rect x="164" y="212" width="64" height="64" rx="10" fill="rgba(255,255,255,0.08)" stroke="none" />
-            <circle cx="160" cy="332" r="4" fill="rgba(255,255,255,0.4)" stroke="none" />
-          </svg>
-        </div>
-      </div>
-    </section>
-
     {/* ── DESKTOP FOOTER ────────────────────── */}
     <footer class="dw-footer">
       <div class="dw-footer-inner">
@@ -835,28 +881,21 @@ const websiteJsonLd = {
           <div class="dw-footer-col">
             <div class="dw-footer-title">Пациентам</div>
             <a href="/search">Найти врача</a>
-            <a href="/search">Найти клинику</a>
-            <a href="/search">Лаборатории</a>
+              <a href="/search">Лаборатории</a>
             <a href="/search">Аптеки</a>
           </div>
           <div class="dw-footer-col">
             <div class="dw-footer-title">Врачам</div>
-            <a href="#">Подключить клинику</a>
-            <a href="#">Личный кабинет</a>
-            <a href="#">Документация</a>
-            <a href="#">API</a>
+              <a href="#">Личный кабинет</a>
           </div>
           <div class="dw-footer-col">
             <div class="dw-footer-title">Компания</div>
             <a href="#">О нас</a>
-            <a href="#">Карьера</a>
-            <a href="#">Пресс-центр</a>
             <a href="#">Контакты</a>
           </div>
           <div class="dw-footer-col">
             <div class="dw-footer-title">Поддержка</div>
             <a href="#">Помощь</a>
-            <a href="#">Безопасность</a>
             <a href="#">Условия</a>
             <a href="#">Политика</a>
           </div>
@@ -901,14 +940,6 @@ const websiteJsonLd = {
 
     /* ── Shell ─────────────────────────── */
     .mw-shell { min-height: 100dvh; background: var(--n-cream); }
-    @media (min-width: 700px) {
-      .mw-shell {
-        max-width: 520px;
-        margin: 0 auto;
-        box-shadow: 0 0 0 1px var(--n-line), 0 24px 80px -32px rgba(15,17,21,0.18);
-      }
-      body { background: linear-gradient(180deg, #ECE6DA, var(--n-cream) 30%, var(--n-cream)); }
-    }
 
     /* ── Top bar ───────────────────────── */
     .mw-topbar {
@@ -945,18 +976,37 @@ const websiteJsonLd = {
 
     /* ── Hero ──────────────────────────── */
     .mw-hero-wrap { padding: 8px 16px 16px; }
-    .mw-hero { position: relative; }
-    .mw-banner {
-      display: none;
+    .mw-hero {
       position: relative;
       border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 1px 0 rgba(15,17,21,0.04), 0 18px 40px -28px rgba(15,17,21,0.25);
+    }
+    .mw-hero-track {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 100%;
+      animation: mw-hero-cycle 24s infinite;
+    }
+    .mw-hero:hover .mw-hero-track,
+    .mw-hero:hover .mw-banner-dot { animation-play-state: paused; }
+    @keyframes mw-hero-cycle {
+      0%, 21% { transform: translateX(0%); }
+      25%, 46% { transform: translateX(-100%); }
+      50%, 71% { transform: translateX(-200%); }
+      75%, 100% { transform: translateX(-300%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mw-hero-track { animation: none; }
+      .mw-banner-dot { animation: none; }
+    }
+    .mw-banner {
+      position: relative;
       padding: 20px 22px 22px;
       min-height: 220px;
       overflow: hidden;
       color: var(--n-ink);
-      box-shadow: 0 1px 0 rgba(15,17,21,0.04), 0 18px 40px -28px rgba(15,17,21,0.25);
     }
-    .mw-banner.is-active { display: block; }
     .mw-banner-dark { color: #fff; }
     .mw-banner-art { position: absolute; right: -16px; top: -6px; width: 170px; height: 170px; opacity: 1; }
     .mw-banner-dark .mw-banner-art { opacity: 0.9; }
@@ -988,13 +1038,21 @@ const websiteJsonLd = {
     .mw-banner-dots {
       position: absolute; bottom: 12px; right: 14px;
       display: flex; gap: 6px;
+      z-index: 2;
     }
-    .mw-banner-dots button {
+    .mw-banner-dot {
       width: 6px; height: 6px; border-radius: 6px;
-      background: rgba(15,17,21,0.18); border: none; cursor: pointer; padding: 0;
-      transition: width .28s ease, background .28s ease;
+      background: rgba(15,17,21,0.18);
+      animation: mw-banner-dot 24s infinite;
     }
-    .mw-banner-dots button.is-active { width: 18px; background: var(--teal); }
+    .mw-banner-dot:nth-child(1) { animation-delay: 0s; }
+    .mw-banner-dot:nth-child(2) { animation-delay: -18s; }
+    .mw-banner-dot:nth-child(3) { animation-delay: -12s; }
+    .mw-banner-dot:nth-child(4) { animation-delay: -6s; }
+    @keyframes mw-banner-dot {
+      0%, 21% { width: 18px; background: var(--teal); }
+      25%, 100% { width: 6px; background: rgba(15,17,21,0.18); }
+    }
 
     /* ── Sticky search ─────────────────── */
     .mw-sticky-search {
@@ -1025,33 +1083,70 @@ const websiteJsonLd = {
       flex: 1; border: none; outline: none; background: transparent;
       font-size: 14.5px; color: var(--n-ink); min-width: 0; font-family: inherit;
     }
+    .mw-sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
     .mw-search-filter {
       width: 44px; height: 44px; border-radius: 22px;
       border: 1px solid var(--n-line); background: #fff;
       display: inline-flex; align-items: center; justify-content: center;
       color: var(--n-ink); cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
     }
-    .mw-chips {
-      display: flex; gap: 8px;
+    #mw-filters-toggle:checked ~ .mw-search-row .mw-search-filter {
+      background: var(--teal); color: #fff; border-color: var(--teal);
+    }
+    .mw-filters {
+      display: none; flex-wrap: wrap; gap: 8px; align-items: center;
       padding: 4px 16px 18px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scroll-snap-type: x proximity;
     }
-    .mw-chip {
+    #mw-filters-toggle:checked ~ .mw-filters { display: flex; }
+    .mw-format-toggle {
       flex: 0 0 auto;
-      padding: 9px 14px; border-radius: 999px;
+      display: inline-flex; align-items: center;
+      border-radius: 999px; border: 1px solid var(--n-line);
+      background: #fff; overflow: hidden;
+    }
+    .mw-fmt-pill {
+      padding: 8px 14px; font-family: inherit;
+      font-size: 13px; font-weight: 600; color: var(--n-ink);
+      display: inline-flex; align-items: center; gap: 6px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      user-select: none;
+    }
+    .mw-fmt-pill + .mw-fmt-pill { border-left: 1px solid var(--n-line); }
+    .mw-format-toggle input:checked + .mw-fmt-pill {
+      background: var(--teal); color: #fff;
+    }
+    .mw-filter-chip {
+      flex: 0 0 auto;
+      position: relative;
+      padding: 0; border-radius: 999px;
       border: 1px solid var(--n-line); background: #fff;
-      color: var(--n-ink); font-size: 13.5px; font-weight: 600;
-      display: inline-flex; align-items: center; gap: 8px;
-      scroll-snap-align: start;
+      color: var(--n-ink); font-size: 13px; font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer; transition: border-color .15s;
     }
-    .mw-chip.is-active { border-color: var(--teal); background: var(--teal); color: #fff; }
-    .mw-chip-dot {
-      width: 8px; height: 8px; border-radius: 999px;
-      background: var(--teal); display: inline-block;
+    .mw-filter-chip:hover { border-color: var(--teal); }
+    .mw-filter-chip select {
+      appearance: none; -webkit-appearance: none;
+      border: none; outline: none; background: transparent;
+      font: inherit; color: inherit;
+      padding: 8px 28px 8px 14px;
+      cursor: pointer;
     }
-    .mw-chip.is-active .mw-chip-dot { background: #fff; }
+    .mw-filter-chip::after {
+      content: ""; position: absolute;
+      right: 12px; top: 50%;
+      width: 6px; height: 6px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: translateY(-70%) rotate(45deg);
+      pointer-events: none;
+    }
 
     /* ── Section heads ─────────────────── */
     .mw-section { margin-bottom: 32px; }
@@ -1107,6 +1202,7 @@ const websiteJsonLd = {
       font-size: 14px; font-weight: 700; color: var(--n-ink);
       flex: 0 0 auto;
     }
+    .mw-avatar-img { object-fit: cover; background-color: var(--n-line); }
     .mw-avatar-online {
       position: absolute; right: -1px; bottom: -1px;
       width: 13px; height: 13px; border-radius: 7px;
@@ -1166,39 +1262,31 @@ const websiteJsonLd = {
     .mw-service-arrow { color: var(--n-muted); flex: 0 0 auto; }
 
     /* ── Trust ──────────────────────────── */
-    .mw-trust {
-      margin: 0 16px 32px;
-      padding: 14px 16px;
-      border-radius: 18px;
-      border: 1px solid var(--n-line);
-      background: #fff;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .mw-trust-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--teal-softer); color: var(--teal);
-      display: inline-flex; align-items: center; justify-content: center;
-      flex: 0 0 auto;
-    }
-    .mw-trust-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    .mw-trust-title { font-size: 13.5px; font-weight: 700; }
-    .mw-trust-desc { font-size: 12px; color: var(--n-muted); }
-
     /* ── Footer ─────────────────────────── */
     .mw-footer {
       margin-top: 12px;
       padding: 28px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
-      background: #F4EFE3;
-      border-top: 1px solid var(--n-line);
+      background: #0A1F25;
+      color: rgba(255,255,255,0.7);
     }
-    .mw-footer-links {
+    .mw-footer .mw-logo-text { color: #fff; }
+    .mw-footer-cols {
       display: grid; grid-template-columns: repeat(2, 1fr);
-      row-gap: 10px; column-gap: 16px; margin-bottom: 22px;
+      row-gap: 24px; column-gap: 24px; margin-bottom: 24px;
     }
-    .mw-footer-links a { font-size: 14px; font-weight: 600; color: var(--n-ink); }
+    .mw-footer-col { display: flex; flex-direction: column; gap: 10px; }
+    .mw-footer-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 2px;
+    }
+    .mw-footer-col a {
+      font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.78);
+      text-decoration: none; transition: color .15s;
+    }
+    .mw-footer-col a:hover { color: #fff; }
     .mw-footer-fine {
-      font-size: 11.5px; line-height: 1.5; color: var(--n-muted);
-      border-top: 1px solid var(--n-line); padding-top: 14px;
+      font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.55);
+      border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;
       display: flex; flex-direction: column; gap: 4px;
     }
 
@@ -1207,7 +1295,7 @@ const websiteJsonLd = {
     /* ════════════════════════════════════════════════════════════ */
     .dw-page { display: none; }
 
-    @media (min-width: 1024px) {
+    @media (min-width: 768px) {
       body {
         background: var(--n-cream);
       }
@@ -1259,17 +1347,34 @@ const websiteJsonLd = {
         border-radius: 28px;
         overflow: hidden;
       }
+      .dw-hero-track {
+        --slides: 4;
+        --cycle: 24s;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 100%;
+        animation: dw-hero-cycle var(--cycle) infinite;
+      }
+      .dw-hero:hover .dw-hero-track,
+      .dw-hero:hover .dw-hero-dot { animation-play-state: paused; }
+      @keyframes dw-hero-cycle {
+        0%, 21% { transform: translateX(0%); }
+        25%, 46% { transform: translateX(-100%); }
+        50%, 71% { transform: translateX(-200%); }
+        75%, 100% { transform: translateX(-300%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .dw-hero-track { animation: none; }
+        .dw-hero-dot { animation: none; }
+      }
       .dw-banner {
-        display: none;
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
         min-height: 444px;
         padding: 44px 56px;
         color: var(--n-ink);
         align-items: center;
         gap: 40px;
-      }
-      .dw-banner.is-active {
-        display: grid;
-        grid-template-columns: 1.4fr 1fr;
       }
       .dw-banner-dark { color: #fff; }
       .dw-banner-text { display: flex; flex-direction: column; gap: 14px; }
@@ -1310,34 +1415,24 @@ const websiteJsonLd = {
         height: 100%; min-height: 240px;
         display: grid; place-items: center;
       }
-      .dw-hero-arrow {
-        position: absolute; top: 50%; transform: translateY(-50%);
-        width: 44px; height: 44px; border-radius: 50%;
-        background: rgba(255,255,255,0.85); color: var(--n-ink);
-        border: none; cursor: pointer;
-        display: grid; place-items: center;
-        backdrop-filter: blur(8px);
-        transition: background .15s;
-      }
-      .dw-hero-arrow:hover { background: #fff; }
-      .dw-hero-prev { left: 16px; }
-      .dw-hero-next { right: 16px; }
-      .dw-banner-dark ~ .dw-hero-arrow,
-      .dw-hero:has(.dw-banner-dark.is-active) .dw-hero-arrow {
-        background: rgba(255,255,255,0.15); color: #fff;
-      }
       .dw-hero-dots {
         position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
         display: flex; gap: 8px;
+        z-index: 2;
       }
-      .dw-hero-dots button {
+      .dw-hero-dot {
         width: 8px; height: 8px; border-radius: 999px;
-        background: rgba(0,0,0,0.2); border: none; cursor: pointer; padding: 0;
-        transition: width .3s, background .3s;
+        background: rgba(10,31,37,0.22);
+        animation: dw-hero-dot 24s infinite;
       }
-      .dw-hero-dots button.is-active { width: 28px; background: var(--teal); }
-      .dw-hero:has(.dw-banner-dark.is-active) .dw-hero-dots button { background: rgba(255,255,255,0.4); }
-      .dw-hero:has(.dw-banner-dark.is-active) .dw-hero-dots button.is-active { background: #fff; }
+      .dw-hero-dot:nth-child(1) { animation-delay: 0s; }
+      .dw-hero-dot:nth-child(2) { animation-delay: -18s; }
+      .dw-hero-dot:nth-child(3) { animation-delay: -12s; }
+      .dw-hero-dot:nth-child(4) { animation-delay: -6s; }
+      @keyframes dw-hero-dot {
+        0%, 21% { width: 28px; background: var(--teal); }
+        25%, 100% { width: 8px; background: rgba(10,31,37,0.22); }
+      }
 
       /* ── Hero search (5fr / 7fr split) ─────── */
       .dw-search-hero {
@@ -1368,6 +1463,9 @@ const websiteJsonLd = {
         box-shadow: 0 1px 2px rgba(0,0,0,0.06);
       }
       .dw-stack-avatar:first-child { margin-left: 0; }
+      .dw-stack-avatar-img {
+        object-fit: cover; background-color: var(--n-line);
+      }
       .dw-stack-avatar-more {
         background: var(--teal-softer); color: var(--teal);
         font-size: 12px; letter-spacing: -0.02em;
@@ -1413,6 +1511,10 @@ const websiteJsonLd = {
         background: transparent; width: 100%; appearance: none;
         cursor: pointer;
       }
+      .dw-row-static {
+        font-size: 15px; font-weight: 600; color: var(--n-ink);
+      }
+      .dw-search-row-static { cursor: default; }
       .dw-search-refine {
         border-top: 1px solid #EDEBE6;
         padding: 14px 20px;
@@ -1491,7 +1593,7 @@ const websiteJsonLd = {
         min-height: 140px;
       }
       .dw-spec-card.is-large {
-        grid-column: span 2;
+        grid-column: span 3;
         min-height: 200px;
       }
       .dw-spec-card:hover {
@@ -1647,6 +1749,20 @@ const websiteJsonLd = {
         display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
       }
 
+      /* ── Carousel (horizontal scroll snap) ───── */
+      .dw-carousel { position: relative; }
+      .dw-carousel-track {
+        display: grid; grid-auto-flow: column; grid-auto-columns: 280px;
+        gap: 16px; overflow-x: auto; overflow-y: visible;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        scrollbar-width: none;
+        padding: 4px 4px 8px;
+        margin: -4px -4px -8px;
+      }
+      .dw-carousel-track::-webkit-scrollbar { display: none; }
+      .dw-doctor-slide { scroll-snap-align: start; min-width: 0; }
+
       /* ── Doctor card (shared) ───────────────── */
       .dw-doctor {
         background: #fff;
@@ -1668,7 +1784,12 @@ const websiteJsonLd = {
         width: 56px; height: 56px; border-radius: 28px;
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 16px; font-weight: 700; color: var(--n-ink);
+        flex-shrink: 0;
       }
+      .dw-doctor-avatar-img {
+        object-fit: cover; background-color: var(--n-line);
+      }
+      .dw-doctor-head-body { min-width: 0; flex: 1; }
       .dw-doctor-online-dot {
         position: absolute; right: -1px; bottom: -1px;
         width: 14px; height: 14px; border-radius: 8px;
@@ -1783,62 +1904,78 @@ const websiteJsonLd = {
       }
     }
 
-    @media (max-width: 1023.98px) {
+    @media (max-width: 767.98px) {
       .dw-page { display: none !important; }
+    }
+
+    /* ── Tablet & narrow desktop (768–1023) ─────────────────── */
+    @media (min-width: 768px) and (max-width: 1023.98px) {
+      .dw-header-inner,
+      .dw-hero-section,
+      .dw-search-hero,
+      .dw-section,
+      .dw-online-section,
+      .dw-offline-section,
+      .dw-footer-inner {
+        padding-left: clamp(20px, 4vw, 40px);
+        padding-right: clamp(20px, 4vw, 40px);
+      }
+      .dw-section { padding-top: 32px; padding-bottom: 32px; }
+      .dw-search-hero { padding-top: 36px; padding-bottom: 36px; }
+      .dw-online-section,
+      .dw-offline-section { padding-top: 24px; padding-bottom: 24px; }
+      .dw-footer { padding: 48px 0 24px; }
+
+      /* Header — tighter nav, hide some links to avoid overflow */
+      .dw-header-left { gap: 24px; }
+      .dw-nav { gap: 20px; }
+      .dw-nav a:nth-child(n+3) { display: none; }
+
+      /* Hero — shorter min-height, smaller title, art is decorative */
+      .dw-banner {
+        padding: 32px 32px;
+        min-height: 360px;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 24px;
+      }
+      .dw-banner-title { font-size: 36px; }
+      .dw-banner-desc { font-size: 15px; }
+      .dw-banner-art > svg { width: 220px; height: 220px; }
+
+      /* Search hero — stack promise + form vertically; card grows full width */
+      .dw-search-hero-inner {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .dw-search-promise h2 { font-size: 32px; }
+      .dw-search-card-wrap { width: 100%; }
+
+      /* Specialty grid — 3 cols, large takes a full row */
+      .dw-specs-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .dw-spec-card.is-large { grid-column: span 3; min-height: 140px; }
+      .dw-spec-card { min-height: 130px; padding: 18px; }
+      .dw-section-head h2 { font-size: 26px; }
+
+      /* Online doctors card — tighter inset, smaller heading */
+      .dw-online-card { padding: 28px 24px 32px; }
+      .dw-online-head { flex-wrap: wrap; gap: 16px; }
+      .dw-online-head h2 { font-size: 26px; }
+
+      /* Services bento — fall to 1 column at the narrower end */
+      .dw-services-bento { grid-template-columns: 1fr; }
+      .dw-service-hero { min-height: 220px; }
+
+      /* Footer — collapse to 2 columns; brand spans full row */
+      .dw-footer-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px 24px;
+      }
+      .dw-footer-brand { grid-column: 1 / -1; }
+      .dw-footer-bottom { flex-direction: column; gap: 6px; }
     }
   </style>
 
   <script>
-    // ── Hero carousel auto-rotate + dots ─────────────────
-    (() => {
-      const root = document.getElementById("mw-hero");
-      if (!root) return;
-      const slides = root.querySelectorAll<HTMLElement>(".mw-banner");
-      const dots = root.querySelectorAll<HTMLButtonElement>("#mw-hero-dots button");
-      if (!slides.length) return;
-      let idx = 0;
-      let timer: ReturnType<typeof setInterval> | null = null;
-
-      const show = (next: number) => {
-        slides[idx]?.classList.remove("is-active");
-        dots[idx]?.classList.remove("is-active");
-        idx = (next + slides.length) % slides.length;
-        slides[idx]?.classList.add("is-active");
-        dots[idx]?.classList.add("is-active");
-      };
-      const start = () => {
-        timer = setInterval(() => show(idx + 1), 5500);
-      };
-      const stop = () => {
-        if (timer) clearInterval(timer);
-        timer = null;
-      };
-
-      dots.forEach((dot, k) => {
-        dot.addEventListener("click", () => {
-          stop();
-          show(k);
-          start();
-        });
-      });
-
-      start();
-
-      // touch swipe
-      let startX: number | null = null;
-      root.addEventListener("touchstart", (e) => {
-        startX = e.touches[0]?.clientX ?? null;
-        stop();
-      }, { passive: true });
-      root.addEventListener("touchend", (e) => {
-        if (startX === null) return;
-        const dx = (e.changedTouches[0]?.clientX ?? 0) - startX;
-        if (Math.abs(dx) > 40) show(idx + (dx < 0 ? 1 : -1));
-        startX = null;
-        start();
-      });
-    })();
-
     // ── Sticky bg blur on scroll ─────────────────────────
     (() => {
       const topbar = document.getElementById("mw-topbar");
@@ -1850,42 +1987,6 @@ const websiteJsonLd = {
       };
       window.addEventListener("scroll", onScroll, { passive: true });
       onScroll();
-    })();
-
-    // ── Desktop hero carousel ────────────────────────────
-    (() => {
-      const root = document.getElementById("dw-hero");
-      if (!root) return;
-      const slides = root.querySelectorAll<HTMLElement>(".dw-banner");
-      const dots = root.querySelectorAll<HTMLButtonElement>("#dw-hero-dots button");
-      const prev = root.querySelector<HTMLButtonElement>(".dw-hero-prev");
-      const next = root.querySelector<HTMLButtonElement>(".dw-hero-next");
-      if (!slides.length) return;
-      let idx = 0;
-      let timer: ReturnType<typeof setInterval> | null = null;
-
-      const show = (n: number) => {
-        slides[idx]?.classList.remove("is-active");
-        dots[idx]?.classList.remove("is-active");
-        idx = (n + slides.length) % slides.length;
-        slides[idx]?.classList.add("is-active");
-        dots[idx]?.classList.add("is-active");
-      };
-      const start = () => {
-        timer = setInterval(() => show(idx + 1), 5000);
-      };
-      const stop = () => {
-        if (timer) clearInterval(timer);
-        timer = null;
-      };
-
-      dots.forEach((dot, k) => {
-        dot.addEventListener("click", () => { stop(); show(k); start(); });
-      });
-      prev?.addEventListener("click", () => { stop(); show(idx - 1); start(); });
-      next?.addEventListener("click", () => { stop(); show(idx + 1); start(); });
-
-      start();
     })();
   </script>
 

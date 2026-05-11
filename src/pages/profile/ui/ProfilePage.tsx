@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useCurrentUser, useSignOut } from "@/features/auth";
@@ -13,7 +13,6 @@ import { SettingsList, type SettingsItem } from "./SettingsList";
 import { ageFromDob, formatDateLong, pluralizeYears } from "../lib/format";
 
 export function ProfilePage() {
-  const navigate = useNavigate();
   const signOut = useSignOut();
   const [confirming, setConfirming] = useState(false);
 
@@ -37,7 +36,9 @@ export function ProfilePage() {
       return;
     }
     await signOut.mutateAsync();
-    await navigate({ to: "/sign-in" });
+    // The marketing landing lives at the browser root, outside the SPA's
+    // /app basepath — use a full-page nav, not router.navigate.
+    window.location.assign("/");
   };
 
   const settingsItems: SettingsItem[] = [
