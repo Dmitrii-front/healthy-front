@@ -149,7 +149,6 @@ export async function registerWithEmail(email: string, password: string): Promis
   const response = await apiFetch<BackendAuthResponse>("/auth/register", {
     email: result.output.email,
     password: result.output.password,
-    role: "patient",
   });
   writeAuth({
     accessToken: response.accessToken,

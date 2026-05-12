@@ -1,4 +1,4 @@
-import type { Role, User } from "@/entities/user";
+import type { User } from "@/entities/user";
 
 export interface SignInPayload {
   email: string;
@@ -9,7 +9,6 @@ export interface SignUpPayload {
   email: string;
   password: string;
   phone?: string;
-  role?: Role;
 }
 
 export interface AuthSuccess {
