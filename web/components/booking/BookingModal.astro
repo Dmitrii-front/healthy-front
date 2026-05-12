@@ -13,9 +13,17 @@
 >
   <div class="hm-modal-body">
       <div class="hm-modal-header">
-        <button type="button" class="hm-icon-btn" data-action="hm-book-back" aria-label="Назад" hidden>←</button>
+        <button type="button" class="hm-icon-btn" data-action="hm-book-back" aria-label="Назад" hidden>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 3L5 8L10 13" />
+          </svg>
+        </button>
         <span class="hm-step-label" data-el="step-label">Шаг 1 из 2 · Время</span>
-        <button type="button" class="hm-icon-btn" data-action="hm-book-close" aria-label="Закрыть">✕</button>
+        <button type="button" class="hm-icon-btn" data-action="hm-book-close" aria-label="Закрыть">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 3L11 11M11 3L3 11" />
+          </svg>
+        </button>
       </div>
 
       <h2 class="hm-modal-title" data-el="doctor-name">Имя врача</h2>
@@ -38,6 +46,7 @@
         </div>
 
         <div class="hm-tabs" role="tablist">
+          <span class="hm-tabs-thumb" aria-hidden="true"></span>
           <button type="button" class="hm-tab-btn" role="tab" aria-selected="true" data-mode="login">
             Войти
           </button>
@@ -83,7 +92,11 @@
       <!-- Step: success -->
       <div data-step-pane="success" hidden>
         <div class="hm-success">
-          <div class="hm-success-icon">✓</div>
+          <div class="hm-success-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12.5L9.5 17L19 7.5" />
+            </svg>
+          </div>
           <h3 class="hm-success-title">Запись подтверждена</h3>
           <p class="hm-success-text">
             <span data-el="success-doctor"></span><br />

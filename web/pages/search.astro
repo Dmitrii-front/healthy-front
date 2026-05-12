@@ -3,6 +3,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
 import { SPECIALTIES } from "@/entities/specialty";
 
+// SSG. The page ships only the shell — search form, sort tabs, skeleton, empty
+// and error states, and a card <template>. The doctor list is fetched at
+// runtime from `/api/doctors.json`, which currently serves mocks and will be
+// swapped for the NestJS backend without changes to this file.
+
+const description =
+  "Поиск врачей по имени, специальности и клинике. Реальные слоты, проверенные клиники, запись без звонков.";
+
+const specialtyLabels = Object.fromEntries(
+  SPECIALTIES.map((s) => [s.doctorSpecialty, s.label]),
+);
+
 const breadcrumbs = {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
@@ -15,7 +27,7 @@ const breadcrumbs = {
 
 <BaseLayout
   title="Найти врача в Бишкеке и Алматы — Healthy"
-  description="Поиск врачей по специальности и клинике. Кардиологи, терапевты, педиатры, дерматологи и другие специалисты."
+  description={description}
 >
   <main class="mx-auto max-w-screen-md px-4 pb-24 pt-8">
     <nav class="mb-4 text-[12.5px] text-distant-graphite">
@@ -24,45 +36,463 @@ const breadcrumbs = {
     </nav>
 
     <header>
-      <h1 class="text-[28px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite">
-        Найти врача
+      <h1
+        id="search-h1"
+        class="text-[28px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite"
+      >
+        Найти врача в Бишкеке и Алматы
       </h1>
       <p class="mt-3 max-w-lg text-[15px] leading-relaxed text-soft-graphite">
-        Выберите специальность чтобы посмотреть врачей и записаться. Все приёмы — в проверенных
-        клиниках Бишкека и Алматы.
+        {description}
       </p>
     </header>
 
-    <section class="mt-8">
-      <h2 class="mb-3 text-[16px] font-medium tracking-tight text-graphite">По специальности</h2>
-      <ul class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {SPECIALTIES.map((s) => (
-          <li>
-            <a
-              href={`/specialty/${s.key}`}
-              class="flex h-[72px] flex-col justify-between rounded-[16px] border border-hairline-strong bg-card-white p-3 text-graphite transition-colors hover:border-soft-graphite"
-            >
-              <span class="text-[14px] font-medium leading-[1.15]">{s.label}</span>
-              <span class="text-[12px] text-distant-graphite">{s.count} врачей</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
-
-    <section class="mt-10 rounded-[20px] border border-hairline-strong bg-card-white p-6">
-      <h2 class="text-[18px] font-medium tracking-tight text-graphite">Расширенный поиск</h2>
-      <p class="mt-2 text-[14px] text-soft-graphite">
-        Фильтрация по имени, клинике и стажу — внутри приложения.
-      </p>
-      <a
-        href="/app/search"
-        class="mt-4 inline-flex h-11 items-center rounded-pill bg-clinic-coral px-6 text-sm font-medium text-card-white hover:bg-brick-coral"
+    {/* Regular GET form: degrades to a page reload without JS. With JS, the
+        submit handler intercepts and re-runs the fetch in place. */}
+    <form
+      id="search-form"
+      action="/search"
+      method="get"
+      role="search"
+      class="mt-6 flex flex-col gap-2 sm:flex-row"
+    >
+      <label class="flex flex-1 items-center gap-2 rounded-[14px] border border-hairline-strong bg-card-white px-3.5 py-2.5 focus-within:border-soft-graphite">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="text-distant-graphite">
+          <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
+          <path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input
+          id="search-q"
+          name="q"
+          type="search"
+          placeholder="Имя, специальность, клиника"
+          autocomplete="off"
+          class="w-full bg-transparent text-[14px] text-graphite outline-none placeholder:text-mist-graphite"
+        />
+      </label>
+      <label class="flex items-center gap-2 rounded-[14px] border border-hairline-strong bg-card-white px-3.5 py-2.5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="text-distant-graphite">
+          <path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+        </svg>
+        <select
+          id="search-specialty"
+          name="specialty"
+          class="bg-transparent text-[14px] text-graphite outline-none"
+        >
+          <option value="">Все специальности</option>
+          {SPECIALTIES.map((s) => (
+            <option value={s.doctorSpecialty}>{s.label}</option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="submit"
+        class="inline-flex h-11 items-center justify-center rounded-pill bg-clinic-coral px-6 text-[14px] font-medium text-card-white hover:bg-brick-coral"
       >
-        Открыть поиск в приложении
+        Найти
+      </button>
+    </form>
+
+    <div class="mt-4 flex flex-wrap gap-1.5">
+      <a
+        data-sort-tab="soon"
+        data-active="true"
+        href="/search?sort=soon"
+        class="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-card-white px-3 text-[13px] font-medium text-soft-graphite transition-colors hover:bg-linen-shade data-[active=true]:border-graphite data-[active=true]:bg-graphite data-[active=true]:text-card-white data-[active=true]:hover:bg-graphite"
+      >
+        Сначала: скоро
       </a>
-    </section>
+      <a
+        data-sort-tab="near"
+        data-active="false"
+        href="/search?sort=near"
+        class="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-card-white px-3 text-[13px] font-medium text-soft-graphite transition-colors hover:bg-linen-shade data-[active=true]:border-graphite data-[active=true]:bg-graphite data-[active=true]:text-card-white data-[active=true]:hover:bg-graphite"
+      >
+        Сначала: ближе
+      </a>
+      <a
+        data-sort-tab="experience"
+        data-active="false"
+        href="/search?sort=experience"
+        class="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-card-white px-3 text-[13px] font-medium text-soft-graphite transition-colors hover:bg-linen-shade data-[active=true]:border-graphite data-[active=true]:bg-graphite data-[active=true]:text-card-white data-[active=true]:hover:bg-graphite"
+      >
+        Сначала: опытнее
+      </a>
+    </div>
+
+    <p class="mt-6 text-[12.5px] text-distant-graphite" id="result-meta" hidden>
+      <span id="result-count" class="font-medium text-soft-graphite">—</span>
+      {" "}
+      <span id="result-noun">докторов</span>
+    </p>
+
+    {/* Loading skeleton — visible while a fetch is in flight. Four rows match
+        the average viewport before doctors arrive. */}
+    <div id="loading-state" class="mt-4 flex flex-col gap-2" aria-busy="true" aria-label="Загрузка">
+      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
+        <div class="flex gap-3">
+          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
+          <div class="min-w-0 flex-1">
+            <div class="h-[10px] w-24 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[15px] w-3/4 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[12px] w-1/2 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-1.5 h-[11px] w-2/5 animate-pulse rounded-xs bg-linen-shade"></div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
+          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
+          <div class="h-[13px] w-28 animate-pulse rounded-xs bg-linen-shade"></div>
+        </div>
+      </div>
+      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
+        <div class="flex gap-3">
+          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
+          <div class="min-w-0 flex-1">
+            <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[15px] w-2/3 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[12px] w-3/5 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-1.5 h-[11px] w-1/3 animate-pulse rounded-xs bg-linen-shade"></div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
+          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
+          <div class="h-[13px] w-24 animate-pulse rounded-xs bg-linen-shade"></div>
+        </div>
+      </div>
+      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
+        <div class="flex gap-3">
+          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
+          <div class="min-w-0 flex-1">
+            <div class="h-[10px] w-28 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[15px] w-4/5 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[12px] w-1/2 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-1.5 h-[11px] w-2/5 animate-pulse rounded-xs bg-linen-shade"></div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
+          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
+          <div class="h-[13px] w-32 animate-pulse rounded-xs bg-linen-shade"></div>
+        </div>
+      </div>
+      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
+        <div class="flex gap-3">
+          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
+          <div class="min-w-0 flex-1">
+            <div class="h-[10px] w-24 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[15px] w-3/4 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-2 h-[12px] w-2/5 animate-pulse rounded-xs bg-linen-shade"></div>
+            <div class="mt-1.5 h-[11px] w-1/3 animate-pulse rounded-xs bg-linen-shade"></div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
+          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
+          <div class="h-[13px] w-28 animate-pulse rounded-xs bg-linen-shade"></div>
+        </div>
+      </div>
+    </div>
+
+    <ul id="doctor-list" class="mt-4 flex flex-col gap-2" hidden></ul>
+
+    <div
+      id="empty-state"
+      hidden
+      class="mt-4 rounded-[18px] border border-dashed border-hairline-strong bg-card-white px-5 py-7"
+    >
+      <p class="text-[15px] font-medium text-graphite">Пока никого не нашли.</p>
+      <p class="mt-1 text-[13px] text-distant-graphite">
+        Попробуйте сбросить запрос или посмотрите{" "}
+        <a href="/search" class="text-brick-coral underline-offset-2 hover:underline">
+          все специальности
+        </a>.
+      </p>
+    </div>
+
+    <div
+      id="error-state"
+      hidden
+      class="mt-4 rounded-[18px] border border-dashed border-hairline-strong bg-card-white px-5 py-7"
+    >
+      <p class="text-[15px] font-medium text-graphite">Не удалось загрузить.</p>
+      <p class="mt-1 text-[13px] text-distant-graphite">
+        Проверьте соединение и попробуйте ещё раз.
+      </p>
+      <button
+        id="retry-btn"
+        type="button"
+        class="mt-3 inline-flex h-9 items-center rounded-pill border border-hairline-strong bg-card-white px-4 text-[13px] font-medium text-graphite hover:bg-linen-shade"
+      >
+        Повторить
+      </button>
+    </div>
+
+    {/* Card template — cloned per doctor by the script below. textContent
+        is used for every user-supplied string, so backend strings are safely
+        rendered without HTML injection risk. */}
+    <template id="card-template">
+      <li>
+        <a
+          data-link
+          class="block rounded-xl border border-hairline bg-card-white p-3.5 transition-colors hover:border-soft-graphite"
+        >
+          <div class="flex gap-3">
+            <span
+              data-avatar
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-pill text-[14px] font-semibold text-graphite"
+              aria-hidden="true"
+            ></span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline justify-between gap-2">
+                <p
+                  data-eyebrow
+                  class="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-distant-graphite"
+                ></p>
+                <span
+                  data-new-patients
+                  hidden
+                  class="shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-confirmed-sage"
+                >принимает новых</span>
+              </div>
+              <p
+                data-name
+                class="mt-1 text-[15.5px] font-medium leading-tight tracking-[-0.008em] text-graphite"
+              ></p>
+              <p data-clinic class="mt-1 truncate text-[13px] text-soft-graphite"></p>
+              <div
+                data-meta
+                class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] tabular-nums text-distant-graphite"
+              ></div>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline gap-2 border-t border-hairline pt-3">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.12em] text-distant-graphite">
+              Ближайший слот
+            </span>
+            <span
+              data-slot
+              class="truncate text-[13px] font-medium tabular-nums text-brick-coral"
+            ></span>
+          </div>
+        </a>
+      </li>
+    </template>
   </main>
+
+  {/* Client logic. Vanilla JS, no island. */}
+  <script is:inline define:vars={{ specialtyLabels }}>
+    (() => {
+      const API_URL = "/api/doctors.json";
+      const PAGE_LIMIT = 30;
+      const SORTS = ["soon", "near", "experience"];
+
+      const list = document.getElementById("doctor-list");
+      const loading = document.getElementById("loading-state");
+      const empty = document.getElementById("empty-state");
+      const errorEl = document.getElementById("error-state");
+      const resultMeta = document.getElementById("result-meta");
+      const countEl = document.getElementById("result-count");
+      const nounEl = document.getElementById("result-noun");
+      const h1 = document.getElementById("search-h1");
+      const form = document.getElementById("search-form");
+      const qInput = document.getElementById("search-q");
+      const specSelect = document.getElementById("search-specialty");
+      const tabs = document.querySelectorAll("[data-sort-tab]");
+      const template = document.getElementById("card-template");
+      const retryBtn = document.getElementById("retry-btn");
+      if (!list || !template) return;
+
+      let currentRequest = null;
+
+      function pluralize(n, forms) {
+        const m10 = n % 10, m100 = n % 100;
+        if (m100 >= 11 && m100 <= 14) return forms[2];
+        if (m10 === 1) return forms[0];
+        if (m10 >= 2 && m10 <= 4) return forms[1];
+        return forms[2];
+      }
+      const pDoctors = (n) => pluralize(n, ["доктор", "доктора", "докторов"]);
+      const pYears = (n) => pluralize(n, ["год опыта", "года опыта", "лет опыта"]);
+      const pReviews = (n) => pluralize(n, ["отзыв", "отзыва", "отзывов"]);
+
+      const RU_MONTHS = ["янв","фев","мар","апр","мая","июня","июля","авг","сен","окт","ноя","дек"];
+      const RU_WEEKDAYS = ["вс","пн","вт","ср","чт","пт","сб"];
+      const dayMs = 86400000;
+
+      function formatSlot(iso) {
+        if (!iso) return "Свяжитесь с клиникой";
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return iso;
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        const diff = Math.round((startDate - startToday) / dayMs);
+        const time = String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+        if (diff === 0) return "Сегодня · " + time;
+        if (diff === 1) return "Завтра · " + time;
+        return RU_WEEKDAYS[date.getDay()] + ", " + date.getDate() + " " + RU_MONTHS[date.getMonth()] + " · " + time;
+      }
+
+      function readState() {
+        const p = new URLSearchParams(location.search);
+        const sortRaw = p.get("sort") || "soon";
+        return {
+          q: (p.get("q") || "").trim(),
+          specialty: p.get("specialty") || "",
+          sort: SORTS.includes(sortRaw) ? sortRaw : "soon",
+        };
+      }
+
+      function setUiState(s) {
+        loading.hidden = s !== "loading";
+        list.hidden = s !== "results";
+        empty.hidden = s !== "empty";
+        errorEl.hidden = s !== "error";
+        resultMeta.hidden = s !== "results" && s !== "empty";
+      }
+
+      function renderMeta(state) {
+        // Form prefill
+        qInput.value = state.q;
+        specSelect.value = state.specialty;
+
+        // H1 + document title
+        let h1Text = "Найти врача в Бишкеке и Алматы";
+        if (state.specialty && specialtyLabels[state.specialty]) {
+          h1Text = specialtyLabels[state.specialty] + " в Бишкеке и Алматы";
+        } else if (state.q) {
+          h1Text = "Поиск: «" + state.q + "»";
+        }
+        h1.textContent = h1Text;
+        document.title = h1Text + " — Healthy";
+
+        // Sort tabs: active + preserved-param hrefs
+        tabs.forEach((tab) => {
+          tab.dataset.active = tab.dataset.sortTab === state.sort ? "true" : "false";
+          const next = new URLSearchParams(location.search);
+          next.set("sort", tab.dataset.sortTab);
+          tab.setAttribute("href", "/search?" + next.toString());
+        });
+      }
+
+      function renderResults(items, total) {
+        list.replaceChildren();
+        for (const d of items) {
+          const frag = template.content.cloneNode(true);
+          const li = frag.querySelector("li");
+
+          li.querySelector("[data-link]").href = "/doctor/" + d.slug;
+
+          const avatar = li.querySelector("[data-avatar]");
+          avatar.textContent = d.initials;
+          avatar.style.backgroundColor = d.color;
+
+          li.querySelector("[data-eyebrow]").textContent = d.subspecialty
+            ? d.specialty + " · " + d.subspecialty
+            : d.specialty;
+
+          li.querySelector("[data-new-patients]").hidden = d.acceptingNewPatients !== true;
+
+          li.querySelector("[data-name]").textContent = d.name;
+          li.querySelector("[data-clinic]").textContent = d.clinic;
+
+          const meta = li.querySelector("[data-meta]");
+          meta.replaceChildren();
+          if (d.distance) {
+            const s = document.createElement("span");
+            s.textContent = d.distance;
+            meta.appendChild(s);
+          }
+          if (typeof d.yearsExperience === "number") {
+            const s = document.createElement("span");
+            s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
+            meta.appendChild(s);
+          }
+          if (typeof d.rating === "number") {
+            const s = document.createElement("span");
+            s.textContent = d.rating.toFixed(1);
+            if (typeof d.ratingCount === "number") {
+              const tail = document.createElement("span");
+              tail.className = "text-mist-graphite";
+              tail.textContent = " · " + d.ratingCount + " " + pReviews(d.ratingCount);
+              s.appendChild(tail);
+            }
+            meta.appendChild(s);
+          }
+
+          li.querySelector("[data-slot]").textContent = formatSlot(d.nextAvailable);
+
+          list.appendChild(frag);
+        }
+
+        countEl.textContent = String(total);
+        nounEl.textContent = pDoctors(total);
+      }
+
+      async function load() {
+        const state = readState();
+        renderMeta(state);
+        setUiState("loading");
+
+        if (currentRequest) currentRequest.abort();
+        currentRequest = new AbortController();
+
+        const url = new URL(API_URL, location.origin);
+        if (state.q) url.searchParams.set("q", state.q);
+        if (state.specialty) url.searchParams.set("specialty", state.specialty);
+        if (state.sort !== "soon") url.searchParams.set("sort", state.sort);
+        url.searchParams.set("limit", String(PAGE_LIMIT));
+
+        try {
+          const res = await fetch(url.toString(), { signal: currentRequest.signal });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          if (!data || !Array.isArray(data.items)) throw new Error("Malformed response");
+
+          if (data.items.length === 0) {
+            countEl.textContent = "0";
+            nounEl.textContent = pDoctors(0);
+            setUiState("empty");
+          } else {
+            renderResults(data.items, data.total ?? data.items.length);
+            setUiState("results");
+          }
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
+          console.error("[search] fetch failed", err);
+          setUiState("error");
+        }
+      }
+
+      // Sort tab click → pushState → re-fetch
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", (e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          history.pushState({}, "", tab.getAttribute("href"));
+          load();
+        });
+      });
+
+      // Form submit → pushState (only non-default params) → re-fetch
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const next = new URLSearchParams();
+        const qv = qInput.value.trim();
+        const sv = specSelect.value;
+        if (qv) next.set("q", qv);
+        if (sv) next.set("specialty", sv);
+        const curSort = new URLSearchParams(location.search).get("sort");
+        if (curSort && curSort !== "soon") next.set("sort", curSort);
+        const qs = next.toString();
+        history.pushState({}, "", qs ? "/search?" + qs : "/search");
+        load();
+      });
+
+      retryBtn?.addEventListener("click", () => load());
+      addEventListener("popstate", load);
+
+      load();
+    })();
+  </script>
 
   <JsonLd data={breadcrumbs} />
 </BaseLayout>

@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="170" height="170" fill="none" role="img" aria-label="Каталог специалистов">
+  <defs>
+    <linearGradient id="ct_bg" x1="20" y1="20" x2="180" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6EFE2"/>
+      <stop offset="1" stop-color="#DCEEF1" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="ct_card" x1="32" y1="44" x2="32" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F7F9FA"/>
+    </linearGradient>
+    <linearGradient id="ct_av1" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#16A4B8"/>
+      <stop offset="1" stop-color="#0A6573"/>
+    </linearGradient>
+    <linearGradient id="ct_av2" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F0C580"/>
+      <stop offset="1" stop-color="#D49846"/>
+    </linearGradient>
+    <linearGradient id="ct_av3" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A7C295"/>
+      <stop offset="1" stop-color="#7A9866"/>
+    </linearGradient>
+    <linearGradient id="ct_search" x1="32" y1="14" x2="168" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F4F7F8"/>
+    </linearGradient>
+    <filter id="ct_shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.2"/>
+      <feOffset dy="2.5"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.14"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="100" cy="104" rx="90" ry="84" fill="url(#ct_bg)"/>
+  <g fill="#0E7C8C" opacity="0.15">
+    <circle cx="184" cy="44" r="1.2"/>
+    <circle cx="186" cy="56" r="1.2"/>
+    <circle cx="14" cy="120" r="1.2"/>
+    <circle cx="14" cy="132" r="1.2"/>
+  </g>
+  <g filter="url(#ct_shadow)">
+    <rect x="32" y="14" width="136" height="22" rx="11" fill="url(#ct_search)" stroke="#E2E8EA" stroke-width="1"/>
+  </g>
+  <circle cx="48" cy="25" r="4.5" fill="none" stroke="#0E7C8C" stroke-width="1.5"/>
+  <line x1="52" y1="29" x2="57" y2="34" stroke="#0E7C8C" stroke-width="1.7" stroke-linecap="round"/>
+  <rect x="62" y="22" width="56" height="6" rx="3" fill="#0E7C8C" opacity="0.32"/>
+  <rect x="124" y="20" width="38" height="10" rx="5" fill="#0E7C8C"/>
+  <line x1="130" y1="25" x2="138" y2="25" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="142" y1="25" x2="156" y2="25" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <g filter="url(#ct_shadow)">
+    <rect x="32" y="44" width="136" height="40" rx="11" fill="url(#ct_card)" stroke="#E2E8EA" stroke-width="0.8"/>
+  </g>
+  <g>
+    <circle cx="52" cy="64" r="11" fill="url(#ct_av1)"/>
+    <circle cx="52" cy="61" r="3.8" fill="#fff"/>
+    <path d="M44 73c0-4.5 4-8 8-8s8 3.5 8 8" fill="#fff"/>
+    <circle cx="60" cy="74" r="3" fill="#5DB87A" stroke="#fff" stroke-width="1.2"/>
+  </g>
+  <rect x="72" y="55" width="60" height="5" rx="2.5" fill="#0E7C8C" opacity="0.78"/>
+  <rect x="72" y="64" width="40" height="3.5" rx="1.75" fill="#0E7C8C" opacity="0.32"/>
+  <g>
+    <path d="M76 72l0.8 2 2 0.3-1.5 1.4 0.4 2-1.7-1-1.7 1 0.4-2-1.5-1.4 2-0.3z" fill="#E8B96A"/>
+    <rect x="84" y="71" width="14" height="4" rx="2" fill="#0E7C8C" opacity="0.45"/>
+  </g>
+  <rect x="138" y="58" width="22" height="14" rx="7" fill="#DCEEF1"/>
+  <path d="M146 60c-3 0-4 2-4 4 0 3 4 5 7 7 3-2 7-4 7-7 0-2-1-4-4-4-1 0-2 0.5-3 1.5-1-1-2-1.5-3-1.5z" fill="#0E7C8C"/>
+  <g filter="url(#ct_shadow)">
+    <rect x="32" y="92" width="136" height="40" rx="11" fill="url(#ct_card)" stroke="#E2E8EA" stroke-width="0.8"/>
+  </g>
+  <g>
+    <circle cx="52" cy="112" r="11" fill="url(#ct_av2)"/>
+    <circle cx="52" cy="109" r="3.8" fill="#fff"/>
+    <path d="M44 121c0-4.5 4-8 8-8s8 3.5 8 8" fill="#fff"/>
+  </g>
+  <rect x="72" y="103" width="60" height="5" rx="2.5" fill="#0E7C8C" opacity="0.78"/>
+  <rect x="72" y="112" width="46" height="3.5" rx="1.75" fill="#0E7C8C" opacity="0.32"/>
+  <g>
+    <path d="M76 120l0.8 2 2 0.3-1.5 1.4 0.4 2-1.7-1-1.7 1 0.4-2-1.5-1.4 2-0.3z" fill="#E8B96A"/>
+    <rect x="84" y="119" width="14" height="4" rx="2" fill="#0E7C8C" opacity="0.45"/>
+  </g>
+  <rect x="138" y="106" width="22" height="14" rx="7" fill="#FBEDEC"/>
+  <path d="M146 110c0-2 1.8-3.5 3.5-3.5 1.1 0 2 0.6 2.5 1.4 0.5-0.8 1.4-1.4 2.5-1.4 1.7 0 3.5 1.5 3.5 3.5 0 3-6 6.5-6 6.5s-6-3.5-6-6.5z" fill="#E15555"/>
+  <g filter="url(#ct_shadow)">
+    <rect x="32" y="140" width="136" height="40" rx="11" fill="url(#ct_card)" stroke="#E2E8EA" stroke-width="0.8"/>
+  </g>
+  <g>
+    <circle cx="52" cy="160" r="11" fill="url(#ct_av3)"/>
+    <circle cx="52" cy="157" r="3.8" fill="#fff"/>
+    <path d="M44 169c0-4.5 4-8 8-8s8 3.5 8 8" fill="#fff"/>
+  </g>
+  <rect x="72" y="151" width="60" height="5" rx="2.5" fill="#0E7C8C" opacity="0.78"/>
+  <rect x="72" y="160" width="36" height="3.5" rx="1.75" fill="#0E7C8C" opacity="0.32"/>
+  <g>
+    <path d="M76 168l0.8 2 2 0.3-1.5 1.4 0.4 2-1.7-1-1.7 1 0.4-2-1.5-1.4 2-0.3z" fill="#E8B96A"/>
+    <rect x="84" y="167" width="14" height="4" rx="2" fill="#0E7C8C" opacity="0.45"/>
+  </g>
+  <rect x="138" y="154" width="22" height="14" rx="7" fill="#E8EFE2"/>
+  <circle cx="149" cy="161" r="3.5" fill="none" stroke="#7A9866" stroke-width="1.4"/>
+  <line x1="149" y1="158" x2="149" y2="164" stroke="#7A9866" stroke-width="1.4" stroke-linecap="round"/>
+  <line x1="146" y1="161" x2="152" y2="161" stroke="#7A9866" stroke-width="1.4" stroke-linecap="round"/>
+</svg>

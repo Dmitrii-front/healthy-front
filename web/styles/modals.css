@@ -7,149 +7,430 @@
   margin: auto;
   padding: 0;
   border: 0;
-  border-radius: 24px;
+  border-radius: 20px;
   width: calc(100% - 32px);
-  max-width: 460px;
+  max-width: 440px;
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
   background: #fff;
   color: #0f1115;
   box-shadow:
-    0 24px 80px -32px rgba(15, 17, 21, 0.45),
-    0 0 0 1px rgba(15, 17, 21, 0.04);
+    0 32px 80px -24px rgba(15, 17, 21, 0.42),
+    0 0 0 1px rgba(15, 17, 21, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .hm-dialog[open] {
-  animation: hm-rise 0.22s ease;
+  animation: hm-rise 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .hm-dialog::backdrop {
-  background: rgba(15, 17, 21, 0.55);
-  backdrop-filter: saturate(140%) blur(4px);
-  -webkit-backdrop-filter: saturate(140%) blur(4px);
+  background: rgba(15, 17, 21, 0.58);
+  backdrop-filter: saturate(150%) blur(6px);
+  -webkit-backdrop-filter: saturate(150%) blur(6px);
   animation: hm-fade 0.18s ease;
 }
 
+/* Mobile: full-bleed bottom sheet — slides up from the bottom edge, rounds
+   only the top corners, leaves a sliver of backdrop above so the user can
+   dismiss by tapping outside. */
+@media (max-width: 767px) {
+  .hm-dialog {
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0 0;
+    max-height: 92dvh;
+    border-radius: 22px 22px 0 0;
+    box-shadow:
+      0 -16px 48px -16px rgba(15, 17, 21, 0.32),
+      0 0 0 1px rgba(15, 17, 21, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  .hm-dialog[open] {
+    animation: hm-sheet-up 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
 .hm-modal-body {
-  padding: 24px;
+  padding: 28px;
+  /* iOS home-indicator safe-area inset (no-op on non-iOS). */
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
 }
 
 .hm-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+/* Header with only a close button: float to the right. */
+.hm-modal-header:not(:has(> .hm-step-label)):not(:has(> .hm-modal-title)) {
+  justify-content: flex-end;
+}
+/* Header with an inline title: pull header margin in to keep typographic rhythm
+   identical to having the title in normal flow with its own 8px bottom margin. */
+.hm-modal-header:has(> .hm-modal-title) {
+  margin-bottom: 8px;
 }
 .hm-step-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #5f636a;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
 }
 
 .hm-modal-title {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 700;
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
   color: #0f1115;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+.hm-modal-header > .hm-modal-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .hm-modal-subtitle {
-  margin: 0 0 16px;
+  margin: 0 0 20px;
   font-size: 14px;
   color: #5f636a;
-  line-height: 1.45;
+  line-height: 1.5;
+  max-width: 36ch;
 }
 
 /* Icon button (close, back) */
 .hm-icon-btn {
-  width: 32px;
-  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
-  font-size: 16px;
   color: #5f636a;
   font-family: inherit;
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease,
+    border-color 0.14s ease;
 }
 .hm-icon-btn:hover {
-  background: rgba(15, 17, 21, 0.05);
+  background: rgba(15, 17, 21, 0.04);
+  color: #0f1115;
+  border-color: rgba(15, 17, 21, 0.06);
+}
+.hm-icon-btn:focus-visible {
+  outline: none;
+  border-color: #0e7c8c;
+  box-shadow: 0 0 0 3px color-mix(in oklch, #0e7c8c 16%, transparent);
+}
+.hm-icon-btn svg {
+  display: block;
 }
 
-/* Tabs (login / register) */
+/* Tabs (login / register) — segmented control with a single sliding thumb.
+   The active position is driven by .hm-dialog[data-mode] on the modal root,
+   so no per-button background swap is needed. Each tab uses the same flex
+   geometry as the thumb so motion lands pixel-aligned. */
 .hm-tabs {
+  position: relative;
   display: flex;
   gap: 4px;
   padding: 4px;
-  background: #f4f2ee;
+  background: #f1f2f4;
+  border: 1px solid #e6e7ea;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+.hm-tabs-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  right: calc(50% + 2px);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow:
+    0 1px 2px rgba(15, 17, 21, 0.07),
+    0 0 0 1px rgba(15, 17, 21, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  will-change: transform;
+}
+.hm-dialog[data-mode="register"] .hm-tabs-thumb {
+  transform: translateX(calc(100% + 4px));
 }
 .hm-tab-btn {
+  position: relative;
+  z-index: 1;
   flex: 1;
   height: 36px;
   padding: 0 12px;
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #5f636a;
+  color: #6b6f76;
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.005em;
   cursor: pointer;
   font-family: inherit;
-  transition:
-    background 0.14s ease,
-    color 0.14s ease;
+  transition: color 0.22s ease;
+}
+.hm-tab-btn:hover:not([aria-selected="true"]) {
+  color: #0f1115;
 }
 .hm-tab-btn[aria-selected="true"] {
-  background: #fff;
   color: #0f1115;
-  box-shadow: 0 1px 2px rgba(15, 17, 21, 0.06);
+}
+.hm-tab-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, #0e7c8c 18%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-tabs-thumb {
+    transition: none;
+  }
 }
 
 /* Inputs */
 .hm-label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #5f636a;
+  color: #4a4e54;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
 }
-.hm-label + .hm-label {
-  margin-top: 14px;
+/* Gap between previous input and the next field's label. */
+.hm-input + .hm-label,
+.hm-field-error + .hm-label {
+  margin-top: 22px;
 }
 
 .hm-input {
   display: block;
   width: 100%;
-  height: 52px;
+  height: 50px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid #e2e2df;
+  border: 1px solid #e7e6e1;
   background: #fff;
   color: #0f1115;
-  font-size: 16px;
+  font-size: 15.5px;
   font-family: inherit;
   outline: none;
   box-sizing: border-box;
+  transition:
+    border-color 0.14s ease,
+    box-shadow 0.16s ease;
+}
+.hm-input::placeholder {
+  color: #a8abb0;
+}
+.hm-input:hover {
+  border-color: #d3d1c9;
 }
 .hm-input:focus {
   border-color: #0e7c8c;
-  box-shadow: 0 0 0 3px rgba(14, 124, 140, 0.12);
+  box-shadow:
+    0 0 0 4px color-mix(in oklch, #0e7c8c 16%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
 /* Errors / hints */
 .hm-error {
-  margin: 12px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
   font-size: 13px;
-  color: #dc2626;
+  color: #c11d2e;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.hm-error::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 .hm-hint {
   margin: 12px 0 0;
   font-size: 12.5px;
   color: #5f636a;
+  line-height: 1.45;
+}
+
+/* Inline forgot-password (text) link inside auth form */
+.hm-forgot {
+  display: block;
+  width: fit-content;
+  margin-left: auto;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f1115;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  letter-spacing: -0.005em;
+  font-family: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(15, 17, 21, 0.3);
+}
+.hm-forgot:hover {
+  color: #0e7c8c;
+  text-decoration-color: currentColor;
+}
+
+/* Inline per-field error (under input) */
+.hm-field-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #c11d2e;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.hm-field-error svg {
+  flex-shrink: 0;
+}
+.hm-input[aria-invalid="true"] {
+  border-color: #c11d2e;
+}
+.hm-input[aria-invalid="true"]:focus {
+  border-color: #c11d2e;
+  box-shadow:
+    0 0 0 4px color-mix(in oklch, #c11d2e 14%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Password rules hint (register mode), under the password input */
+.hm-password-rules {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: #5f636a;
+  line-height: 1.45;
+}
+
+/* Live password strength meter (register mode). Three-segment bar fills
+   as each rule is met; below it sits the rule checklist with hairline
+   dot → teal check state. The whole thing is aria-hidden because the
+   password input still owns its own a11y description. */
+.hm-password-meter {
+  margin: 10px 0 0;
+}
+.hm-meter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.hm-meter-seg {
+  height: 3px;
+  border-radius: 999px;
+  background: #e7e6e1;
+  transition: background-color 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hm-meter-seg[data-met="true"] {
+  background: #0e7c8c;
+}
+.hm-meter-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.hm-meter-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b6f76;
+  letter-spacing: -0.005em;
+  transition: color 0.22s ease;
+}
+.hm-meter-rule[data-met="true"] {
+  color: #0e7c8c;
+}
+.hm-meter-icon {
+  flex-shrink: 0;
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hm-meter-icon--off {
+  opacity: 0.55;
+}
+.hm-meter-icon--on {
+  display: none;
+}
+.hm-meter-rule[data-met="true"] .hm-meter-icon--off {
+  display: none;
+}
+.hm-meter-rule[data-met="true"] .hm-meter-icon--on {
+  display: block;
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-meter-seg,
+  .hm-meter-icon,
+  .hm-meter-rule {
+    transition: none;
+  }
+}
+
+/* Terms & Conditions agreement row (register mode) */
+.hm-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #4a4e54;
+  cursor: pointer;
+  font-family: inherit;
+}
+.hm-agree input[type="checkbox"] {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  border-radius: 6px;
+  accent-color: #0e7c8c;
+  cursor: pointer;
+}
+.hm-agree a {
+  color: #0f1115;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.hm-agree a:hover {
+  text-decoration-color: #0e7c8c;
+  color: #0e7c8c;
+}
+.hm-agree[hidden] {
+  display: none;
 }
 
 /* Buttons */
@@ -157,6 +438,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   width: 100%;
   height: 52px;
   border-radius: 14px;
@@ -165,32 +447,53 @@
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.14s ease;
+  letter-spacing: -0.005em;
+  transition:
+    background-color 0.16s ease,
+    transform 0.14s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease;
 }
 .hm-btn-primary {
   background: #0e7c8c;
   color: #fff;
   text-decoration: none;
+  box-shadow:
+    0 6px 16px -6px color-mix(in oklch, #0e7c8c 50%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .hm-btn-primary:hover {
   background: #0a6573;
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 22px -8px color-mix(in oklch, #0e7c8c 60%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.hm-btn-primary:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 4px 10px -4px color-mix(in oklch, #0e7c8c 50%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 .hm-btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 4px 10px -6px color-mix(in oklch, #0e7c8c 30%, transparent);
 }
 .hm-btn-ghost {
   height: 44px;
   background: transparent;
   color: #0f1115;
-  border: 1px solid #e2e2df;
+  border: 1px solid #e7e6e1;
   font-size: 14px;
+  box-shadow: none;
 }
 .hm-btn-ghost:hover {
-  border-color: #5f636a;
+  border-color: #0f1115;
+  transform: translateY(-1px);
 }
 .hm-btn-block-spacing {
-  margin-top: 18px;
+  margin-top: 20px;
 }
 
 /* Trigger buttons (out-of-modal entry points) */
@@ -206,13 +509,26 @@
   font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 6px 14px -6px rgba(14, 124, 140, 0.55);
+  box-shadow:
+    0 6px 14px -6px color-mix(in oklch, #0e7c8c 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   font-family: inherit;
   text-decoration: none;
-  transition: background 0.14s ease;
+  letter-spacing: -0.005em;
+  transition:
+    background-color 0.16s ease,
+    transform 0.14s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease;
 }
 .hm-trigger:hover {
   background: #0a6573;
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 22px -8px color-mix(in oklch, #0e7c8c 60%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.hm-trigger:active {
+  transform: translateY(1px);
 }
 .hm-trigger-compact {
   height: 36px;
@@ -330,30 +646,45 @@
 /* Success state */
 .hm-success {
   text-align: center;
-  padding: 12px 0;
+  padding: 8px 0 4px;
 }
 .hm-success-icon {
+  display: grid;
+  place-items: center;
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
-  margin: 0 auto 16px;
-  display: grid;
-  place-items: center;
-  font-size: 30px;
+  background: color-mix(in oklch, #16a34a 14%, transparent);
+  color: #15803d;
+  margin: 0 auto 18px;
+  font-size: 0;
+  box-shadow:
+    0 0 0 8px color-mix(in oklch, #16a34a 6%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.hm-success-icon--brand {
+  background: color-mix(in oklch, #0e7c8c 14%, transparent);
+  color: #0e7c8c;
+  box-shadow:
+    0 0 0 8px color-mix(in oklch, #0e7c8c 6%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.hm-success-icon svg {
+  display: block;
 }
 .hm-success-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   color: #0f1115;
+  letter-spacing: -0.02em;
 }
 .hm-success-text {
-  margin: 8px 0 0;
+  margin: 10px auto 0;
   font-size: 14.5px;
   color: #5f636a;
-  line-height: 1.4;
+  line-height: 1.5;
+  max-width: 36ch;
 }
 
 /* Favorite button */
@@ -430,6 +761,36 @@
   }
 }
 
+/* Staggered fade-up of pane children on pane switch / modal open. CSS-only. */
+@keyframes hm-field-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hm-dialog[open] .hm-pane:not([hidden]) > * {
+  animation: hm-field-rise 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hm-dialog[open] .hm-pane:not([hidden]) > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+.hm-dialog[open] .hm-pane:not([hidden]) > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+.hm-dialog[open] .hm-pane:not([hidden]) > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.hm-dialog[open] .hm-pane:not([hidden]) > *:nth-child(4) {
+  animation-delay: 190ms;
+}
+.hm-dialog[open] .hm-pane:not([hidden]) > *:nth-child(n + 5) {
+  animation-delay: 240ms;
+}
+
 /* Animations */
 @keyframes hm-fade {
   from {
@@ -447,5 +808,35 @@
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+@keyframes hm-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-dialog[open],
+  .hm-dialog::backdrop,
+  .hm-dialog[open] [data-el="form-wrap"] > *,
+  .hm-fav-tooltip {
+    animation: none;
+  }
+  .hm-btn,
+  .hm-btn-primary,
+  .hm-btn-ghost,
+  .hm-trigger {
+    transition: background-color 0.14s ease;
+  }
+  .hm-btn-primary:hover,
+  .hm-btn-ghost:hover,
+  .hm-btn-primary:active,
+  .hm-trigger:hover,
+  .hm-trigger:active {
+    transform: none;
   }
 }
