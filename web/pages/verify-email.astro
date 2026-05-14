@@ -1,0 +1,294 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+// Email verification landing — opens from the deeplink in the
+// confirm-email transactional email (healthy-mail/emails/confirm-email).
+// Reads ?token and ?lang from the URL, fires GET /auth/verify-email, and
+// flips between pending / success / expired / error states client-side.
+// Not pre-rendered — runs through the CF Worker so query params reach
+// the page (Astro static redirects in astro.config strip query strings).
+export const prerender = false;
+
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3000";
+---
+
+<BaseLayout title="Подтверждение email — Healthy" canonical={Astro.url.toString()}>
+  <main class="hm-verify-shell">
+    <section
+      class="hm-verify-card"
+      role="status"
+      aria-live="polite"
+      data-state="pending"
+      data-api-url={apiUrl}
+    >
+      <div class="hm-verify-brand" aria-hidden="true">
+        <div class="hm-verify-mono">H</div>
+        <span>Healthy</span>
+      </div>
+
+      <!-- PENDING -->
+      <div class="hm-verify-pane" data-pane="pending">
+        <div class="hm-verify-icon hm-verify-icon--brand" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="m3 7 9 6 9-6" />
+          </svg>
+        </div>
+        <h1 class="hm-verify-title">Подтверждаем email</h1>
+        <p class="hm-verify-subtitle">Это займёт несколько секунд</p>
+        <p class="hm-verify-helper">Проверяем ссылку…</p>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="hm-verify-pane" data-pane="success" hidden>
+        <div class="hm-verify-icon hm-verify-icon--brand" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m5 12 5 5 9-11" />
+          </svg>
+        </div>
+        <h1 class="hm-verify-title">Email подтверждён</h1>
+        <p class="hm-verify-subtitle">
+          Теперь вы можете записываться к врачам без ограничений.
+        </p>
+        <a class="hm-verify-cta hm-verify-cta--primary" href="/app/">Продолжить</a>
+      </div>
+
+      <!-- EXPIRED -->
+      <div class="hm-verify-pane" data-pane="expired" hidden>
+        <div class="hm-verify-icon hm-verify-icon--error" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+        </div>
+        <h1 class="hm-verify-title">Ссылка устарела</h1>
+        <p class="hm-verify-subtitle">
+          Срок действия ссылки истёк. Войдите и запросите новое письмо.
+        </p>
+        <a class="hm-verify-cta hm-verify-cta--primary" href="/?auth=sign-in">
+          Вернуться ко входу
+        </a>
+      </div>
+
+      <!-- ERROR (generic) -->
+      <div class="hm-verify-pane" data-pane="error" hidden>
+        <div class="hm-verify-icon hm-verify-icon--error" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+        </div>
+        <h1 class="hm-verify-title">Не удалось подтвердить</h1>
+        <p class="hm-verify-subtitle">
+          Попробуйте ещё раз или войдите в аккаунт, чтобы переслать письмо.
+        </p>
+        <a class="hm-verify-cta hm-verify-cta--primary" href="/?auth=sign-in">
+          Вернуться ко входу
+        </a>
+      </div>
+
+      <!-- NO TOKEN -->
+      <div class="hm-verify-pane" data-pane="no-token" hidden>
+        <div class="hm-verify-icon hm-verify-icon--error" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+        </div>
+        <h1 class="hm-verify-title">Ссылка недействительна</h1>
+        <p class="hm-verify-subtitle">
+          Откройте письмо с подтверждением и нажмите ссылку ещё раз.
+        </p>
+        <a class="hm-verify-cta hm-verify-cta--primary" href="/?auth=sign-in">
+          Вернуться ко входу
+        </a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  .hm-verify-shell {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 40px 24px;
+    background: linear-gradient(180deg, #faf8f5 0%, #f1ecdf 100%);
+  }
+  .hm-verify-card {
+    width: 100%;
+    max-width: 440px;
+    background: #ffffff;
+    border-radius: 24px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 36px 28px 32px;
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.08),
+      0 0 0 1px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    text-align: center;
+  }
+  @media (min-width: 768px) {
+    .hm-verify-card {
+      padding: 40px 36px 36px;
+    }
+  }
+  .hm-verify-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #0f1115;
+  }
+  .hm-verify-mono {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: #0e7c8c;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .hm-verify-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+  }
+  .hm-verify-icon--brand {
+    color: #0e7c8c;
+    background: color-mix(in oklab, #0e7c8c 12%, transparent);
+  }
+  .hm-verify-icon--error {
+    color: #b04a3a;
+    background: color-mix(in oklab, #b04a3a 12%, transparent);
+  }
+  .hm-verify-pane {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+  .hm-verify-pane[hidden] {
+    display: none;
+  }
+  .hm-verify-title {
+    margin: 4px 0 0;
+    font-size: 24px;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #0f1115;
+  }
+  .hm-verify-subtitle {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.45;
+    color: #5f636a;
+    max-width: 320px;
+  }
+  .hm-verify-helper {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: #5f636a;
+  }
+  .hm-verify-cta {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    width: 100%;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease,
+      background-color 0.15s ease;
+  }
+  .hm-verify-cta--primary {
+    background: #0e7c8c;
+    color: #fff;
+    box-shadow:
+      0 1px 2px rgba(14, 124, 140, 0.2),
+      0 8px 20px rgba(14, 124, 140, 0.2);
+  }
+  .hm-verify-cta--primary:hover {
+    background: #0a6573;
+    transform: translateY(-1px);
+    box-shadow:
+      0 2px 4px rgba(14, 124, 140, 0.25),
+      0 12px 28px rgba(14, 124, 140, 0.28);
+  }
+  .hm-verify-cta--primary:active {
+    transform: scale(0.985);
+  }
+</style>
+
+<script>
+  type Pane = "pending" | "success" | "expired" | "error" | "no-token";
+
+  const card = document.querySelector<HTMLElement>(".hm-verify-card");
+  if (card) {
+    const apiUrl = card.dataset.apiUrl ?? "http://localhost:3000";
+    const panes = card.querySelectorAll<HTMLElement>("[data-pane]");
+
+    function showPane(name: Pane): void {
+      panes.forEach((p) => {
+        p.hidden = p.dataset.pane !== name;
+      });
+      if (card) card.dataset.state = name;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const token = params.get("token");
+    const lang = params.get("lang");
+
+    // Persist locale picked up from the email-link query so the rest of the
+    // visit renders in the right language once i18n lands SPA-side. Mirrors
+    // the contract the SPA's locale module used to enforce.
+    if (lang && /^(ru|en|kg)$/.test(lang)) {
+      try {
+        window.localStorage.setItem("healthy:locale", lang);
+        document.documentElement.lang = lang;
+      } catch {
+        // private mode etc — ignore
+      }
+    }
+
+    if (!token) {
+      showPane("no-token");
+    } else {
+      const url = `${apiUrl}/auth/verify-email?token=${encodeURIComponent(token)}`;
+      fetch(url, { method: "GET", headers: { Accept: "application/json" } })
+        .then((res) => {
+          if (res.ok) {
+            showPane("success");
+          } else if (res.status === 410) {
+            showPane("expired");
+          } else {
+            showPane("error");
+          }
+        })
+        .catch(() => {
+          showPane("error");
+        });
+    }
+  }
+</script>

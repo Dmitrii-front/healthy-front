@@ -1,10 +1,7 @@
 export { useAuthStore, authStore } from "./model/auth.store";
-export type { SignInPayload, SignUpPayload, AuthSuccess, RefreshSuccess } from "./model/types";
+export type { RefreshSuccess } from "./model/types";
 export { authApi } from "./api/auth.api";
 export { AUTH_QUERIES } from "./api/auth.queries";
-export { useSignIn } from "./lib/use-sign-in";
-export { useSignUp } from "./lib/use-sign-up";
 export { useSignOut } from "./lib/use-sign-out";
 export { useCurrentUser } from "./lib/use-current-user";
 export { bootstrapAuth } from "./lib/register-adapter";
-export { getLastSignInEmail, rememberSignInEmail, hasPriorSignIn } from "./lib/last-email";

@@ -49,9 +49,6 @@ export default defineConfig({
     },
   },
   prefetch: { defaultStrategy: "viewport" },
-  redirects: {
-    "/sign-in": "/app/sign-in",
-    "/sign-up": "/app/sign-up",
-    "/forgot-password": "/app/forgot-password",
-  },
+  // Auth (sign-in, sign-up, forgot-password, verify-email, reset-password)
+  // is served by Astro pages in the SEO zone — no redirects into the SPA.
 });

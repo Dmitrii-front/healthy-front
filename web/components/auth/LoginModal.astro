@@ -294,6 +294,33 @@ const { returnTo = "/app/" } = Astro.props;
           openModal(modal);
         });
       });
+
+      // External entry via ?auth=sign-in or ?auth=sign-up (used by the
+      // SPA's AuthGateModal to bounce unauthenticated users to the landing
+      // page with the right pane pre-opened). Optional ?return_to= sets
+      // the post-success redirect target.
+      const params = new URLSearchParams(location.search);
+      const authParam = params.get("auth");
+      const returnToParam = params.get("return_to");
+      if (authParam === "sign-in" || authParam === "sign-up") {
+        const mode: Mode = authParam === "sign-up" ? "register" : "login";
+        modal.dataset.mode = mode;
+        if (returnToParam) {
+          modal.dataset.returnTo = returnToParam;
+          const successLink = modal.querySelector<HTMLAnchorElement>(
+            '[data-el="success-link"]',
+          );
+          if (successLink) successLink.href = returnToParam;
+        }
+        // Strip the params so refresh / back-nav doesn't keep re-opening the
+        // modal after the user dismisses it.
+        const cleanUrl = new URL(location.href);
+        cleanUrl.searchParams.delete("auth");
+        cleanUrl.searchParams.delete("return_to");
+        history.replaceState(null, "", cleanUrl.toString());
+        resetAll();
+        openModal(modal);
+      }
     }
 
     closeBtns.forEach((b) => b.addEventListener("click", () => closeModal(modal)));

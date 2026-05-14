@@ -1,6 +1,8 @@
 import { Outlet, createRootRouteWithContext, Link, useMatches } from "@tanstack/react-router";
 import { Suspense } from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/features/auth";
+import { AuthGateModal } from "@/widgets/auth-gate-modal";
 import { DesktopRail } from "@/widgets/desktop-rail";
 import { TabBar } from "@/widgets/tab-bar";
 import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
@@ -9,23 +11,36 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-// TODO(auth-guard): re-enable beforeLoad redirect once Astro-side phone+SMS
-// flow lands. Temporarily disabled so the SPA is browseable without tokens
-// for prototype testing.
-// const PUBLIC_ROUTES = new Set<string>(["/sign-in", "/sign-up", "/forgot-password"]);
-
+// Whole SPA is a protected zone — auth (sign-in, sign-up, forgot/reset
+// password, email verification) lives on the Astro marketing site at the
+// browser root. Unauthenticated users still land in the SPA shell but see
+// a brand-warm gate modal that punts them to Astro auth pages; this keeps
+// the user visually anchored in Healthy rather than flashing a 404 page.
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   notFoundComponent: NotFound,
 });
 
 function RootLayout() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const matches = useMatches();
   const hideTabBar = matches.some((m) => m.staticData?.hideTabBar);
 
-  // Auth screens own their full-bleed layout (AuthLayout widget) and don't
-  // want the desktop side-rail or the mobile pb-24 tab-bar clearance.
+  // Standalone routes opt out of the desktop side-rail and the mobile
+  // pb-24 tab-bar clearance (e.g. booking/doctor-detail flows).
   const isStandalone = hideTabBar;
+
+  // Gate: unauthenticated → render only the brand-tinted modal screen.
+  // No <Outlet />, so child route components don't mount and route loaders
+  // don't see authed-required UI; the queries themselves still fire but
+  // their results are invisible to the user.
+  if (!isAuthenticated) {
+    return (
+      <div className="relative min-h-dvh bg-warm-paper text-graphite">
+        <AuthGateModal />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-warm-paper text-graphite">
