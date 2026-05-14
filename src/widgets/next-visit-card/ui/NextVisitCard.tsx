@@ -60,7 +60,7 @@ export function NextVisitCard({ appointment, doctor, onOpen, onOpenDoctor }: Nex
         }}
       >
         <div className="flex min-h-[22px] items-center justify-between gap-2.5">
-          <span className="max-w-[60%] text-[11px] font-semibold uppercase tracking-[0.09em] leading-snug text-brick-coral">
+          <span className="max-w-[60%] text-[11px] font-semibold uppercase tracking-[0.09em] leading-snug text-brick-teal">
             Следующий визит · {eyebrow}
           </span>
           <span
@@ -82,7 +82,7 @@ export function NextVisitCard({ appointment, doctor, onOpen, onOpenDoctor }: Nex
 
         {appointment.notes && (
           <div className="mt-3.5 flex items-start gap-2.5 rounded-md border border-hairline bg-card-white/85 px-3 py-2.5">
-            <Icon name="info" size={15} stroke={2} className="mt-0.5 shrink-0 text-brick-coral" />
+            <Icon name="info" size={15} stroke={2} className="mt-0.5 shrink-0 text-brick-teal" />
             <p className="text-[13px] leading-snug text-soft-graphite">
               <span className="font-medium text-graphite">Перед визитом — </span>
               {appointment.notes}

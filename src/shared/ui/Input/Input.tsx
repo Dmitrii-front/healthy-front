@@ -22,8 +22,8 @@ export function Input({ ref, icon, invalid, revealable, type, className, ...rest
         revealable ? "pr-1" : "pr-3.5",
         "transition-[border-color,box-shadow] duration-150 focus-within:ring-2",
         invalid
-          ? "border-brick-coral focus-within:border-brick-coral focus-within:ring-brick-coral/20"
-          : "border-hairline-strong focus-within:border-clinic-coral focus-within:ring-clinic-coral/15",
+          ? "border-brick-teal focus-within:border-brick-teal focus-within:ring-brick-teal/20"
+          : "border-hairline-strong focus-within:border-clinic-teal focus-within:ring-clinic-teal/15",
         className,
       )}
     >
@@ -34,8 +34,8 @@ export function Input({ ref, icon, invalid, revealable, type, className, ...rest
           className={cn(
             "shrink-0 transition-colors duration-150",
             invalid
-              ? "text-brick-coral/80"
-              : "text-distant-graphite group-focus-within:text-clinic-coral/70",
+              ? "text-brick-teal/80"
+              : "text-distant-graphite group-focus-within:text-clinic-teal/70",
           )}
         />
       )}
@@ -51,7 +51,7 @@ export function Input({ ref, icon, invalid, revealable, type, className, ...rest
           onClick={() => setRevealed((v) => !v)}
           aria-label={revealed ? "Скрыть пароль" : "Показать пароль"}
           aria-pressed={revealed}
-          className="shrink-0 grid h-11 w-11 place-items-center rounded-md text-distant-graphite hover:text-graphite focus-visible:outline focus-visible:outline-clinic-coral/40"
+          className="shrink-0 grid h-11 w-11 place-items-center rounded-md text-distant-graphite hover:text-graphite focus-visible:outline focus-visible:outline-clinic-teal/40"
         >
           <Icon name={revealed ? "eye-off" : "eye"} size={18} />
         </button>

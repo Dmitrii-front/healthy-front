@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useCurrentUser, useSignOut } from "@/features/auth";
@@ -102,10 +101,9 @@ export function ProfilePage() {
 
         {pcp && (
           <ProfileSection title="Команда врачей">
-            <Link
-              to="/doctor/$doctorId"
-              params={{ doctorId: pcp.id }}
-              className="flex w-full items-center gap-3 rounded-[16px] border border-hairline bg-card-white p-3.5 text-left transition-transform active:scale-[0.992]"
+            <a
+              href={`/doctor/${pcp.id}`}
+              className="flex w-full items-center gap-3 rounded-[16px] border border-hairline bg-card-white p-3.5 text-left no-underline transition-transform active:scale-[0.992]"
             >
               <Avatar initials={pcp.initials} color={pcp.color} size={44} />
               <div className="min-w-0 flex-1">
@@ -116,7 +114,7 @@ export function ProfilePage() {
                 <p className="mt-px text-[12.5px] text-distant-graphite">{pcp.specialty}</p>
               </div>
               <Icon name="chevron-right" size={16} className="text-distant-graphite" />
-            </Link>
+            </a>
           </ProfileSection>
         )}
 
@@ -158,7 +156,7 @@ export function ProfilePage() {
             type="button"
             disabled={signOut.isPending}
             onClick={() => void handleSignOut()}
-            className="w-full rounded-[14px] border border-hairline bg-transparent py-3.5 text-[14px] font-medium text-brick-coral transition-transform active:scale-[0.992] disabled:opacity-60"
+            className="w-full rounded-[14px] border border-hairline bg-transparent py-3.5 text-[14px] font-medium text-brick-teal transition-transform active:scale-[0.992] disabled:opacity-60"
           >
             {signOut.isPending ? "Выходим…" : confirming ? "Точно выйти? Нажмите ещё раз" : "Выйти"}
           </button>

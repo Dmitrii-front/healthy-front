@@ -38,8 +38,8 @@ export function AuthInput({
         "flex h-[52px] items-center gap-3 rounded-[14px] border bg-white pr-4 pl-4 transition-[border-color,box-shadow] duration-150 lg:h-[50px] lg:rounded-[12px]",
         "focus-within:ring-4",
         invalid
-          ? "border-brick-coral focus-within:border-brick-coral focus-within:ring-brick-coral/20"
-          : "border-auth-border focus-within:border-teal-brand focus-within:ring-teal-brand-soft",
+          ? "border-brick-teal focus-within:border-brick-teal focus-within:ring-brick-teal/20"
+          : "border-auth-border focus-within:border-clinic-teal focus-within:ring-teal-brand-soft",
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function AuthInput({
           name={icon}
           size={18}
           stroke={1.6}
-          className={cn("shrink-0", invalid ? "text-brick-coral/80" : "text-auth-muted")}
+          className={cn("shrink-0", invalid ? "text-brick-teal/80" : "text-auth-muted")}
         />
       )}
       <input
@@ -65,7 +65,7 @@ export function AuthInput({
               onClick={() => setRevealed((v) => !v)}
               aria-label={revealed ? "Скрыть пароль" : "Показать пароль"}
               aria-pressed={revealed}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-auth-muted hover:text-auth-ink-2 focus-visible:outline focus-visible:outline-teal-brand/40"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-auth-muted hover:text-auth-ink-2 focus-visible:outline focus-visible:outline-clinic-teal/40"
             >
               <Icon name={revealed ? "eye-off" : "eye"} size={18} stroke={1.6} />
             </button>

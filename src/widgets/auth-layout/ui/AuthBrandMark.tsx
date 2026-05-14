@@ -9,14 +9,14 @@ interface AuthBrandMarkProps {
  * Two tones: ink wordmark for the light mobile column / desktop card
  * surface, white wordmark for the dark desktop top bar.
  *
- * Distinct from the main `BrandMark` (which uses brick-coral + the
+ * Distinct from the main `BrandMark` (which uses brick-teal + the
  * monogram-h icon) so we can pivot auth to teal without touching the rest
  * of the app's brand surface.
  */
 export function AuthBrandMark({ tone = "ink" }: AuthBrandMarkProps) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-teal-brand text-[18px] leading-none font-bold text-white">
+      <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-clinic-teal text-[18px] leading-none font-bold text-white">
         H
       </div>
       <span

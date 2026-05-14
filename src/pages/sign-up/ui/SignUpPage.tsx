@@ -89,7 +89,7 @@ export function SignUpPage() {
             <p
               id="email-error"
               role="alert"
-              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
             >
               <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
               {errors.email.message}
@@ -116,7 +116,7 @@ export function SignUpPage() {
             <p
               id="password-error"
               role="alert"
-              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
             >
               <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
               {errors.password.message}
@@ -131,7 +131,7 @@ export function SignUpPage() {
         <label className="-my-2 flex cursor-pointer items-start gap-3 py-2 text-[13px] leading-[1.45] text-auth-ink-2">
           <input
             type="checkbox"
-            className="mt-0.5 h-[22px] w-[22px] shrink-0 cursor-pointer rounded-[6px] accent-teal-brand"
+            className="mt-0.5 h-[22px] w-[22px] shrink-0 cursor-pointer rounded-[6px] accent-clinic-teal"
             {...register("agree")}
           />
           <span>
@@ -147,7 +147,7 @@ export function SignUpPage() {
           </span>
         </label>
         {errors.agree && (
-          <p role="alert" className="-mt-3 text-[12.5px] text-brick-coral">
+          <p role="alert" className="-mt-3 text-[12.5px] text-brick-teal">
             {errors.agree.message}
           </p>
         )}
@@ -156,7 +156,7 @@ export function SignUpPage() {
           <p
             id="form-error"
             role="alert"
-            className="-mt-1 inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+            className="-mt-1 inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
           >
             <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
             {errors.root.message}

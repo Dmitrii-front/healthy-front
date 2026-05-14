@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
-/* Healthy Mobile design tokens — synced from DESIGN.md (project root)
+/* Healthy Mobile design tokens — design docs at /Users/vladimir/Development/design/healthy/
  *
- * Brand pivot 2026-05: theme moved from "Editorial Clinic / warm minimalism"
- * to Linear-style cool monochrome. Neutrals are now on OKLCH hue 240
- * (slightly blue-tinted) instead of the previous hue 90 (warm cream).
- * Coral accent unchanged — single brand color anchoring identity.
+ * Brand pivot 2026-05a: warm coral → cool monochrome (neutrals on OKLCH hue 240).
+ * Brand pivot 2026-05b: coral accent → teal accent, unifying SPA with the Astro
+ * marketing site at /web. Brand-color tokens renamed in the same pass:
+ *   clinic-coral → clinic-teal   (#0e7c8c, brand base, primary CTAs / accents)
+ *   brick-coral  → brick-teal    (#0a6573, hover / active / deeper accent)
+ * Hex values kept 1:1 with the design handoff to avoid drift through OKLCH.
  *
- * NOTE on naming: variable names like --color-warm-paper are legacy from
- * the previous warm theme; renaming would require touching ~30+ files.
- * Token NAMES stay; VALUES shift cool. DESIGN.md documents the migration.
+ * Other legacy names (--color-warm-paper, --color-tinted-linen, …) are kept
+ * as-is — they're semantic surface tokens, not literal-color references.
  */
 @theme {
-  /* Colors — Linear cool palette */
-  --color-clinic-coral: oklch(56% 0.13 25);
-  --color-brick-coral: oklch(44% 0.13 25);
-  --color-tinted-linen: oklch(95% 0.022 25);
+  /* Brand — teal (was coral). Hex kept 1:1 with the marketing site palette
+     so accidental drift through OKLCH conversion stays impossible. */
+  --color-clinic-teal: #0e7c8c;
+  --color-brick-teal: #0a6573;
+  --color-tinted-linen: oklch(96% 0.018 209);
   --color-warm-paper: oklch(99% 0.004 240);
   --color-card-white: oklch(99.5% 0.002 240);
   --color-linen-shade: oklch(95.5% 0.005 240);
@@ -29,12 +31,8 @@
   --color-pending-amber: oklch(78% 0.16 75);
   --color-pending-amber-deep: oklch(52% 0.13 75);
 
-  /* Auth theme — teal pivot (scoped to auth screens, see widgets/auth-layout).
-     Source: claude design handoff "Healthy Mobile (Teal)" — values are kept in
-     hex on purpose to match the design 1:1 and avoid accidental drift through
-     OKLCH conversion. */
-  --color-teal-brand: #0e7c8c;
-  --color-teal-brand-hover: #0a6573;
+  /* Auth-scoped surface tokens — distinct from the brand colors above.
+     Hex kept 1:1 with the design handoff. */
   --color-teal-brand-soft: #dceef1;
   --color-auth-bg: #faf8f5;
   --color-auth-ink: #0f1115;
@@ -159,7 +157,7 @@ body {
 .auth-bg-stack {
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, var(--color-teal-brand) 8%, transparent) 0%,
+    color-mix(in oklab, var(--color-clinic-teal) 8%, transparent) 0%,
     transparent 50%
   );
 }

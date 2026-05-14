@@ -15,7 +15,7 @@ const VARIANTS: Record<Variant, string> = {
   // Primary CTA carries the coral halo per DESIGN.md "CTA Halo" rule.
   // Hover lifts 1px and deepens the halo for a tactile "rising" feel.
   primary:
-    "bg-brick-coral text-card-white shadow-[0_6px_16px_color-mix(in_oklch,var(--color-brick-coral)_30%,transparent)] hover:bg-clinic-coral hover:-translate-y-px hover:shadow-[0_10px_24px_color-mix(in_oklch,var(--color-brick-coral)_38%,transparent)] disabled:bg-mist-graphite disabled:text-card-white/80 disabled:shadow-none disabled:hover:translate-y-0",
+    "bg-brick-teal text-card-white shadow-[0_6px_16px_color-mix(in_oklch,var(--color-brick-teal)_30%,transparent)] hover:bg-clinic-teal hover:-translate-y-px hover:shadow-[0_10px_24px_color-mix(in_oklch,var(--color-brick-teal)_38%,transparent)] disabled:bg-mist-graphite disabled:text-card-white/80 disabled:shadow-none disabled:hover:translate-y-0",
   secondary:
     "bg-card-white text-graphite border border-hairline-strong hover:bg-linen-shade disabled:text-distant-graphite",
   ghost: "border border-dashed border-hairline-strong text-distant-graphite hover:bg-linen-shade",

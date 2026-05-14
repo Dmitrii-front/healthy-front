@@ -33,9 +33,9 @@ export function ForgotPasswordPage() {
         subtitle={`Мы отправили ссылку на ${sentEmail}, она действительна 30 минут`}
       >
         <div
-          className="mb-2 flex h-14 w-14 items-center justify-center rounded-2xl text-teal-brand"
+          className="mb-2 flex h-14 w-14 items-center justify-center rounded-2xl text-clinic-teal"
           style={{
-            background: "color-mix(in oklab, var(--color-teal-brand) 12%, transparent)",
+            background: "color-mix(in oklab, var(--color-clinic-teal) 12%, transparent)",
           }}
         >
           <Icon name="mail" size={26} stroke={1.8} />
@@ -75,7 +75,7 @@ export function ForgotPasswordPage() {
             <p
               id="email-error"
               role="alert"
-              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
             >
               <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
               {errors.email.message}

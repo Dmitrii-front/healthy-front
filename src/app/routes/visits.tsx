@@ -1,15 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
-import { VisitsPage, visitsLoader } from "@/pages/visits";
-import { RouteError } from "@/shared/ui/RouteError";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-const visitsSearchSchema = z.object({
-  tab: z.enum(["upcoming", "past"]).default("upcoming"),
-});
-
+// Layout route for /visits/* — children declare their own components,
+// loaders and search schemas. The detail route mounts here as a sibling
+// of the list (visits.index.tsx) under the same path prefix.
 export const Route = createFileRoute("/visits")({
-  validateSearch: (search) => visitsSearchSchema.parse(search),
-  loader: visitsLoader,
-  component: VisitsPage,
-  errorComponent: ({ error, reset }) => <RouteError error={error} reset={reset} />,
+  component: () => <Outlet />,
 });

@@ -1,6 +1,7 @@
 import { Outlet, createRootRouteWithContext, Link, useMatches } from "@tanstack/react-router";
 import { Suspense } from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import { DesktopRail } from "@/widgets/desktop-rail";
 import { TabBar } from "@/widgets/tab-bar";
 import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
 
@@ -22,6 +23,10 @@ function RootLayout() {
   const matches = useMatches();
   const hideTabBar = matches.some((m) => m.staticData?.hideTabBar);
 
+  // Auth screens own their full-bleed layout (AuthLayout widget) and don't
+  // want the desktop side-rail or the mobile pb-24 tab-bar clearance.
+  const isStandalone = hideTabBar;
+
   return (
     <div className="min-h-dvh bg-warm-paper text-graphite">
       <ErrorBoundary
@@ -35,7 +40,7 @@ function RootLayout() {
             </h1>
             <button
               onClick={reset}
-              className="rounded-pill bg-clinic-coral px-6 py-3 text-sm font-medium text-card-white hover:bg-brick-coral"
+              className="rounded-pill bg-clinic-teal px-6 py-3 text-sm font-medium text-card-white hover:bg-brick-teal"
             >
               Попробовать снова
             </button>
@@ -49,9 +54,20 @@ function RootLayout() {
             </div>
           }
         >
-          <main className={hideTabBar ? undefined : "pb-24"}>
-            <Outlet />
-          </main>
+          {isStandalone ? (
+            <main>
+              <Outlet />
+            </main>
+          ) : (
+            <div className="md:flex md:items-stretch">
+              <DesktopRail />
+              <main className="min-w-0 flex-1 pb-24 md:pb-0">
+                <div className="md:mx-auto md:max-w-[820px] md:px-10 md:py-10">
+                  <Outlet />
+                </div>
+              </main>
+            </div>
+          )}
         </Suspense>
       </ErrorBoundary>
       <TabBar />
@@ -66,7 +82,7 @@ function NotFound() {
       <h1 className="text-2xl font-medium tracking-tight">Страница не найдена</h1>
       <Link
         to="/"
-        className="rounded-pill bg-clinic-coral px-6 py-3 text-sm font-medium text-card-white hover:bg-brick-coral"
+        className="rounded-pill bg-clinic-teal px-6 py-3 text-sm font-medium text-card-white hover:bg-brick-teal"
       >
         На главную
       </Link>

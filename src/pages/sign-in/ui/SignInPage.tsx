@@ -88,7 +88,7 @@ export function SignInPage() {
             <p
               id="email-error"
               role="alert"
-              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
             >
               <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
               {errors.email.message}
@@ -115,7 +115,7 @@ export function SignInPage() {
             <p
               id="password-error"
               role="alert"
-              className="inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+              className="inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
             >
               <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
               {errors.password.message}
@@ -137,7 +137,7 @@ export function SignInPage() {
           <p
             id="form-error"
             role="alert"
-            className="-mt-1 inline-flex items-center gap-1.5 text-[13px] text-brick-coral"
+            className="-mt-1 inline-flex items-center gap-1.5 text-[13px] text-brick-teal"
           >
             <Icon name="alert-circle" size={14} stroke={1.8} className="shrink-0" />
             {errors.root.message}

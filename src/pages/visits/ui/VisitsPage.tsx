@@ -25,7 +25,7 @@ interface CardRow {
 type Row = EyebrowRow | CardRow;
 
 export function VisitsPage() {
-  const { tab } = useSearch({ from: "/visits" });
+  const { tab } = useSearch({ from: "/visits/" });
   const navigate = useNavigate();
   const { data: appointments = [] } = useQuery(APPOINTMENT_QUERIES.list());
   const { data: doctors = [] } = useQuery(DOCTOR_QUERIES.list());
@@ -46,13 +46,13 @@ export function VisitsPage() {
           <h1 className="m-0 text-[26px] font-medium tracking-[-0.022em] text-graphite font-display">
             Визиты
           </h1>
-          <button
-            type="button"
-            aria-label="Записаться"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-card-white text-soft-graphite shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
+          <a
+            href="/search"
+            aria-label="Записаться на приём"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-card-white text-soft-graphite shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-colors hover:text-graphite"
           >
             <PlusIcon />
-          </button>
+          </a>
         </div>
 
         <div
@@ -82,9 +82,17 @@ export function VisitsPage() {
         }}
       >
         {tab === "upcoming" ? (
-          <UpcomingList appointments={upcoming} docById={docById} />
+          <UpcomingList
+            appointments={upcoming}
+            docById={docById}
+            onOpen={(id) => void navigate({ to: "/visits/$visitId", params: { visitId: id } })}
+          />
         ) : (
-          <PastList appointments={past} docById={docById} />
+          <PastList
+            appointments={past}
+            docById={docById}
+            onOpen={(id) => void navigate({ to: "/visits/$visitId", params: { visitId: id } })}
+          />
         )}
       </div>
     </section>
@@ -94,9 +102,11 @@ export function VisitsPage() {
 function UpcomingList({
   appointments,
   docById,
+  onOpen,
 }: {
   appointments: Appointment[];
   docById: DocById;
+  onOpen: (id: string) => void;
 }) {
   const rows = buildRows(appointments);
   if (rows.length === 0) {
@@ -117,7 +127,14 @@ function UpcomingList({
             {(() => {
               const doc = docById(row.apt.doctorId);
               if (!doc) return null;
-              return <VisitCard appointment={row.apt} doctor={doc} primary={row.isPrimary} />;
+              return (
+                <VisitCard
+                  appointment={row.apt}
+                  doctor={doc}
+                  primary={row.isPrimary}
+                  onClick={() => onOpen(row.apt.id)}
+                />
+              );
             })()}
           </div>
         ),
@@ -127,7 +144,15 @@ function UpcomingList({
   );
 }
 
-function PastList({ appointments, docById }: { appointments: Appointment[]; docById: DocById }) {
+function PastList({
+  appointments,
+  docById,
+  onOpen,
+}: {
+  appointments: Appointment[];
+  docById: DocById;
+  onOpen: (id: string) => void;
+}) {
   if (appointments.length === 0) {
     return <EmptyState message="История визитов пуста." />;
   }
@@ -136,7 +161,15 @@ function PastList({ appointments, docById }: { appointments: Appointment[]; docB
       {appointments.map((apt) => {
         const doc = docById(apt.doctorId);
         if (!doc) return null;
-        return <VisitCard key={apt.id} appointment={apt} doctor={doc} past />;
+        return (
+          <VisitCard
+            key={apt.id}
+            appointment={apt}
+            doctor={doc}
+            past
+            onClick={() => onOpen(apt.id)}
+          />
+        );
       })}
     </div>
   );
@@ -210,13 +243,13 @@ function EyebrowRule({ label, first }: { label: string; first: boolean }) {
 
 function GhostBookCard() {
   return (
-    <button
-      type="button"
-      className="mt-6 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-graphite/15 bg-transparent px-4 py-3 text-[14px] font-medium text-distant-graphite transition-[background,border-color,color] duration-150 hover:border-graphite/25 hover:bg-graphite/[0.02] hover:text-soft-graphite"
+    <a
+      href="/search"
+      className="mt-6 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-graphite/15 bg-transparent px-4 py-3 text-[14px] font-medium text-distant-graphite no-underline transition-[background,border-color,color] duration-150 hover:border-graphite/25 hover:bg-graphite/[0.02] hover:text-soft-graphite"
     >
       <span className="text-[14px] font-normal leading-none">+</span>
       <span>Записаться на новый визит</span>
-    </button>
+    </a>
   );
 }
 
