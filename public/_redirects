@@ -1,0 +1,22 @@
+# SPA-style rewrite for the private zone. Every /app/<sub-path> URL serves
+# the pre-rendered shell at /app/index.html (built from
+# web/pages/app/[...path].astro). The trailing `200` makes this a REWRITE
+# (URL preserved, body swapped), not a 301/302 redirect. The React router
+# inside the shell reads window.location.pathname and matches the right
+# TanStack route.
+#
+# Result: /app/visits, /app/profile, /app/doctor/x, /app/booking/y etc.
+# all return the same static HTML from CF edge — no Worker invocation.
+#
+# IMPORTANT — why `:slug+` instead of `*`:
+#   Wrangler rejects `/app/* /app/index.html 200` with
+#   "Infinite loop detected. This would cause a redirect to strip `.html`
+#   or `/index` and end up triggering this rule again."
+#   The check fires because CF auto-prettifies `/app/index.html` →
+#   `/app/`, which would re-match the splat and loop forever in static
+#   analysis (even though in practice the second hit also serves
+#   index.html and stops). Using `:slug+` (one-or-more segments) means
+#   `/app/` itself doesn't match the rule — CF's `html_handling`
+#   auto-resolves bare `/app/` to `/app/index.html` directly, no rewrite
+#   chain. Loop check passes.
+/app/:slug+ /app/index.html 200

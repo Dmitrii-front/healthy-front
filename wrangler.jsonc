@@ -12,10 +12,22 @@
     // not_found_handling is intentionally omitted here: with "404-page",
     // the Cloudflare assets handler intercepts navigations (Sec-Fetch-Mode:
     // navigate) for paths without a static file and serves 404.html without
-    // forwarding the request to the worker. For our /app/* (SSR) this would
-    // block the SPA shell. The default behavior (none) — fall through to the
-    // worker — is what we want.
+    // forwarding the request to the worker. For our /verify-email and
+    // /reset-password (SSR) this would block the page. The default
+    // behavior (none) — fall through to the worker — is what we want for
+    // SSR routes.
     "directory": "./dist",
+    // CF default when `binding` is set is "Workers first" — the Worker
+    // runs for EVERY request even when a matching static asset exists.
+    // Flip to "assets first" so:
+    //   /app/index.html, /search/index.html, /_astro/* etc. → served
+    //     directly from CF edge, zero Worker invocation
+    //   /verify-email, /reset-password (no static match) → Worker runs
+    //     and SSRs the page
+    //   /app/visits, /app/profile/... → no static match → CF reads
+    //     _redirects, rewrites to /app/index.html, served from CF edge,
+    //     still zero Worker invocation
+    "run_worker_first": false
   },
   "vars": {
     "PUBLIC_API_URL": "https://api.sdoctorom.health",

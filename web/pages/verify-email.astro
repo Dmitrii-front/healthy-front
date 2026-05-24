@@ -3,11 +3,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 // Email verification landing — opens from the deeplink in the
 // confirm-email transactional email (healthy-mail/emails/confirm-email).
-// Reads ?token and ?lang from the URL, fires GET /auth/verify-email, and
-// flips between pending / success / expired / error states client-side.
-// Not pre-rendered — runs through the CF Worker so query params reach
-// the page (Astro static redirects in astro.config strip query strings).
-export const prerender = false;
+// Pre-rendered: nothing on this page needs server execution. The token
+// (?token=&lang=) is read in the inline <script> below via
+// `new URLSearchParams(location.search)` — that's client-side, so the
+// query string reaches the script regardless of how the HTML was
+// served. The only "dynamic" frontmatter value is PUBLIC_API_URL, which
+// is resolved at BUILD time by Vite and baked into the static HTML as
+// a data-attribute.
+//
+// CI/CD must export PUBLIC_API_URL before `pnpm build`, otherwise it
+// falls back to localhost (same constraint as web/lib/auth.ts).
+export const prerender = true;
 
 const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3000";
 ---

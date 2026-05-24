@@ -26,3 +26,12 @@
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 /*.woff2
   Cache-Control: public, max-age=2592000, immutable
+
+# SPA shell — pre-rendered, identical between deploys for the same Astro
+# build. Long-cache so repeat /app/* navigations hit browser disk cache.
+# Vary override mirrors /_astro/* — keeps the prefetch warm-up entry
+# (sends Origin header) and the top-level navigation (no Origin) on the
+# same cache key.
+/app/index.html
+  Cache-Control: public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800
+  Vary: Accept-Encoding
