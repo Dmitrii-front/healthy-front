@@ -2,11 +2,17 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
 import { SPECIALTIES } from "@/entities/specialty";
+import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
+import { doctorSlug } from "../lib/slug";
 
-// SSG. The page ships only the shell — search form, sort tabs, skeleton, empty
-// and error states, and a card <template>. The doctor list is fetched at
-// runtime from `/api/doctors.json`, which currently serves mocks and will be
-// swapped for the NestJS backend without changes to this file.
+// SSG. The page ships only the shell — search form, sort tabs, skeleton,
+// empty/error states, and a card <template>. Doctor data is inlined into
+// the HTML at build time (DOCTOR_MOCKS → search-projection → define:vars).
+// No `/api/doctors.json` fetch, no Worker invocation, no extra HTTP round
+// trip on navigation. When the NestJS backend lands, swap this block for
+// a server-side `fetch(api).then(json)` call inside Astro frontmatter and
+// keep the same `doctorItems` variable name — the client script doesn't
+// care where the data came from.
 
 const description =
   "Поиск врачей по имени, специальности и клинике. Реальные слоты, проверенные клиники, запись без звонков.";
@@ -14,6 +20,26 @@ const description =
 const specialtyLabels = Object.fromEntries(
   SPECIALTIES.map((s) => [s.doctorSpecialty, s.label]),
 );
+
+// Search-result projection. Detail-only fields (bio, education, reviews,
+// languages, conditionsTreated, address, phone) live on /doctor/{slug} —
+// keep this list lean to minimise HTML payload size.
+const doctorItems = DOCTOR_MOCKS.map((d) => ({
+  id: d.id,
+  slug: doctorSlug(d),
+  name: d.name,
+  initials: d.initials,
+  color: d.color,
+  specialty: d.specialty,
+  subspecialty: d.subspecialty ?? null,
+  clinic: d.clinic,
+  rating: d.rating ?? null,
+  ratingCount: d.ratingCount ?? null,
+  distance: d.distance ?? null,
+  yearsExperience: d.yearsExperience ?? null,
+  acceptingNewPatients: d.acceptingNewPatients ?? null,
+  nextAvailable: d.nextAvailable ?? null,
+}));
 
 const breadcrumbs = {
   "@context": "https://schema.org",
@@ -278,9 +304,8 @@ const breadcrumbs = {
   </main>
 
   {/* Client logic. Vanilla JS, no island. */}
-  <script is:inline define:vars={{ specialtyLabels }}>
+  <script is:inline define:vars={{ specialtyLabels, doctorItems }}>
     (() => {
-      const API_URL = "/api/doctors.json";
       const PAGE_LIMIT = 30;
       const SORTS = ["soon", "near", "experience"];
 
@@ -300,7 +325,44 @@ const breadcrumbs = {
       const retryBtn = document.getElementById("retry-btn");
       if (!list || !template) return;
 
-      let currentRequest = null;
+      // Doctor data is inlined into the HTML by Astro frontmatter
+      // (define:vars). Already in memory before this script runs — zero
+      // network, zero waiting. Filter/sort/paginate happen synchronously
+      // against `doctorItems`.
+      const allItems = Array.isArray(doctorItems) ? doctorItems : [];
+
+      function parseKm(raw) {
+        if (!raw) return Number.POSITIVE_INFINITY;
+        const n = parseFloat(String(raw).replace(",", "."));
+        return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+      }
+      function nextAvailableMs(raw) {
+        if (!raw) return Number.POSITIVE_INFINITY;
+        const ms = new Date(raw).getTime();
+        return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
+      }
+      function applyFilterAndSort(items, state) {
+        const q = state.q.toLowerCase();
+        const filtered = items.filter((d) => {
+          if (q && !(d.name + " " + d.specialty + " " + d.clinic).toLowerCase().includes(q)) {
+            return false;
+          }
+          if (state.specialty && d.specialty !== state.specialty) return false;
+          return true;
+        });
+        const sorted = filtered.slice().sort((a, b) => {
+          let delta = 0;
+          if (state.sort === "soon") {
+            delta = nextAvailableMs(a.nextAvailable) - nextAvailableMs(b.nextAvailable);
+          } else if (state.sort === "near") {
+            delta = parseKm(a.distance) - parseKm(b.distance);
+          } else {
+            delta = (b.yearsExperience ?? -1) - (a.yearsExperience ?? -1);
+          }
+          return delta !== 0 ? delta : a.name.localeCompare(b.name, "ru");
+        });
+        return sorted;
+      }
 
       function pluralize(n, forms) {
         const m10 = n % 10, m100 = n % 100;
@@ -427,38 +489,17 @@ const breadcrumbs = {
         nounEl.textContent = pDoctors(total);
       }
 
-      async function load() {
+      function load() {
         const state = readState();
         renderMeta(state);
-        setUiState("loading");
-
-        if (currentRequest) currentRequest.abort();
-        currentRequest = new AbortController();
-
-        const url = new URL(API_URL, location.origin);
-        if (state.q) url.searchParams.set("q", state.q);
-        if (state.specialty) url.searchParams.set("specialty", state.specialty);
-        if (state.sort !== "soon") url.searchParams.set("sort", state.sort);
-        url.searchParams.set("limit", String(PAGE_LIMIT));
-
-        try {
-          const res = await fetch(url.toString(), { signal: currentRequest.signal });
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          if (!data || !Array.isArray(data.items)) throw new Error("Malformed response");
-
-          if (data.items.length === 0) {
-            countEl.textContent = "0";
-            nounEl.textContent = pDoctors(0);
-            setUiState("empty");
-          } else {
-            renderResults(data.items, data.total ?? data.items.length);
-            setUiState("results");
-          }
-        } catch (err) {
-          if (err && err.name === "AbortError") return;
-          console.error("[search] fetch failed", err);
-          setUiState("error");
+        const filtered = applyFilterAndSort(allItems, state);
+        if (filtered.length === 0) {
+          countEl.textContent = "0";
+          nounEl.textContent = pDoctors(0);
+          setUiState("empty");
+        } else {
+          renderResults(filtered.slice(0, PAGE_LIMIT), filtered.length);
+          setUiState("results");
         }
       }
 
