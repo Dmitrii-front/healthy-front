@@ -15,9 +15,15 @@
     // forwarding the request to the worker. For our /app/* (SSR) this would
     // block the SPA shell. The default behavior (none) — fall through to the
     // worker — is what we want.
-    "directory": "./dist"
+    "directory": "./dist",
   },
   "vars": {
-    "PUBLIC_API_URL": "https://api.sdoctorom.health"
+    "PUBLIC_API_URL": "https://api.sdoctorom.health",
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    }
   }
 }

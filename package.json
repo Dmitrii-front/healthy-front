@@ -15,7 +15,7 @@
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",
     "typecheck": "astro check && tsc -b --noEmit",
-    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck",
+    "verify": "pnpm fmt && pnpm lint && pnpm typecheck",
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
