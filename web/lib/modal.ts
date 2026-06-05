@@ -9,21 +9,21 @@
  */
 
 export function openModal(dialog: HTMLDialogElement, opts: { locked?: boolean } = {}): void {
-  dialog.dataset.locked = opts.locked ? "true" : "false";
+  dialog.dataset.locked = opts.locked ? 'true' : 'false'
   if (!dialog.open) {
-    dialog.showModal();
+    dialog.showModal()
   }
 }
 
 export function closeModal(dialog: HTMLDialogElement): void {
-  dialog.dataset.locked = "false";
+  dialog.dataset.locked = 'false'
   if (dialog.open) {
-    dialog.close();
+    dialog.close()
   }
 }
 
 export function lockModal(dialog: HTMLDialogElement, locked: boolean): void {
-  dialog.dataset.locked = locked ? "true" : "false";
+  dialog.dataset.locked = locked ? 'true' : 'false'
 }
 
 /**
@@ -34,21 +34,21 @@ export function bindModalDismiss(dialog: HTMLDialogElement): void {
   // Backdrop click: when the click target IS the dialog itself, the user
   // clicked the ::backdrop (the dialog's content lives in inner children, so
   // a click on the actual children targets a child element).
-  dialog.addEventListener("click", (event) => {
-    if (event.target !== dialog) return;
-    if (dialog.dataset.locked === "true") return;
-    closeModal(dialog);
-  });
+  dialog.addEventListener('click', (event) => {
+    if (event.target !== dialog) return
+    if (dialog.dataset.locked === 'true') return
+    closeModal(dialog)
+  })
 
   // Esc: native dialog fires a `cancel` event which we intercept while locked.
-  dialog.addEventListener("cancel", (event) => {
-    if (dialog.dataset.locked === "true") {
-      event.preventDefault();
+  dialog.addEventListener('cancel', (event) => {
+    if (dialog.dataset.locked === 'true') {
+      event.preventDefault()
     }
-  });
+  })
 
   // Re-sync state on close (whether triggered natively, by close() or by Esc).
-  dialog.addEventListener("close", () => {
-    dialog.dataset.locked = "false";
-  });
+  dialog.addEventListener('close', () => {
+    dialog.dataset.locked = 'false'
+  })
 }

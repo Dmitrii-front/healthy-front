@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { z } from 'zod'
 
 export const MedicalRecordSchema = z.object({
   // Personal
   firstName: z.string(),
   lastName: z.string(),
   middleName: z.string().nullable().optional(),
-  gender: z.enum(["female", "male", "other"]),
+  gender: z.enum(['female', 'male', 'other']),
   dob: z.string(), // ISO date
   avatarUrl: z.url().nullable().optional(),
 
@@ -50,7 +50,7 @@ export const MedicalRecordSchema = z.object({
   animalContactDetails: z.string().nullable().optional(),
 
   // Settings
-  preferredLanguage: z.enum(["ru", "en", "kk"]).nullable().optional(),
+  preferredLanguage: z.enum(['ru', 'en', 'kk']).nullable().optional(),
   consentPersonalData: z.boolean().default(false),
   consentMedicalData: z.boolean().default(false),
-});
+})

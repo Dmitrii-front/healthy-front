@@ -1,26 +1,27 @@
-import { StrictMode } from "react";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { routeTree } from "@/app/routeTree.gen";
-import { queryClient } from "@/app/providers/queryClient";
-import { bootstrapAuth } from "@/features/auth";
+import { QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider, createRouter } from '@tanstack/react-router'
+import { StrictMode } from 'react'
 
-bootstrapAuth();
+import { queryClient } from '@/app/providers/queryClient'
+import { routeTree } from '@/app/routeTree.gen'
+import { bootstrapAuth } from '@/features/auth'
+
+bootstrapAuth()
 
 const router = createRouter({
   routeTree,
-  basepath: "/app",
-  defaultPreload: "intent",
+  basepath: '/app',
+  defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
   context: {
     queryClient,
   },
   scrollRestoration: true,
-});
+})
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface Register {
-    router: typeof router;
+    router: typeof router
   }
 }
 
@@ -31,5 +32,5 @@ export default function AppShell() {
         <RouterProvider router={router} />
       </QueryClientProvider>
     </StrictMode>
-  );
+  )
 }

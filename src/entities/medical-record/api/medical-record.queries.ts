@@ -1,12 +1,13 @@
-import { queryOptions } from "@tanstack/react-query";
-import { getMedicalRecord } from "./get-medical-record";
+import { queryOptions } from '@tanstack/react-query'
+
+import { getMedicalRecord } from './get-medical-record'
 
 export const MEDICAL_RECORD_QUERIES = {
-  all: () => ["medical-record"] as const,
+  all: () => ['medical-record'] as const,
   current: () =>
     queryOptions({
-      queryKey: [...MEDICAL_RECORD_QUERIES.all(), "current"],
+      queryKey: [...MEDICAL_RECORD_QUERIES.all(), 'current'],
       queryFn: () => getMedicalRecord(),
       staleTime: 5 * 60_000,
     }),
-} as const;
+} as const

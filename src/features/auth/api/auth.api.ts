@@ -1,6 +1,6 @@
-import { apiClient } from "@/shared/api/client";
-import { getMe } from "@/shared/api/get-me";
-import type { RefreshSuccess } from "../model/types";
+import { apiClient, getMe } from '@/shared/api'
+
+import type { RefreshSuccess } from '../model/types'
 
 /**
  * Auth API surface inside the SPA. The SPA is a fully-protected zone — sign-in,
@@ -10,10 +10,10 @@ import type { RefreshSuccess } from "../model/types";
  * sign-out (`signOut`).
  */
 export const authApi = {
-  signOut: () => apiClient.post<{ message: string }>("/auth/logout"),
+  signOut: () => apiClient.post<{ message: string }>('/auth/logout'),
 
   refresh: (userId: string, refreshToken: string) =>
-    apiClient.post<RefreshSuccess>("/auth/refresh", { userId, refreshToken }, { skipAuth: true }),
+    apiClient.post<RefreshSuccess>('/auth/refresh', { userId, refreshToken }, { skipAuth: true }),
 
   me: getMe,
-};
+}

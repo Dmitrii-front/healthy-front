@@ -1,7 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
-import { SPECIALTIES } from "@/entities/specialty";
+import LoginButton from "../components/auth/LoginButton.astro";
+import LoginModal from "../components/auth/LoginModal.astro";
+import { SPECIALTIES } from "@/shared/config";
 import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
 import { doctorSlug } from "../lib/slug";
 
@@ -39,6 +41,10 @@ const doctorItems = DOCTOR_MOCKS.map((d) => ({
   yearsExperience: d.yearsExperience ?? null,
   acceptingNewPatients: d.acceptingNewPatients ?? null,
   nextAvailable: d.nextAvailable ?? null,
+  // Detail-richness fields surfaced in the desktop list card (Yandex.Health-style).
+  // Trimmed at projection time: first 3 conditions / first 2 languages.
+  conditions: (d.conditionsTreated ?? []).slice(0, 3),
+  languages: (d.languages ?? []).slice(0, 2),
 }));
 
 const breadcrumbs = {
@@ -55,7 +61,10 @@ const breadcrumbs = {
   title="Найти врача в Бишкеке и Алматы — Healthy"
   description={description}
 >
-  <main class="mx-auto max-w-screen-md px-4 pb-24 pt-8">
+  {/* ════════════════════════════════════════════════ */}
+  {/*  MOBILE SHELL (<768px)                            */}
+  {/* ════════════════════════════════════════════════ */}
+  <main class="mw-shell mx-auto max-w-screen-md px-4 pb-24 pt-8">
     <nav class="mb-4 text-[12.5px] text-distant-graphite">
       <a href="/" class="hover:text-soft-graphite">Главная</a> ·
       <span>Поиск врача</span>
@@ -251,9 +260,8 @@ const breadcrumbs = {
       </button>
     </div>
 
-    {/* Card template — cloned per doctor by the script below. textContent
-        is used for every user-supplied string, so backend strings are safely
-        rendered without HTML injection risk. */}
+    {/* Mobile card template — cloned per doctor. textContent for every user
+        string keeps backend data injection-safe. */}
     <template id="card-template">
       <li>
         <a
@@ -303,12 +311,376 @@ const breadcrumbs = {
     </template>
   </main>
 
-  {/* Client logic. Vanilla JS, no island. */}
+  {/* ════════════════════════════════════════════════ */}
+  {/*  DESKTOP SHELL (≥768px) — matches design          */}
+  {/* ════════════════════════════════════════════════ */}
+  <div class="dw-page">
+    {/* ── HEADER ─────────────────────────────────── */}
+    <header class="dw-header">
+      <div class="dw-header-inner">
+        <div class="dw-header-left">
+          <a href="/" class="mw-logo dw-logo">
+            <span class="mw-logo-mark">H</span>
+            <span class="mw-logo-text">Healthy</span>
+          </a>
+          {/* Only ship nav items that have a real destination. Лаборатории / Аптеки
+              don't exist yet — keep nav honest, add them when the routes land. */}
+          <nav class="dw-nav">
+            <a href="/search" data-active="true">Найти врача</a>
+            <a href="/">Главная</a>
+          </nav>
+        </div>
+        <div class="dw-header-right">
+          <div class="dw-auth-slot"><LoginButton /></div>
+        </div>
+      </div>
+    </header>
+
+    {/* ── MAIN ───────────────────────────────────── */}
+    <main class="dw-main">
+      {/* Breadcrumbs + editorial intro (replaces marketing promo banner — quieter, content-first) */}
+      <nav class="dw-crumbs">
+        <a href="/">Главная</a>
+        <span class="dw-crumb-sep">›</span>
+        <a href="/search">Найти врача</a>
+        <span class="dw-crumb-sep">›</span>
+        <span class="dw-crumb-current" data-crumb-current>Все врачи</span>
+      </nav>
+      <header class="dw-intro">
+        <div class="dw-intro-text">
+          <span class="dw-intro-eyebrow">Каталог · Бишкек, Алматы</span>
+          <h1 class="dw-intro-title" id="dw-h1">Найти врача</h1>
+        </div>
+        <p class="dw-intro-trust">
+          <span class="dw-intro-pulse" aria-hidden="true"></span>
+          1 200+ проверенных специалистов. Бесплатная отмена за 2 часа.
+        </p>
+      </header>
+
+      {/* Pill search */}
+      <section class="dw-pill-section">
+        <form
+          id="dw-search-form"
+          action="/search"
+          method="get"
+          role="search"
+          class="dw-pill"
+        >
+          <label class="dw-pill-field">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
+              <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <span class="dw-pill-body">
+              <span class="dw-pill-label">Специальность</span>
+              <select id="dw-search-specialty" name="specialty" class="dw-pill-control">
+                <option value="">Все специальности</option>
+                {SPECIALTIES.map((s) => (
+                  <option value={s.doctorSpecialty}>{s.label}</option>
+                ))}
+              </select>
+            </span>
+          </label>
+          <label class="dw-pill-field dw-pill-field-div">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
+              <path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/>
+              <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+            </svg>
+            <span class="dw-pill-body">
+              <span class="dw-pill-label">Город</span>
+              <span class="dw-pill-static">Бишкек</span>
+            </span>
+            <input type="hidden" name="city" value="Бишкек" />
+          </label>
+          <label class="dw-pill-field dw-pill-field-div">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
+              <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <span class="dw-pill-body">
+              <span class="dw-pill-label">По имени</span>
+              <input id="dw-search-q" name="q" type="search" placeholder="Например, Соколова" autocomplete="off" class="dw-pill-control" />
+            </span>
+          </label>
+          <button type="submit" class="dw-pill-submit">
+            Найти
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+            </svg>
+          </button>
+        </form>
+      </section>
+
+      {/* Filter chip bar */}
+      <section class="dw-chip-bar">
+        <button type="button" class="dw-chip-all" data-action="open-drawer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/>
+          </svg>
+          Все фильтры
+          <span class="dw-chip-all-count" id="dw-chip-count" hidden>0</span>
+        </button>
+        <div class="dw-chip-list" id="dw-chip-list"></div>
+        <button type="button" class="dw-chip-reset" id="dw-chip-reset" data-action="reset-filters" hidden>
+          Сбросить
+        </button>
+      </section>
+
+      {/* Sort bar + results */}
+      <section class="dw-results-section">
+        <div class="dw-sort-bar">
+          <div class="dw-results-heading">
+            <span class="dw-results-count" id="dw-results-count">—</span>
+            <span class="dw-results-noun" id="dw-results-noun">врачей</span>
+            <span class="dw-results-city"> принимают в Бишкеке</span>
+          </div>
+          <div class="dw-sort-controls">
+            <div class="dw-sort-dropdown" id="dw-sort-dropdown">
+              <button type="button" class="dw-sort-trigger" data-action="toggle-sort">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h13"/><path d="M3 12h9"/><path d="M3 18h5"/>
+                  <path d="m17 9 4-3-4-3"/><path d="M21 6h-8"/>
+                </svg>
+                <span class="dw-sort-trigger-label">Сортировка:</span>
+                <span class="dw-sort-trigger-value" id="dw-sort-current">Сначала: скоро</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+              <div class="dw-sort-menu" id="dw-sort-menu" hidden>
+                <button type="button" class="dw-sort-option" data-sort-tab="soon">Сначала: скоро</button>
+                <button type="button" class="dw-sort-option" data-sort-tab="near">Сначала: ближе</button>
+                <button type="button" class="dw-sort-option" data-sort-tab="experience">Сначала: опытнее</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading skeleton — visible until the inline script runs. SSG renders
+            this block; once the script flips `setUiState("results")` it hides.
+            Matches mobile shell parity so SSR/SSG paint isn't blank chrome. */}
+        <ul class="dw-doctor-list" id="dw-doctor-skeleton" aria-hidden="true">
+          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span><span class="dw-card-skel-book"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span><span class="dw-card-skel-book"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span><span class="dw-card-skel-book"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+        </ul>
+
+        <ul class="dw-doctor-list" id="dw-doctor-list" hidden></ul>
+
+        <div class="dw-empty" id="dw-empty" hidden>
+          <p class="dw-empty-title">Пока никого не нашли.</p>
+          <p class="dw-empty-desc">
+            Попробуйте сбросить запрос или посмотрите{" "}
+            <a href="/search">все специальности</a>.
+          </p>
+        </div>
+
+        <div class="dw-empty" id="dw-error" hidden>
+          <p class="dw-empty-title">Не удалось загрузить.</p>
+          <p class="dw-empty-desc">Проверьте соединение и попробуйте ещё раз.</p>
+          <button type="button" class="dw-empty-retry" id="dw-retry">Повторить</button>
+        </div>
+
+        {/* Pagination — visual only for now, single page of mocks */}
+        <nav class="dw-pagination" id="dw-pagination" hidden aria-label="Страницы">
+          <button type="button" class="dw-page-btn" disabled>‹ Назад</button>
+          <button type="button" class="dw-page-btn" data-active="true">1</button>
+          <button type="button" class="dw-page-btn">Дальше ›</button>
+        </nav>
+      </section>
+    </main>
+
+    {/* ── FOOTER ─────────────────────────────────── */}
+    <footer class="dw-footer">
+      <div class="dw-footer-inner">
+        <div class="dw-footer-grid">
+          <div class="dw-footer-brand">
+            <div class="mw-logo dw-logo-light">
+              <span class="mw-logo-mark">H</span>
+              <span class="mw-logo-text" style="color:#fff">Healthy</span>
+            </div>
+            <p>Сервис записи к врачу: 1 200+ специалистов, 12 000+ записей в месяц.</p>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Пациентам</div>
+            <a href="/search">Найти врача</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Компания</div>
+            <a href="#">О нас</a>
+            <a href="#">Контакты</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Поддержка</div>
+            <a href="#">Помощь</a>
+            <a href="#">Политика</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Регионы</div>
+            <a href="#">Бишкек</a>
+            <a href="#">Алматы</a>
+          </div>
+        </div>
+        {/* No fake licence number. Add real KG/KZ registry data when it exists;
+            until then, silence is more trustworthy than a Moscow placeholder. */}
+        <div class="dw-footer-bottom">
+          <span>© 2026 Healthy. Все права защищены.</span>
+          <span>Бишкек · Алматы</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  {/* Desktop card template — three-column rich layout: avatar | info | booking.
+      Cloned per doctor by JS. NO JSX comments inside this <template>; Astro's
+      compiler can leak them as live DOM (bit us once). All inline comments live
+      out here. */}
+  <template id="dw-card-template">
+    <li class="dw-card">
+      <a class="dw-card-link" data-link>
+        <div class="dw-card-photo">
+          <span class="dw-card-photo-initials" data-initials></span>
+          <span class="dw-card-photo-dot" data-online hidden aria-label="Принимает новых"></span>
+        </div>
+
+        <div class="dw-card-info">
+          <h3 class="dw-card-name" data-name></h3>
+          <div class="dw-card-chips">
+            <span class="dw-card-rating-chip" data-rating-block hidden>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#E8B96A">
+                <path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/>
+              </svg>
+              <span class="dw-card-rating-val" data-rating></span>
+              <span class="dw-card-rating-count" data-rating-count></span>
+            </span>
+            <span class="dw-card-exp-chip" data-exp-chip hidden>
+              <span data-exp></span>
+            </span>
+            <span class="dw-card-accepting-chip" data-accepting hidden>Принимает новых</span>
+          </div>
+          <p class="dw-card-spec" data-spec></p>
+
+          <div class="dw-card-section" data-conditions-section hidden>
+            <span class="dw-card-section-label">Чаще всего обращаются</span>
+            <span class="dw-card-section-value" data-conditions></span>
+          </div>
+
+          <div class="dw-card-section" data-langs-section hidden>
+            <span class="dw-card-section-label">Языки приёма</span>
+            <span class="dw-card-section-value" data-langs></span>
+          </div>
+
+          <div class="dw-card-clinic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>
+              <path d="M10 9h4"/><path d="M10 13h4"/><path d="M10 17h4"/>
+            </svg>
+            <span data-clinic></span>
+            <span class="dw-card-distance" data-distance hidden></span>
+          </div>
+        </div>
+
+        <div class="dw-card-booking">
+          <div class="dw-card-week" data-week aria-hidden="true"></div>
+          <div class="dw-card-booking-label">
+            <span class="dw-card-booking-eyebrow">Ближайший приём</span>
+            <span class="dw-card-booking-day" data-day></span>
+          </div>
+          <span class="dw-card-book-cta" data-slot-cta>
+            <span class="dw-card-book-time" data-slot></span>
+            <span class="dw-card-book-arrow" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+              </svg>
+            </span>
+          </span>
+        </div>
+      </a>
+    </li>
+  </template>
+
+  {/* ── FILTER DRAWER ─────────────────────────────── */}
+  <div class="filter-drawer-backdrop" id="filter-drawer-backdrop" hidden></div>
+  <aside class="filter-drawer" id="filter-drawer" hidden aria-label="Все фильтры">
+    <div class="filter-drawer-head">
+      <h3>Все фильтры</h3>
+      <button type="button" class="filter-drawer-close" data-action="close-drawer" aria-label="Закрыть">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="filter-drawer-body">
+      <div class="filter-group">
+        <div class="filter-group-label">Формат приёма</div>
+        <div class="filter-group-list">
+          <label class="filter-radio"><input type="radio" name="dw-format" value="" checked /><span>Все</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-format" value="online" /><span>Онлайн-приём</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-format" value="offline" /><span>В клинике</span></label>
+        </div>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="filter-group">
+        <div class="filter-group-label">Город</div>
+        <div class="filter-group-list">
+          <label class="filter-radio"><input type="radio" name="dw-city" value="Бишкек" checked /><span>Бишкек</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-city" value="Алматы" /><span>Алматы</span></label>
+        </div>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="filter-group">
+        <div class="filter-group-label">Рейтинг</div>
+        <div class="filter-group-list">
+          <label class="filter-radio"><input type="radio" name="dw-rating" value="" checked /><span>Любой</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-rating" value="4.5" /><span>от 4,5</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-rating" value="4.8" /><span>от 4,8</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-rating" value="5.0" /><span>только 5,0</span></label>
+        </div>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="filter-group">
+        <div class="filter-group-label">Стаж</div>
+        <div class="filter-group-list">
+          <label class="filter-radio"><input type="radio" name="dw-exp" value="" checked /><span>Любой</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-exp" value="3" /><span>3 года и более</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-exp" value="5" /><span>5 лет и более</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-exp" value="10" /><span>10 лет и более</span></label>
+          <label class="filter-radio"><input type="radio" name="dw-exp" value="20" /><span>20 лет и более</span></label>
+        </div>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="filter-group">
+        <div class="filter-group-label">Дополнительно</div>
+        <div class="filter-group-list">
+          <label class="filter-check">
+            <input type="checkbox" name="dw-accepting" value="1" />
+            <span>Принимает новых пациентов</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="filter-drawer-foot">
+      <button type="button" class="filter-drawer-apply" data-action="apply-filters">
+        Показать <span id="filter-drawer-count">—</span>
+      </button>
+      <button type="button" class="filter-drawer-clear" data-action="clear-filters">Сбросить</button>
+    </div>
+  </aside>
+
+  <LoginModal />
+
+  {/* Client logic. Vanilla JS, no island. Drives both mw + dw shells. */}
   <script is:inline define:vars={{ specialtyLabels, doctorItems }}>
     (() => {
       const PAGE_LIMIT = 30;
       const SORTS = ["soon", "near", "experience"];
+      const SORT_LABELS = {
+        soon: "Сначала: скоро",
+        near: "Сначала: ближе",
+        experience: "Сначала: опытнее",
+      };
 
+      // ── Mobile shell refs ───────────────────────────
       const list = document.getElementById("doctor-list");
       const loading = document.getElementById("loading-state");
       const empty = document.getElementById("empty-state");
@@ -323,6 +695,31 @@ const breadcrumbs = {
       const tabs = document.querySelectorAll("[data-sort-tab]");
       const template = document.getElementById("card-template");
       const retryBtn = document.getElementById("retry-btn");
+
+      // ── Desktop shell refs ──────────────────────────
+      const dwList = document.getElementById("dw-doctor-list");
+      const dwTemplate = document.getElementById("dw-card-template");
+      const dwForm = document.getElementById("dw-search-form");
+      const dwQ = document.getElementById("dw-search-q");
+      const dwSpec = document.getElementById("dw-search-specialty");
+      const dwCount = document.getElementById("dw-results-count");
+      const dwNoun = document.getElementById("dw-results-noun");
+      const dwCrumb = document.querySelector("[data-crumb-current]");
+      const dwH1 = document.getElementById("dw-h1");
+      const dwEmpty = document.getElementById("dw-empty");
+      const dwError = document.getElementById("dw-error");
+      const dwPagination = document.getElementById("dw-pagination");
+      const dwSortMenu = document.getElementById("dw-sort-menu");
+      const dwSortCurrent = document.getElementById("dw-sort-current");
+      const dwChipList = document.getElementById("dw-chip-list");
+      const dwChipCount = document.getElementById("dw-chip-count");
+      const dwChipReset = document.getElementById("dw-chip-reset");
+      const drawer = document.getElementById("filter-drawer");
+      const drawerBackdrop = document.getElementById("filter-drawer-backdrop");
+      const drawerCount = document.getElementById("filter-drawer-count");
+      const dwSkeleton = document.getElementById("dw-doctor-skeleton");
+      const dwRetry = document.getElementById("dw-retry");
+
       if (!list || !template) return;
 
       // Doctor data is inlined into the HTML by Astro frontmatter
@@ -343,11 +740,18 @@ const breadcrumbs = {
       }
       function applyFilterAndSort(items, state) {
         const q = state.q.toLowerCase();
+        const minRating = state.rating ? parseFloat(state.rating) : 0;
+        const exact50 = state.rating === "5.0";
+        const minExp = state.exp ? parseInt(state.exp, 10) : 0;
         const filtered = items.filter((d) => {
           if (q && !(d.name + " " + d.specialty + " " + d.clinic).toLowerCase().includes(q)) {
             return false;
           }
           if (state.specialty && d.specialty !== state.specialty) return false;
+          if (exact50 && (d.rating ?? 0) < 5) return false;
+          if (!exact50 && minRating && (d.rating ?? 0) < minRating) return false;
+          if (minExp && (d.yearsExperience ?? 0) < minExp) return false;
+          if (state.accepting && d.acceptingNewPatients !== true) return false;
           return true;
         });
         const sorted = filtered.slice().sort((a, b) => {
@@ -372,7 +776,9 @@ const breadcrumbs = {
         return forms[2];
       }
       const pDoctors = (n) => pluralize(n, ["доктор", "доктора", "докторов"]);
+      const pDoctorsLong = (n) => pluralize(n, ["врач", "врача", "врачей"]);
       const pYears = (n) => pluralize(n, ["год опыта", "года опыта", "лет опыта"]);
+      const pYearsShort = (n) => pluralize(n, ["год", "года", "лет"]);
       const pReviews = (n) => pluralize(n, ["отзыв", "отзыва", "отзывов"]);
 
       const RU_MONTHS = ["янв","фев","мар","апр","мая","июня","июля","авг","сен","окт","ноя","дек"];
@@ -393,109 +799,380 @@ const breadcrumbs = {
         return RU_WEEKDAYS[date.getDay()] + ", " + date.getDate() + " " + RU_MONTHS[date.getMonth()] + " · " + time;
       }
 
+      function formatDayLabel(iso) {
+        if (!iso) return "";
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return "";
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        const diff = Math.round((startDate - startToday) / dayMs);
+        if (diff === 0) return "сегодня";
+        if (diff === 1) return "завтра";
+        return RU_WEEKDAYS[date.getDay()] + " " + date.getDate() + " " + RU_MONTHS[date.getMonth()];
+      }
+
+      function formatSlotTimeOnly(iso) {
+        if (!iso) return "Связь с клиникой";
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return iso;
+        return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+      }
+
       function readState() {
         const p = new URLSearchParams(location.search);
         const sortRaw = p.get("sort") || "soon";
         return {
           q: (p.get("q") || "").trim(),
           specialty: p.get("specialty") || "",
+          city: p.get("city") || "",
+          rating: p.get("rating") || "",
+          exp: p.get("exp") || "",
+          format: p.get("format") || "",
+          accepting: p.get("accepting") === "1",
           sort: SORTS.includes(sortRaw) ? sortRaw : "soon",
         };
       }
 
       function setUiState(s) {
+        // Mobile
         loading.hidden = s !== "loading";
         list.hidden = s !== "results";
         empty.hidden = s !== "empty";
         errorEl.hidden = s !== "error";
         resultMeta.hidden = s !== "results" && s !== "empty";
+
+        // Desktop — skeleton hides as soon as real state lands.
+        if (dwSkeleton) dwSkeleton.hidden = s !== "loading";
+        if (dwList) dwList.hidden = s !== "results";
+        if (dwEmpty) dwEmpty.hidden = s !== "empty";
+        if (dwError) dwError.hidden = s !== "error";
+        if (dwPagination) dwPagination.hidden = s !== "results";
       }
 
+      // Single list view — grid was removed in the card-redesign pass since
+      // the three-column rich card needs full row width to breathe.
+
       function renderMeta(state) {
-        // Form prefill
+        // Form prefill — both shells
         qInput.value = state.q;
         specSelect.value = state.specialty;
+        if (dwQ) dwQ.value = state.q;
+        if (dwSpec) dwSpec.value = state.specialty;
 
         // H1 + document title
         let h1Text = "Найти врача в Бишкеке и Алматы";
+        let crumbText = "Все врачи";
         if (state.specialty && specialtyLabels[state.specialty]) {
           h1Text = specialtyLabels[state.specialty] + " в Бишкеке и Алматы";
+          crumbText = specialtyLabels[state.specialty];
         } else if (state.q) {
           h1Text = "Поиск: «" + state.q + "»";
+          crumbText = "Поиск";
         }
         h1.textContent = h1Text;
         document.title = h1Text + " — Healthy";
+        if (dwCrumb) dwCrumb.textContent = crumbText;
+        // Desktop h1 stays shorter than mobile (no "в Бишкеке и Алматы" — region lives
+        // in the eyebrow above). Mirrors the editorial pattern from PRODUCT.md.
+        if (dwH1) {
+          if (state.specialty && specialtyLabels[state.specialty]) {
+            dwH1.textContent = specialtyLabels[state.specialty];
+          } else if (state.q) {
+            dwH1.textContent = "Поиск: «" + state.q + "»";
+          } else {
+            dwH1.textContent = "Найти врача";
+          }
+        }
 
-        // Sort tabs: active + preserved-param hrefs
+        // Sort tabs: active + preserved-param hrefs (mobile)
         tabs.forEach((tab) => {
           tab.dataset.active = tab.dataset.sortTab === state.sort ? "true" : "false";
           const next = new URLSearchParams(location.search);
           next.set("sort", tab.dataset.sortTab);
           tab.setAttribute("href", "/search?" + next.toString());
         });
+
+        // Desktop sort dropdown current label + option highlight
+        if (dwSortCurrent) dwSortCurrent.textContent = SORT_LABELS[state.sort] || SORT_LABELS.soon;
+        if (dwSortMenu) {
+          dwSortMenu.querySelectorAll(".dw-sort-option").forEach((opt) => {
+            opt.dataset.active = opt.dataset.sortTab === state.sort ? "true" : "false";
+          });
+        }
+
+        // Filter chips (desktop)
+        renderChips(state);
+      }
+
+      function chipPills(state) {
+        const out = [];
+        if (state.specialty && specialtyLabels[state.specialty]) {
+          out.push({ key: "specialty", label: specialtyLabels[state.specialty] });
+        }
+        if (state.city) out.push({ key: "city", label: state.city });
+        if (state.format) {
+          out.push({ key: "format", label: state.format === "online" ? "Онлайн" : "В клинике" });
+        }
+        if (state.rating) {
+          const r = state.rating === "5.0" ? "Рейтинг 5,0" : "Рейтинг " + state.rating.replace(".", ",") + "+";
+          out.push({ key: "rating", label: r });
+        }
+        if (state.exp) {
+          out.push({ key: "exp", label: "Стаж " + state.exp + "+ " + pYearsShort(parseInt(state.exp, 10)) });
+        }
+        if (state.accepting) out.push({ key: "accepting", label: "Принимает новых" });
+        return out;
+      }
+
+      function renderChips(state) {
+        if (!dwChipList || !dwChipCount || !dwChipReset) return;
+        const pills = chipPills(state);
+        dwChipList.replaceChildren();
+        pills.forEach((p) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "dw-chip";
+          btn.dataset.chipKey = p.key;
+          const text = document.createTextNode(p.label);
+          btn.appendChild(text);
+          const x = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          x.setAttribute("width", "11");
+          x.setAttribute("height", "11");
+          x.setAttribute("viewBox", "0 0 24 24");
+          x.setAttribute("fill", "none");
+          x.setAttribute("stroke", "currentColor");
+          x.setAttribute("stroke-width", "2.5");
+          x.setAttribute("stroke-linecap", "round");
+          x.innerHTML = '<path d="M18 6 6 18M6 6l12 12"/>';
+          btn.appendChild(x);
+          btn.addEventListener("click", () => removeFilter(p.key));
+          dwChipList.appendChild(btn);
+        });
+        if (pills.length > 0) {
+          dwChipCount.hidden = false;
+          dwChipCount.textContent = String(pills.length);
+          dwChipReset.hidden = false;
+        } else {
+          dwChipCount.hidden = true;
+          dwChipReset.hidden = true;
+        }
+      }
+
+      function removeFilter(key) {
+        const next = new URLSearchParams(location.search);
+        if (key === "specialty") next.delete("specialty");
+        else if (key === "city") next.delete("city");
+        else if (key === "format") next.delete("format");
+        else if (key === "rating") next.delete("rating");
+        else if (key === "exp") next.delete("exp");
+        else if (key === "accepting") next.delete("accepting");
+        const qs = next.toString();
+        history.pushState({}, "", qs ? "/search?" + qs : "/search");
+        load();
+      }
+
+      function resetAllFilters() {
+        const next = new URLSearchParams();
+        const sort = new URLSearchParams(location.search).get("sort");
+        if (sort && sort !== "soon") next.set("sort", sort);
+        const qs = next.toString();
+        history.pushState({}, "", qs ? "/search?" + qs : "/search");
+        load();
+      }
+
+      function renderMobileCard(d) {
+        const frag = template.content.cloneNode(true);
+        const li = frag.querySelector("li");
+
+        li.querySelector("[data-link]").href = "/doctor/" + d.slug;
+
+        const avatar = li.querySelector("[data-avatar]");
+        avatar.textContent = d.initials;
+        avatar.style.backgroundColor = d.color;
+
+        li.querySelector("[data-eyebrow]").textContent = d.subspecialty
+          ? d.specialty + " · " + d.subspecialty
+          : d.specialty;
+
+        li.querySelector("[data-new-patients]").hidden = d.acceptingNewPatients !== true;
+
+        li.querySelector("[data-name]").textContent = d.name;
+        li.querySelector("[data-clinic]").textContent = d.clinic;
+
+        const meta = li.querySelector("[data-meta]");
+        meta.replaceChildren();
+        if (d.distance) {
+          const s = document.createElement("span");
+          s.textContent = d.distance;
+          meta.appendChild(s);
+        }
+        if (typeof d.yearsExperience === "number") {
+          const s = document.createElement("span");
+          s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
+          meta.appendChild(s);
+        }
+        if (typeof d.rating === "number") {
+          const s = document.createElement("span");
+          s.textContent = d.rating.toFixed(1);
+          if (typeof d.ratingCount === "number") {
+            const tail = document.createElement("span");
+            tail.className = "text-mist-graphite";
+            tail.textContent = " · " + d.ratingCount + " " + pReviews(d.ratingCount);
+            s.appendChild(tail);
+          }
+          meta.appendChild(s);
+        }
+
+        li.querySelector("[data-slot]").textContent = formatSlot(d.nextAvailable);
+        return frag;
+      }
+
+      // Build a 7-day week strip (Mon→Sun) anchored on the WEEK of the doctor's
+      // next available slot, so the active day is always visible inside the strip.
+      // If no slot data, anchor on the current week. The matched day is highlighted;
+      // past days are dimmed. Non-interactive — pure visual signal.
+      function buildWeekStrip(parent, nextAvailable) {
+        const WD = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const target = nextAvailable ? new Date(nextAvailable) : null;
+        const validTarget = target && !Number.isNaN(target.getTime()) ? target : now;
+        const anchorDayIdx = (validTarget.getDay() + 6) % 7; // 0 = Mon
+        const monday = new Date(validTarget);
+        monday.setDate(validTarget.getDate() - anchorDayIdx);
+        const targetStart = target && !Number.isNaN(target.getTime())
+          ? new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime()
+          : null;
+
+        parent.replaceChildren();
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(monday);
+          date.setDate(monday.getDate() + i);
+          const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+          const cell = document.createElement("span");
+          cell.className = "dw-card-week-cell";
+          if (dayStart === targetStart) cell.dataset.state = "active";
+          else if (dayStart < todayStart) cell.dataset.state = "past";
+          const wd = document.createElement("span");
+          wd.className = "dw-card-week-cell-wd";
+          wd.textContent = WD[i];
+          const dn = document.createElement("span");
+          dn.className = "dw-card-week-cell-d";
+          dn.textContent = String(date.getDate());
+          cell.appendChild(wd);
+          cell.appendChild(dn);
+          parent.appendChild(cell);
+        }
+      }
+
+      function renderDesktopCard(d) {
+        if (!dwTemplate) return null;
+        const frag = dwTemplate.content.cloneNode(true);
+        const li = frag.querySelector("li");
+
+        li.querySelector("[data-link]").href = "/doctor/" + d.slug;
+
+        // LEFT — initials block. The color from the mock tints the gradient subtly
+        // so cards stay visually distinct without becoming a rainbow.
+        li.querySelector("[data-initials]").textContent = d.initials;
+        const photoDot = li.querySelector("[data-online]");
+        photoDot.hidden = d.acceptingNewPatients !== true;
+
+        // MIDDLE — name, chips, specialty, sections, clinic
+        li.querySelector("[data-name]").textContent = d.name;
+        li.querySelector("[data-spec]").textContent = d.subspecialty
+          ? d.specialty + " · " + d.subspecialty
+          : d.specialty;
+
+        // Rating chip with pluralized review count
+        if (typeof d.rating === "number") {
+          li.querySelector("[data-rating-block]").hidden = false;
+          li.querySelector("[data-rating]").textContent = d.rating.toFixed(1);
+          if (typeof d.ratingCount === "number") {
+            li.querySelector("[data-rating-count]").textContent =
+              "· " + d.ratingCount + " " + pReviews(d.ratingCount);
+          }
+        }
+        // Experience chip — "Стаж 14 лет"
+        const expChip = li.querySelector("[data-exp-chip]");
+        if (typeof d.yearsExperience === "number") {
+          expChip.hidden = false;
+          expChip.querySelector("[data-exp]").textContent =
+            "Стаж " + d.yearsExperience + " " + pYearsShort(d.yearsExperience);
+        }
+        li.querySelector("[data-accepting]").hidden = d.acceptingNewPatients !== true;
+
+        // Conditions section — "Чаще всего обращаются: A · B · C"
+        if (Array.isArray(d.conditions) && d.conditions.length > 0) {
+          const sec = li.querySelector("[data-conditions-section]");
+          sec.hidden = false;
+          li.querySelector("[data-conditions]").textContent = d.conditions.join(" · ");
+        }
+        // Languages section
+        if (Array.isArray(d.languages) && d.languages.length > 0) {
+          const sec = li.querySelector("[data-langs-section]");
+          sec.hidden = false;
+          li.querySelector("[data-langs]").textContent = d.languages.join(", ");
+        }
+
+        li.querySelector("[data-clinic]").textContent = d.clinic;
+        const dist = li.querySelector("[data-distance]");
+        if (d.distance) {
+          dist.hidden = false;
+          dist.textContent = d.distance + " от центра";
+        }
+
+        // RIGHT — week strip + booking CTA
+        buildWeekStrip(li.querySelector("[data-week]"), d.nextAvailable);
+        const dayLabel = formatDayLabel(d.nextAvailable);
+        const slotEl = li.querySelector("[data-slot]");
+        const dayEl = li.querySelector("[data-day]");
+        const cta = li.querySelector("[data-slot-cta]");
+        if (d.nextAvailable && dayLabel) {
+          dayEl.textContent = "Запись на " + dayLabel;
+          slotEl.textContent = "Записаться · " + formatSlotTimeOnly(d.nextAvailable);
+        } else {
+          // Honest fallback when we have no slot data: quieter outline CTA, no
+          // fake time. Still navigates to the doctor profile (whole card is the
+          // link), where the user can request a callback.
+          cta.dataset.empty = "true";
+          dayEl.textContent = "По запросу";
+          slotEl.textContent = "Связаться с клиникой";
+        }
+
+        return frag;
       }
 
       function renderResults(items, total) {
         list.replaceChildren();
         for (const d of items) {
-          const frag = template.content.cloneNode(true);
-          const li = frag.querySelector("li");
-
-          li.querySelector("[data-link]").href = "/doctor/" + d.slug;
-
-          const avatar = li.querySelector("[data-avatar]");
-          avatar.textContent = d.initials;
-          avatar.style.backgroundColor = d.color;
-
-          li.querySelector("[data-eyebrow]").textContent = d.subspecialty
-            ? d.specialty + " · " + d.subspecialty
-            : d.specialty;
-
-          li.querySelector("[data-new-patients]").hidden = d.acceptingNewPatients !== true;
-
-          li.querySelector("[data-name]").textContent = d.name;
-          li.querySelector("[data-clinic]").textContent = d.clinic;
-
-          const meta = li.querySelector("[data-meta]");
-          meta.replaceChildren();
-          if (d.distance) {
-            const s = document.createElement("span");
-            s.textContent = d.distance;
-            meta.appendChild(s);
-          }
-          if (typeof d.yearsExperience === "number") {
-            const s = document.createElement("span");
-            s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
-            meta.appendChild(s);
-          }
-          if (typeof d.rating === "number") {
-            const s = document.createElement("span");
-            s.textContent = d.rating.toFixed(1);
-            if (typeof d.ratingCount === "number") {
-              const tail = document.createElement("span");
-              tail.className = "text-mist-graphite";
-              tail.textContent = " · " + d.ratingCount + " " + pReviews(d.ratingCount);
-              s.appendChild(tail);
-            }
-            meta.appendChild(s);
-          }
-
-          li.querySelector("[data-slot]").textContent = formatSlot(d.nextAvailable);
-
-          list.appendChild(frag);
+          list.appendChild(renderMobileCard(d));
         }
-
         countEl.textContent = String(total);
         nounEl.textContent = pDoctors(total);
+
+        if (dwList) {
+          dwList.replaceChildren();
+          for (const d of items) {
+            const frag = renderDesktopCard(d);
+            if (frag) dwList.appendChild(frag);
+          }
+        }
+        if (dwCount) dwCount.textContent = String(total);
+        if (dwNoun) dwNoun.textContent = pDoctorsLong(total);
       }
 
       function load() {
         const state = readState();
         renderMeta(state);
         const filtered = applyFilterAndSort(allItems, state);
+        if (drawerCount) drawerCount.textContent = String(filtered.length) + " " + pDoctorsLong(filtered.length);
         if (filtered.length === 0) {
           countEl.textContent = "0";
           nounEl.textContent = pDoctors(0);
+          if (dwCount) dwCount.textContent = "0";
+          if (dwNoun) dwNoun.textContent = pDoctorsLong(0);
           setUiState("empty");
         } else {
           renderResults(filtered.slice(0, PAGE_LIMIT), filtered.length);
@@ -503,7 +1180,7 @@ const breadcrumbs = {
         }
       }
 
-      // Sort tab click → pushState → re-fetch
+      // ── Mobile: sort tabs ───────────────────────────
       tabs.forEach((tab) => {
         tab.addEventListener("click", (e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
@@ -513,22 +1190,238 @@ const breadcrumbs = {
         });
       });
 
-      // Form submit → pushState (only non-default params) → re-fetch
+      // ── Mobile: form submit ─────────────────────────
+      function buildQuery(q, specialty, extra) {
+        const next = new URLSearchParams();
+        if (q) next.set("q", q);
+        if (specialty) next.set("specialty", specialty);
+        // Preserve sort + filter params not on this form
+        const cur = new URLSearchParams(location.search);
+        const curSort = cur.get("sort");
+        if (curSort && curSort !== "soon") next.set("sort", curSort);
+        for (const k of ["city", "rating", "exp", "format", "accepting"]) {
+          const v = (extra && k in extra) ? extra[k] : cur.get(k);
+          if (v) next.set(k, v);
+        }
+        return next.toString();
+      }
+
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        const next = new URLSearchParams();
-        const qv = qInput.value.trim();
-        const sv = specSelect.value;
-        if (qv) next.set("q", qv);
-        if (sv) next.set("specialty", sv);
-        const curSort = new URLSearchParams(location.search).get("sort");
-        if (curSort && curSort !== "soon") next.set("sort", curSort);
-        const qs = next.toString();
+        const qs = buildQuery(qInput.value.trim(), specSelect.value, null);
         history.pushState({}, "", qs ? "/search?" + qs : "/search");
         load();
       });
 
+      // ── Desktop: form submit ────────────────────────
+      if (dwForm && dwQ && dwSpec) {
+        dwForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const qs = buildQuery(dwQ.value.trim(), dwSpec.value, null);
+          history.pushState({}, "", qs ? "/search?" + qs : "/search");
+          load();
+        });
+      }
+
+      // ── Desktop: sort dropdown ──────────────────────
+      document.addEventListener("click", (e) => {
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+
+        const toggle = target.closest('[data-action="toggle-sort"]');
+        if (toggle && dwSortMenu) {
+          dwSortMenu.hidden = !dwSortMenu.hidden;
+          return;
+        }
+        if (!target.closest("#dw-sort-dropdown") && dwSortMenu && !dwSortMenu.hidden) {
+          dwSortMenu.hidden = true;
+        }
+
+        const sortOpt = target.closest(".dw-sort-option");
+        if (sortOpt && sortOpt instanceof HTMLElement && sortOpt.dataset.sortTab) {
+          const next = new URLSearchParams(location.search);
+          next.set("sort", sortOpt.dataset.sortTab);
+          history.pushState({}, "", "/search?" + next.toString());
+          if (dwSortMenu) dwSortMenu.hidden = true;
+          load();
+          return;
+        }
+
+        // (view toggle removed — single rich-card list view by design)
+
+        // Drawer open/close
+        if (target.closest('[data-action="open-drawer"]')) {
+          openDrawer();
+          return;
+        }
+        if (target.closest('[data-action="close-drawer"]')) {
+          closeDrawer();
+          return;
+        }
+        if (target.closest('[data-action="reset-filters"]')) {
+          resetAllFilters();
+          return;
+        }
+        if (target.closest('[data-action="clear-filters"]')) {
+          // Clear drawer inputs (visual)
+          if (drawer) {
+            drawer.querySelectorAll('input[type="radio"]').forEach((inp) => {
+              if (inp instanceof HTMLInputElement) inp.checked = inp.value === "";
+            });
+            drawer.querySelectorAll('input[type="checkbox"]').forEach((inp) => {
+              if (inp instanceof HTMLInputElement) inp.checked = false;
+            });
+          }
+          updateDrawerCount();
+          return;
+        }
+        if (target.closest('[data-action="apply-filters"]')) {
+          applyDrawer();
+          return;
+        }
+      });
+
+      function readDrawer() {
+        const get = (name) => {
+          if (!drawer) return "";
+          const el = drawer.querySelector('input[name="' + name + '"]:checked');
+          return el instanceof HTMLInputElement ? el.value : "";
+        };
+        const accepting = drawer
+          ? !!drawer.querySelector('input[name="dw-accepting"]:checked')
+          : false;
+        return {
+          format: get("dw-format"),
+          city: get("dw-city"),
+          rating: get("dw-rating"),
+          exp: get("dw-exp"),
+          accepting,
+        };
+      }
+
+      function updateDrawerCount() {
+        const cur = readState();
+        const dr = readDrawer();
+        const merged = {
+          ...cur,
+          format: dr.format,
+          city: dr.city,
+          rating: dr.rating,
+          exp: dr.exp,
+          accepting: dr.accepting,
+        };
+        const filtered = applyFilterAndSort(allItems, merged);
+        if (drawerCount) drawerCount.textContent = String(filtered.length) + " " + pDoctorsLong(filtered.length);
+      }
+
+      function applyDrawer() {
+        const dr = readDrawer();
+        const next = new URLSearchParams(location.search);
+        const setOrDel = (k, v) => { if (v) next.set(k, v); else next.delete(k); };
+        setOrDel("format", dr.format);
+        setOrDel("city", dr.city);
+        setOrDel("rating", dr.rating);
+        setOrDel("exp", dr.exp);
+        if (dr.accepting) next.set("accepting", "1"); else next.delete("accepting");
+        const qs = next.toString();
+        history.pushState({}, "", qs ? "/search?" + qs : "/search");
+        closeDrawer();
+        load();
+      }
+
+      function syncDrawerFromState() {
+        if (!drawer) return;
+        const s = readState();
+        const radio = (name, value) => {
+          const el = drawer.querySelector('input[name="' + name + '"][value="' + value + '"]');
+          if (el instanceof HTMLInputElement) el.checked = true;
+        };
+        radio("dw-format", s.format);
+        radio("dw-city", s.city || "Бишкек");
+        radio("dw-rating", s.rating);
+        radio("dw-exp", s.exp);
+        const acc = drawer.querySelector('input[name="dw-accepting"]');
+        if (acc instanceof HTMLInputElement) acc.checked = s.accepting;
+      }
+
+      // Track the element that triggered the drawer so we can restore focus.
+      // Without this, keyboard users get dumped at <body> when the drawer closes,
+      // losing their place in the page.
+      let drawerReturnFocus = null;
+
+      function focusableInDrawer() {
+        if (!drawer) return [];
+        return [...drawer.querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )].filter((el) => el.offsetParent !== null);
+      }
+
+      function openDrawer() {
+        if (!drawer || !drawerBackdrop) return;
+        drawerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        syncDrawerFromState();
+        updateDrawerCount();
+        drawer.hidden = false;
+        drawerBackdrop.hidden = false;
+        // next paint → trigger transition
+        requestAnimationFrame(() => {
+          drawer.dataset.open = "true";
+          drawerBackdrop.dataset.open = "true";
+          // Move focus inside the drawer on the first focusable element so screen
+          // readers announce drawer content and Tab cycles within.
+          const first = focusableInDrawer()[0];
+          if (first instanceof HTMLElement) first.focus();
+        });
+      }
+
+      function closeDrawer() {
+        if (!drawer || !drawerBackdrop) return;
+        drawer.dataset.open = "false";
+        drawerBackdrop.dataset.open = "false";
+        setTimeout(() => {
+          drawer.hidden = true;
+          drawerBackdrop.hidden = true;
+          // Return focus to the trigger so keyboard users don't lose their place.
+          if (drawerReturnFocus instanceof HTMLElement && document.body.contains(drawerReturnFocus)) {
+            drawerReturnFocus.focus();
+          }
+          drawerReturnFocus = null;
+        }, 220);
+      }
+
+      if (drawer) {
+        drawer.addEventListener("change", updateDrawerCount);
+
+        // Focus trap: Tab/Shift+Tab cycles between first and last focusable inside.
+        drawer.addEventListener("keydown", (e) => {
+          if (e.key !== "Tab" || drawer.dataset.open !== "true") return;
+          const focusable = focusableInDrawer();
+          if (focusable.length === 0) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            if (last instanceof HTMLElement) last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            if (first instanceof HTMLElement) first.focus();
+          }
+        });
+      }
+      if (drawerBackdrop) {
+        drawerBackdrop.addEventListener("click", closeDrawer);
+      }
+
+      // Global Escape — closes drawer regardless of where focus is.
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && drawer && drawer.dataset.open === "true") {
+          e.preventDefault();
+          closeDrawer();
+        }
+      });
+
       retryBtn?.addEventListener("click", () => load());
+      dwRetry?.addEventListener("click", () => load());
       addEventListener("popstate", load);
 
       load();
@@ -536,4 +1429,755 @@ const breadcrumbs = {
   </script>
 
   <JsonLd data={breadcrumbs} />
+
+  {/* ════════════════════════════════════════════════ */}
+  {/*  STYLES                                           */}
+  {/* ════════════════════════════════════════════════ */}
+  <style is:global>
+    :root {
+      --teal: #0e7c8c;
+      --teal-hover: #0a6573;
+      --teal-soft: #dceef1;
+      --teal-softer: #eef6f8;
+      --teal-deep: #0a1f25;
+      --n-cream: #fcfbf8;
+      --n-bg: #faf8f5;
+      --n-ink: #0f1115;
+      --n-ink2: #2a2d33;
+      --n-muted: #8a8e96;
+      --n-muted2: #b5b8bd;
+      --n-line: #e2e2df;
+      --n-line-soft: #edebe6;
+      --n-green: #3a8e64;
+      --n-red: #c25450;
+
+      /* Geometry ladder — each radius encodes a role, no free-form values.
+         pill = anything fully-rounded; card = top-level container;
+         control = button / select / menu surface; chip = small inline tag. */
+      --r-pill: 999px;
+      --r-card: 14px;
+      --r-control: 10px;
+      --r-chip: 8px;
+
+      /* Elevation ladder — three steps, never more.
+         rest = at-flow surface; hover = lift on interaction;
+         overlay = floats above page (dropdowns, drawer). */
+      --e-rest: 0 1px 2px rgba(15, 17, 21, 0.04);
+      --e-hover: 0 4px 16px rgba(14, 124, 140, 0.08);
+      --e-overlay: 0 12px 32px rgba(10, 31, 37, 0.12);
+    }
+
+    /* Mobile logo + nav scaffolding (re-uses index.astro classes) */
+    .mw-logo {
+      display: inline-flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--n-ink);
+    }
+    .mw-logo-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--teal); color: #fff;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 18px;
+      font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    .mw-logo-text {
+      font-weight: 700; font-size: 18px; color: var(--n-ink);
+      font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      letter-spacing: -0.01em;
+    }
+
+    /* Desktop shell hidden by default; revealed by media query below. */
+    .dw-page { display: none; }
+
+    /* Filter drawer (shared) — visible only when opened via JS. */
+    .filter-drawer-backdrop {
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(15, 17, 21, 0); transition: background .22s ease;
+    }
+    .filter-drawer-backdrop[data-open="true"] {
+      background: rgba(15, 17, 21, 0.42);
+    }
+    .filter-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 90;
+      width: min(380px, 92vw);
+      background: #fff;
+      overflow-y: auto;
+      font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      box-shadow: -12px 0 40px rgba(10, 31, 37, 0.18);
+      transform: translateX(100%);
+      transition: transform .22s ease;
+      display: flex; flex-direction: column;
+    }
+    .filter-drawer[data-open="true"] { transform: translateX(0); }
+    .filter-drawer-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 28px 12px;
+    }
+    .filter-drawer-head h3 {
+      margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em;
+      color: var(--n-ink);
+    }
+    .filter-drawer-close {
+      width: 36px; height: 36px; border: none; border-radius: 50%;
+      background: var(--n-line-soft); cursor: pointer; color: var(--n-ink2);
+      display: grid; place-items: center;
+    }
+    .filter-drawer-close:hover { background: var(--n-line); }
+    .filter-drawer-body {
+      flex: 1; padding: 12px 28px 24px;
+    }
+    .filter-group { padding: 8px 0; }
+    .filter-group-label {
+      font-size: 11px; color: var(--n-muted);
+      font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .filter-group-list { display: flex; flex-direction: column; gap: 4px; }
+    .filter-radio, .filter-check {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 0; cursor: pointer;
+      font-size: 14px; color: var(--n-ink2);
+    }
+    .filter-radio input, .filter-check input {
+      accent-color: var(--teal);
+      width: 16px; height: 16px;
+    }
+    .filter-divider {
+      height: 1px; background: var(--n-line-soft);
+      margin: 12px 0;
+    }
+    .filter-drawer-foot {
+      display: flex; gap: 8px;
+      padding: 16px 28px 24px;
+      border-top: 1px solid var(--n-line-soft);
+    }
+    .filter-drawer-apply {
+      flex: 1; height: 48px;
+      background: var(--teal); color: #fff;
+      border: none; border-radius: var(--r-control);
+      font-family: inherit; font-weight: 700; font-size: 14px;
+      cursor: pointer;
+    }
+    .filter-drawer-apply:hover { background: var(--teal-hover); }
+    .filter-drawer-clear {
+      height: 48px; padding: 0 18px;
+      background: transparent; color: var(--n-ink2);
+      border: 1px solid var(--n-line); border-radius: var(--r-control);
+      cursor: pointer; font-family: inherit; font-weight: 600; font-size: 14px;
+    }
+    .filter-drawer-clear:hover { background: var(--n-line-soft); }
+
+    /* ════════════════════════════════════════════════════════════ */
+    /*  DESKTOP LAYOUT (≥768px)                                     */
+    /* ════════════════════════════════════════════════════════════ */
+    @media (min-width: 768px) {
+      body {
+        background: var(--n-bg);
+      }
+      .mw-shell { display: none !important; }
+      .dw-page {
+        display: block;
+        font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        color: var(--n-ink);
+        min-height: 100vh;
+      }
+
+      /* ── Header ─────────────────────────────── */
+      .dw-header {
+        position: sticky; top: 0; z-index: 30;
+        background: rgba(250, 248, 245, 0.95);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--n-line-soft);
+      }
+      .dw-header-inner {
+        max-width: 1440px; margin: 0 auto;
+        padding: 20px 56px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .dw-header-left { display: flex; align-items: center; gap: 40px; }
+      .dw-nav { display: flex; gap: 28px; }
+      .dw-nav a {
+        font-size: 14px; font-weight: 500; color: var(--n-ink2);
+        text-decoration: none; transition: color .15s;
+      }
+      .dw-nav a:hover, .dw-nav a[data-active="true"] { color: var(--teal); }
+      .dw-header-right { display: flex; align-items: center; gap: 16px; }
+      .dw-auth-slot button, .dw-auth-slot a {
+        height: 38px !important; padding: 0 18px !important;
+        font-size: 13px !important;
+      }
+
+      /* ── Main ───────────────────────────────── */
+      .dw-main {
+        max-width: 1440px; margin: 0 auto;
+        padding: 16px 56px 80px;
+      }
+
+      /* Breadcrumbs */
+      .dw-crumbs {
+        font-size: 12px; color: var(--n-muted);
+        margin-bottom: 8px;
+      }
+      .dw-crumbs a {
+        color: inherit; text-decoration: none;
+      }
+      .dw-crumbs a:hover { color: var(--n-ink2); }
+      .dw-crumb-sep { margin: 0 6px; }
+      .dw-crumb-current { color: var(--n-ink2); }
+
+      /* ── Editorial intro ────────────────────── */
+      .dw-intro {
+        display: grid; grid-template-columns: 1fr auto;
+        align-items: end; gap: 24px;
+        padding: 4px 0 14px;
+        margin-bottom: 14px;
+      }
+      .dw-intro-eyebrow {
+        display: block;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: 0.12em; text-transform: uppercase;
+        color: var(--n-muted);
+      }
+      .dw-intro-title {
+        margin: 6px 0 0;
+        font-size: 32px; font-weight: 700;
+        letter-spacing: -0.025em; line-height: 1.1;
+        color: var(--n-ink);
+      }
+      .dw-intro-trust {
+        display: inline-flex; align-items: center; gap: 8px;
+        margin: 0; padding-bottom: 4px;
+        font-size: 13px; color: var(--n-muted);
+      }
+      .dw-intro-pulse {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--teal);
+        box-shadow: 0 0 0 0 rgba(14, 124, 140, 0.4);
+        animation: dw-pulse 2s ease-out infinite;
+      }
+      @keyframes dw-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(14, 124, 140, 0.35); }
+        70%  { box-shadow: 0 0 0 8px rgba(14, 124, 140, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(14, 124, 140, 0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .dw-intro-pulse { animation: none; }
+      }
+
+      /* ── Pill search ────────────────────────── */
+      .dw-pill-section { margin: 8px 0 4px; }
+      .dw-pill {
+        padding: 6px;
+        background: #fff; border: 1px solid var(--n-line);
+        border-radius: var(--r-pill);
+        box-shadow: var(--e-rest);
+        display: grid; grid-template-columns: 1.4fr 1fr 1.4fr auto;
+        gap: 4px; align-items: center;
+      }
+      .dw-pill-field {
+        display: flex; align-items: center; gap: 12px;
+        padding: 8px 16px;
+        cursor: text;
+      }
+      .dw-pill-field-div { border-left: 1px solid var(--n-line-soft); }
+      .dw-pill-icon { color: var(--n-muted); flex: none; }
+      .dw-pill-body {
+        display: flex; flex-direction: column;
+        flex: 1; min-width: 0;
+      }
+      .dw-pill-label {
+        font-size: 10px; color: var(--n-muted);
+        font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+      }
+      .dw-pill-control, .dw-pill-static {
+        font-size: 14px; font-weight: 600; color: var(--n-ink);
+        margin-top: 1px;
+        background: transparent; border: none; outline: none;
+        font-family: inherit; width: 100%;
+      }
+      .dw-pill-control[type="search"]::placeholder {
+        color: var(--n-muted2); font-weight: 500;
+      }
+      .dw-pill-submit {
+        height: 48px; padding: 0 22px;
+        background: var(--teal); color: #fff;
+        border: none; border-radius: var(--r-pill);
+        font-family: inherit; font-weight: 600; font-size: 14px;
+        cursor: pointer;
+        display: inline-flex; align-items: center; gap: 8px;
+        box-shadow: 0 2px 8px rgba(14, 124, 140, 0.2);
+        transition: background .15s, transform .08s;
+      }
+      .dw-pill-submit:hover { background: var(--teal-hover); transform: translateY(-1px); }
+
+      /* ── Filter chip bar ────────────────────── */
+      .dw-chip-bar {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        padding: 14px 0 4px;
+      }
+      .dw-chip-all {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 16px; border-radius: var(--r-pill);
+        background: var(--teal); color: #fff;
+        border: none; cursor: pointer;
+        font-family: inherit; font-weight: 600; font-size: 13px;
+        white-space: nowrap;
+        transition: background .15s;
+      }
+      .dw-chip-all:hover { background: var(--teal-hover); }
+      .dw-chip-all-count {
+        padding: 1px 8px; border-radius: var(--r-pill);
+        background: rgba(255, 255, 255, 0.25);
+        font-size: 11px; font-weight: 700;
+      }
+      .dw-chip-list { display: contents; }
+      .dw-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 12px 8px 14px; border-radius: var(--r-pill);
+        background: #fff; border: 1px solid var(--n-line-soft);
+        color: var(--n-ink);
+        font-family: inherit; font-weight: 600; font-size: 13px;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: border-color .15s, color .15s;
+      }
+      .dw-chip:hover { border-color: var(--teal); color: var(--teal); }
+      .dw-chip svg { opacity: 0.55; }
+      .dw-chip-reset {
+        background: none; border: none;
+        color: var(--n-muted);
+        font-family: inherit; font-size: 13px; font-weight: 600;
+        text-decoration: underline; text-underline-offset: 3px;
+        cursor: pointer;
+      }
+      .dw-chip-reset:hover { color: var(--n-ink2); }
+
+      /* ── Sort bar ───────────────────────────── */
+      .dw-results-section { margin-top: 12px; }
+      .dw-sort-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--n-line-soft);
+      }
+      .dw-results-heading {
+        font-family: inherit;
+      }
+      .dw-results-count {
+        font-size: 22px; font-weight: 700;
+        color: var(--n-ink); letter-spacing: -0.02em;
+      }
+      .dw-results-noun {
+        font-size: 14px; color: var(--n-muted);
+        margin-left: 8px;
+      }
+      .dw-results-city {
+        font-size: 14px; color: var(--n-muted);
+      }
+      .dw-sort-controls {
+        display: flex; align-items: center; gap: 12px;
+      }
+      .dw-sort-dropdown { position: relative; }
+      .dw-sort-trigger {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 8px 14px; border-radius: var(--r-control);
+        background: #fff; border: 1px solid var(--n-line-soft);
+        cursor: pointer;
+        font-family: inherit; font-size: 13px; font-weight: 600; color: var(--n-ink);
+      }
+      .dw-sort-trigger:hover { border-color: var(--n-line); }
+      .dw-sort-trigger-label { color: var(--n-muted); font-weight: 500; }
+      .dw-sort-menu {
+        position: absolute; top: calc(100% + 6px); right: 0;
+        padding: 6px; min-width: 220px;
+        background: #fff; border: 1px solid var(--n-line-soft);
+        border-radius: var(--r-control);
+        box-shadow: var(--e-overlay);
+        /* Sort menu must float above the sticky header (z-index: 30), not under it. */
+        z-index: 35;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .dw-sort-option {
+        padding: 8px 12px; border-radius: var(--r-chip);
+        border: none; background: transparent;
+        color: var(--n-ink); text-align: left; cursor: pointer;
+        font-family: inherit; font-size: 13px; font-weight: 600;
+      }
+      .dw-sort-option:hover { background: var(--n-line-soft); }
+      .dw-sort-option[data-active="true"] {
+        background: var(--teal-softer); color: var(--teal);
+      }
+
+      /* ── Doctor list + three-column card ─────── */
+      .dw-doctor-list {
+        list-style: none; padding: 0; margin: 0;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      .dw-card { display: block; }
+      .dw-card-link {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr) 280px;
+        gap: 24px;
+        background: #fff; border-radius: var(--r-card);
+        border: 1px solid var(--n-line-soft);
+        padding: 20px 24px;
+        text-decoration: none; color: inherit;
+        transition: border-color .15s, box-shadow .15s, transform .15s;
+      }
+      .dw-card-link:hover {
+        border-color: var(--teal);
+        box-shadow: var(--e-hover);
+      }
+
+      /* LEFT — initials block (no photo data in mocks; would be <img> in prod) */
+      .dw-card-photo {
+        position: relative;
+        width: 120px; height: 140px;
+        border-radius: var(--r-card);
+        display: grid; place-items: center;
+        background: linear-gradient(160deg, var(--teal-soft), var(--teal-softer));
+        color: var(--teal-deep);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        overflow: hidden;
+      }
+      .dw-card-photo-initials {
+        font-size: 44px;
+        line-height: 1;
+      }
+      .dw-card-photo-dot {
+        position: absolute; right: 10px; bottom: 10px;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--n-green); border: 2.5px solid #fff;
+      }
+
+      /* MIDDLE — name, chips, specialty, sections, clinic */
+      .dw-card-info {
+        min-width: 0;
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      .dw-card-name {
+        margin: 0; font-size: 18px; font-weight: 700;
+        color: var(--n-ink); letter-spacing: -0.015em; line-height: 1.2;
+      }
+      .dw-card-chips {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        margin-top: 2px;
+      }
+      .dw-card-rating-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 9px; background: #f6efe2;
+        border-radius: var(--r-pill); font-size: 13px;
+      }
+      .dw-card-rating-val { font-weight: 700; color: #7a5a2e; }
+      .dw-card-rating-count { color: #a38658; font-weight: 500; font-size: 12px; }
+      .dw-card-exp-chip {
+        display: inline-flex; align-items: center;
+        padding: 3px 9px; background: var(--n-line-soft);
+        border-radius: var(--r-pill);
+        font-size: 12px; font-weight: 600; color: var(--n-ink2);
+      }
+      .dw-card-accepting-chip {
+        display: inline-flex; align-items: center;
+        padding: 3px 9px; background: #e5f2ec; color: var(--n-green);
+        border-radius: var(--r-pill);
+        font-size: 12px; font-weight: 600;
+      }
+      .dw-card-spec {
+        margin: 2px 0 0; font-size: 14px; color: var(--n-ink2);
+        font-weight: 500;
+      }
+      .dw-card-section {
+        display: flex; flex-direction: column; gap: 3px;
+        margin-top: 4px;
+      }
+      .dw-card-section-label {
+        font-size: 11px; color: var(--n-muted);
+        font-weight: 600; letter-spacing: 0.04em;
+      }
+      .dw-card-section-value {
+        font-size: 13px; color: var(--n-ink2); line-height: 1.45;
+      }
+      .dw-card-clinic {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        margin-top: auto;
+        padding-top: 10px;
+        font-size: 13px; color: var(--n-ink2);
+      }
+      .dw-card-clinic > svg { color: var(--n-muted); flex: none; }
+      .dw-card-clinic > span:not(.dw-card-distance) {
+        font-weight: 600; color: var(--n-ink);
+      }
+      .dw-card-distance {
+        font-size: 12px; color: var(--n-muted); font-weight: 500;
+      }
+      .dw-card-distance::before { content: '·'; margin-right: 8px; color: var(--n-muted2); }
+
+      /* RIGHT — week strip + CTA */
+      .dw-card-booking {
+        display: flex; flex-direction: column; gap: 10px;
+        padding-left: 24px;
+        border-left: 1px solid var(--n-line-soft);
+      }
+      .dw-card-week {
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+      .dw-card-week-cell {
+        display: flex; flex-direction: column; align-items: center;
+        padding: 4px 0 6px;
+        border-radius: var(--r-chip);
+        font-family: inherit;
+        line-height: 1;
+      }
+      .dw-card-week-cell-wd {
+        font-size: 10px; font-weight: 600;
+        color: var(--n-muted2);
+        letter-spacing: 0.04em;
+        margin-bottom: 4px;
+        text-transform: lowercase;
+      }
+      .dw-card-week-cell-d {
+        font-size: 13px; font-weight: 600;
+        color: var(--n-ink2);
+        font-variant-numeric: tabular-nums;
+      }
+      .dw-card-week-cell[data-state="past"] .dw-card-week-cell-d,
+      .dw-card-week-cell[data-state="past"] .dw-card-week-cell-wd {
+        color: var(--n-muted2);
+      }
+      .dw-card-week-cell[data-state="active"] {
+        background: var(--teal);
+      }
+      .dw-card-week-cell[data-state="active"] .dw-card-week-cell-wd,
+      .dw-card-week-cell[data-state="active"] .dw-card-week-cell-d {
+        color: #fff;
+      }
+      .dw-card-booking-label {
+        display: flex; flex-direction: column; gap: 2px;
+        margin-top: 2px;
+      }
+      .dw-card-booking-eyebrow {
+        font-size: 11px; font-weight: 700;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--n-muted);
+      }
+      .dw-card-booking-day {
+        font-size: 13px; color: var(--n-ink2); font-weight: 600;
+      }
+      /* Single honest primary CTA: time + arrow. Whole card is the link, so
+         this span doesn't need to be a button — it visually anchors the booking
+         intent without lying that it's a slot picker. */
+      .dw-card-book-cta {
+        display: inline-flex; align-items: center; justify-content: space-between;
+        gap: 8px;
+        margin-top: auto;
+        padding: 10px 14px 10px 16px;
+        background: var(--teal); color: #fff;
+        border-radius: var(--r-control);
+        font-family: inherit; font-weight: 700; font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        transition: background .15s, transform .08s;
+      }
+      .dw-card-link:hover .dw-card-book-cta { background: var(--teal-hover); }
+      .dw-card-book-time { letter-spacing: -0.01em; }
+      .dw-card-book-arrow {
+        display: inline-flex; opacity: 0.85;
+        transition: transform .15s;
+      }
+      .dw-card-link:hover .dw-card-book-arrow { transform: translateX(2px); }
+      /* When there's no slot data, CTA falls back to a quieter outline style */
+      .dw-card-book-cta[data-empty="true"] {
+        background: transparent; color: var(--teal);
+        border: 1px solid var(--n-line);
+        font-size: 13px;
+      }
+
+      /* Empty / error blocks */
+      .dw-empty {
+        padding: 32px 28px;
+        background: #fff; border-radius: var(--r-card);
+        border: 1px dashed var(--n-line);
+        text-align: center;
+      }
+      .dw-empty-title {
+        margin: 0; font-size: 16px; font-weight: 600;
+        color: var(--n-ink);
+      }
+      .dw-empty-desc {
+        margin: 6px 0 0; font-size: 13px; color: var(--n-muted);
+      }
+      .dw-empty-desc a { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; }
+      .dw-empty-retry {
+        margin-top: 14px; padding: 0 18px; height: 38px;
+        background: var(--teal); color: #fff;
+        border: none; border-radius: var(--r-control);
+        font-family: inherit; font-weight: 600; font-size: 13px;
+        cursor: pointer;
+      }
+      .dw-empty-retry:hover { background: var(--teal-hover); }
+
+      /* Loading skeleton — non-interactive, low-saturation. Just enough shape
+         to hint card geometry before the inline script renders real cards. */
+      .dw-card-skel {
+        background: #fff; border: 1px solid var(--n-line-soft);
+        border-radius: var(--r-card);
+        padding: 20px 24px;
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr) 280px;
+        gap: 24px;
+        align-items: stretch;
+        min-height: 180px;
+      }
+      .dw-card-skel-photo {
+        height: 140px; border-radius: var(--r-card);
+        background: var(--n-line-soft);
+        animation: dw-skel 1.4s ease-in-out infinite;
+      }
+      .dw-card-skel-info {
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .dw-card-skel-info .dw-skel-line:first-child { width: 50%; height: 18px; }
+      .dw-card-skel-info .dw-skel-line:nth-child(2) { width: 35%; height: 12px; }
+      .dw-card-skel-info .dw-skel-line:nth-child(3) { width: 80%; height: 12px; }
+      .dw-card-skel-info .dw-skel-line:nth-child(4) { width: 60%; height: 12px; margin-top: auto; }
+      .dw-card-skel-book {
+        display: flex; flex-direction: column; gap: 10px;
+        padding-left: 24px; border-left: 1px solid var(--n-line-soft);
+      }
+      .dw-card-skel-book .dw-skel-line:first-child { width: 100%; height: 28px; }
+      .dw-card-skel-book .dw-skel-line:nth-child(2) { width: 60%; height: 12px; }
+      .dw-card-skel-book .dw-skel-line:last-child { width: 100%; height: 40px; margin-top: auto; }
+      .dw-skel-line {
+        display: block; border-radius: var(--r-chip);
+        background: linear-gradient(90deg, var(--n-line-soft) 0%, #f3f0eb 50%, var(--n-line-soft) 100%);
+        background-size: 200% 100%;
+        animation: dw-skel 1.4s ease-in-out infinite;
+      }
+      @keyframes dw-skel {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .dw-skel-line, .dw-card-skel-photo { animation: none; }
+      }
+
+      /* Pagination */
+      .dw-pagination {
+        display: flex; justify-content: center; align-items: center;
+        gap: 6px; margin-top: 32px;
+      }
+      .dw-page-btn {
+        height: 36px; min-width: 36px; padding: 0 14px;
+        border: 1px solid var(--n-line-soft);
+        background: #fff; color: var(--n-ink2);
+        border-radius: var(--r-control); cursor: pointer;
+        font-family: inherit; font-weight: 600; font-size: 13px;
+      }
+      .dw-page-btn[data-active="true"] {
+        background: var(--teal); color: #fff; border-color: var(--teal);
+      }
+      .dw-page-btn:disabled {
+        opacity: 0.45; cursor: not-allowed;
+      }
+      .dw-page-btn:not(:disabled):not([data-active="true"]):hover {
+        border-color: var(--teal); color: var(--teal);
+      }
+
+      /* ── Footer ─────────────────────────────── */
+      .dw-footer {
+        background: var(--teal-deep); color: rgba(255, 255, 255, 0.7);
+        padding: 64px 0 32px;
+      }
+      .dw-footer-inner { max-width: 1440px; margin: 0 auto; padding: 0 56px; }
+      .dw-footer-grid {
+        display: grid; grid-template-columns: 1.5fr repeat(4, 1fr);
+        gap: 48px;
+      }
+      .dw-footer-brand p {
+        font-size: 13px; line-height: 1.6; margin: 16px 0 0; max-width: 280px;
+      }
+      .dw-footer-col { display: flex; flex-direction: column; gap: 10px; }
+      .dw-footer-title {
+        color: #fff; font-size: 13px; font-weight: 600; margin-bottom: 6px;
+      }
+      .dw-footer-col a {
+        font-size: 13px; color: rgba(255, 255, 255, 0.7);
+        text-decoration: none; transition: color .15s;
+      }
+      .dw-footer-col a:hover { color: #fff; }
+      .dw-footer-bottom {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 48px; padding-top: 24px;
+        display: flex; justify-content: space-between;
+        font-size: 12px;
+      }
+    }
+
+    /* ── Tablet & narrow desktop (768–1023) ──────────────────── */
+    @media (min-width: 768px) and (max-width: 1023.98px) {
+      .dw-header-inner,
+      .dw-main,
+      .dw-footer-inner {
+        padding-left: clamp(20px, 4vw, 40px);
+        padding-right: clamp(20px, 4vw, 40px);
+      }
+      .dw-header-left { gap: 24px; }
+      .dw-nav { gap: 20px; }
+      .dw-nav a:nth-child(n+3) { display: none; }
+
+      .dw-intro { grid-template-columns: 1fr; gap: 12px; }
+      .dw-intro-title { font-size: 26px; }
+
+      .dw-pill {
+        grid-template-columns: 1fr;
+        border-radius: var(--r-card);
+        padding: 10px;
+        gap: 4px;
+      }
+      .dw-pill-field-div { border-left: none; border-top: 1px solid var(--n-line-soft); }
+      .dw-pill-submit { width: 100%; border-radius: var(--r-control); }
+
+      /* On tablet, collapse the three-column card to two stacked rows:
+         (photo + info) on top, booking column underneath. */
+      .dw-card-link,
+      .dw-card-skel {
+        grid-template-columns: 80px minmax(0, 1fr);
+      }
+      .dw-card-photo { width: 80px; height: 96px; }
+      .dw-card-photo-initials { font-size: 32px; }
+      .dw-card-booking {
+        grid-column: 1 / -1;
+        flex-direction: row; align-items: center; flex-wrap: wrap; gap: 14px;
+        padding-left: 0;
+        padding-top: 14px;
+        border-left: none;
+        border-top: 1px solid var(--n-line-soft);
+      }
+      .dw-card-week { flex: 1; min-width: 200px; }
+      .dw-card-booking-label { flex: 0 1 auto; }
+      .dw-card-book-cta { flex: 0 0 auto; margin-top: 0; }
+
+      .dw-card-skel-photo { height: 96px; }
+      .dw-card-skel-book {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        border-left: none; padding-left: 0;
+        border-top: 1px solid var(--n-line-soft); padding-top: 14px;
+      }
+
+      .dw-sort-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+      .dw-footer-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px 24px;
+      }
+      .dw-footer-brand { grid-column: 1 / -1; }
+      .dw-footer-bottom { flex-direction: column; gap: 6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .filter-drawer, .filter-drawer-backdrop { transition: none; }
+    }
+  </style>
 </BaseLayout>

@@ -1,4 +1,4 @@
 export interface RefreshSuccess {
-  accessToken: string;
-  refreshToken: string;
+  accessToken: string
+  refreshToken: string
 }

@@ -1,0 +1,8 @@
+export { default as brainSrc } from './body-icons/brain.svg?url'
+export { default as eyeSrc } from './body-icons/eye.svg?url'
+export { default as heartSrc } from './body-icons/heart.svg?url'
+export { default as jointsSrc } from './body-icons/joints.svg?url'
+export { default as odsSrc } from './body-icons/ods.svg?url'
+export { default as stomachSrc } from './body-icons/stomach.svg?url'
+export { default as toothSrc } from './body-icons/tooth.svg?url'
+export { default as traumaSrc } from './body-icons/trauma.svg?url'

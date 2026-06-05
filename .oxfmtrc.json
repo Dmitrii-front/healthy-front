@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "jsxSingleQuote": true,
+  "sortImports": true,
+  "sortTailwindcss": true,
+  "semi": false,
+  "ignorePatterns": [
+    "dist",
+    "dist-ssr",
+    "node_modules",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "pnpm-lock.yaml"
+  ],
+  "overrides": [
+    {
+      "files": ["*.json", "*.jsonc", "*.json5"],
+      "options": {
+        "trailingComma": "none"
+      }
+    }
+  ]
+}

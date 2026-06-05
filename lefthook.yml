@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,tsx,js,jsx,json,css,md}'
+      run: pnpm exec oxfmt --check {staged_files}
+    lint:
+      run: pnpm exec oxlint --type-aware
+    fsd:
+      run: pnpm exec steiger ./src
+    typecheck:
+      run: pnpm exec tsc -b --noEmit

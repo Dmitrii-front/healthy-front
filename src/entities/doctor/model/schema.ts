@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { z } from 'zod'
 
 export const ReviewSchema = z.object({
   author: z.string(),
   date: z.string(), // pre-formatted Russian short-month label (e.g. abbreviated month + year)
   rating: z.number().int().min(1).max(5),
   text: z.string(),
-});
+})
 
 export const DoctorSchema = z.object({
   id: z.string(),
@@ -33,4 +33,4 @@ export const DoctorSchema = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   reviews: z.array(ReviewSchema).optional(),
-});
+})

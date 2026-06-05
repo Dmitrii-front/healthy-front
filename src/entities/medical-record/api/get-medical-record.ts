@@ -1,7 +1,8 @@
-import { getMe } from "@/shared/api/get-me";
-import { deriveFirstNameFromEmail } from "@/entities/patient/lib/derive-name";
-import type { MedicalRecord } from "../model/types";
-import { MEDICAL_RECORD_MOCK } from "../mock/medical-record.mock";
+import { deriveFirstNameFromEmail } from '@/entities/patient/@x/medical-record'
+import { getMe } from '@/shared/api'
+
+import { MEDICAL_RECORD_MOCK } from '../mock/medical-record.mock'
+import type { MedicalRecord } from '../model/types'
 
 /**
  * Merges email/phone (and a derived first name) from POST /auth/me into the
@@ -11,17 +12,17 @@ import { MEDICAL_RECORD_MOCK } from "../mock/medical-record.mock";
  */
 export async function getMedicalRecord(): Promise<MedicalRecord> {
   try {
-    const user = await getMe();
-    const derivedFirst = deriveFirstNameFromEmail(user.email);
-    const firstName = derivedFirst.length > 0 ? derivedFirst : MEDICAL_RECORD_MOCK.firstName;
+    const user = await getMe()
+    const derivedFirst = deriveFirstNameFromEmail(user.email)
+    const firstName = derivedFirst.length > 0 ? derivedFirst : MEDICAL_RECORD_MOCK.firstName
 
     return {
       ...MEDICAL_RECORD_MOCK,
       firstName,
       email: user.email,
       phone: user.phone ?? MEDICAL_RECORD_MOCK.phone,
-    };
+    }
   } catch {
-    return MEDICAL_RECORD_MOCK;
+    return MEDICAL_RECORD_MOCK
   }
 }

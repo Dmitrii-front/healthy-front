@@ -1,20 +1,20 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react'
 
 interface RecordSectionProps {
-  title: string;
-  last?: boolean;
-  children: ReactNode;
+  title: string
+  last?: boolean
+  children: ReactNode
 }
 
 export function RecordSection({ title, last, children }: RecordSectionProps) {
   return (
-    <div className={last ? "mb-6" : "mb-[18px]"}>
-      <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-distant-graphite">
+    <div className={last ? 'mb-6' : 'mb-[18px]'}>
+      <p className='text-distant-graphite mb-2 px-1 text-[11px] font-semibold tracking-[0.08em] uppercase'>
         {title}
       </p>
-      <div className="flex flex-col rounded-[14px] border border-hairline bg-card-white">
+      <div className='border-hairline bg-card-white flex flex-col rounded-[14px] border'>
         {children}
       </div>
     </div>
-  );
+  )
 }

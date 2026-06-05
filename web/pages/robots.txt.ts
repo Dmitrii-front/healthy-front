@@ -1,4 +1,4 @@
-import type { APIRoute } from "astro";
+import type { APIRoute } from 'astro'
 
 // PRE-LAUNCH: block all crawlers from indexing the site.
 //
@@ -18,11 +18,11 @@ import type { APIRoute } from "astro";
 // nofollow"> in web/layouts/BaseLayout.astro — both must be reverted
 // together at launch.
 export const GET: APIRoute = () => {
-  const body = ["User-agent: *", "Disallow: /", ""].join("\n");
+  const body = ['User-agent: *', 'Disallow: /', ''].join('\n')
   return new Response(body, {
     headers: {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "public, max-age=300",
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'public, max-age=300',
     },
-  });
-};
+  })
+}

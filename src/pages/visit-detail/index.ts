@@ -1,2 +1,2 @@
-export { VisitDetailPage } from "./ui/VisitDetailPage";
-export { visitDetailLoader } from "./api/loader";
+export { VisitDetailPage } from './ui/VisitDetailPage'
+export { visitDetailLoader } from './api/loader'

@@ -1,1 +1,1 @@
-export { DateStamp } from "./DateStamp";
+export { DateStamp } from './DateStamp'

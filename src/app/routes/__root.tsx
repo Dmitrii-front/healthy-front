@@ -1,14 +1,15 @@
-import { Outlet, createRootRouteWithContext, Link, useMatches } from "@tanstack/react-router";
-import { Suspense } from "react";
-import type { QueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/features/auth";
-import { AuthGateModal } from "@/widgets/auth-gate-modal";
-import { DesktopRail } from "@/widgets/desktop-rail";
-import { TabBar } from "@/widgets/tab-bar";
-import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
+import type { QueryClient } from '@tanstack/react-query'
+import { Outlet, createRootRouteWithContext, Link, useMatches } from '@tanstack/react-router'
+import { Suspense } from 'react'
+
+import { useAuthStore } from '@/features/auth'
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
+import { AuthGateModal } from '@/widgets/auth-gate-modal'
+import { DesktopRail } from '@/widgets/desktop-rail'
+import { TabBar } from '@/widgets/tab-bar'
 
 interface RouterContext {
-  queryClient: QueryClient;
+  queryClient: QueryClient
 }
 
 // Whole SPA is a protected zone — auth (sign-in, sign-up, forgot/reset
@@ -19,16 +20,16 @@ interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   notFoundComponent: NotFound,
-});
+})
 
 function RootLayout() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const matches = useMatches();
-  const hideTabBar = matches.some((m) => m.staticData?.hideTabBar);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const matches = useMatches()
+  const hideTabBar = matches.some((m) => m.staticData?.hideTabBar)
 
   // Standalone routes opt out of the desktop side-rail and the mobile
   // pb-24 tab-bar clearance (e.g. booking/doctor-detail flows).
-  const isStandalone = hideTabBar;
+  const isStandalone = hideTabBar
 
   // Gate: unauthenticated → render only the brand-tinted modal screen.
   // No <Outlet />, so child route components don't mount and route loaders
@@ -36,26 +37,26 @@ function RootLayout() {
   // their results are invisible to the user.
   if (!isAuthenticated) {
     return (
-      <div className="relative min-h-dvh bg-warm-paper text-graphite">
+      <div className='bg-warm-paper text-graphite relative min-h-dvh'>
         <AuthGateModal />
       </div>
-    );
+    )
   }
 
   return (
-    <div className="min-h-dvh bg-warm-paper text-graphite">
+    <div className='bg-warm-paper text-graphite min-h-dvh'>
       <ErrorBoundary
         fallback={(error, reset) => (
-          <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-            <p className="text-xs uppercase tracking-[0.16em] text-distant-graphite">
+          <div className='flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center'>
+            <p className='text-distant-graphite text-xs tracking-[0.16em] uppercase'>
               Что-то пошло не так
             </p>
-            <h1 className="text-2xl font-medium tracking-tight">
-              {error.message || "Неизвестная ошибка"}
+            <h1 className='text-2xl font-medium tracking-tight'>
+              {error.message || 'Неизвестная ошибка'}
             </h1>
             <button
               onClick={reset}
-              className="rounded-pill bg-clinic-teal px-6 py-3 text-sm font-medium text-card-white hover:bg-brick-teal"
+              className='rounded-pill bg-clinic-teal text-card-white hover:bg-brick-teal px-6 py-3 text-sm font-medium'
             >
               Попробовать снова
             </button>
@@ -64,7 +65,7 @@ function RootLayout() {
       >
         <Suspense
           fallback={
-            <div className="flex min-h-dvh items-center justify-center text-sm text-distant-graphite">
+            <div className='text-distant-graphite flex min-h-dvh items-center justify-center text-sm'>
               Загрузка…
             </div>
           }
@@ -74,10 +75,10 @@ function RootLayout() {
               <Outlet />
             </main>
           ) : (
-            <div className="md:flex md:items-stretch">
+            <div className='md:flex md:items-stretch'>
               <DesktopRail />
-              <main className="min-w-0 flex-1 pb-24 md:pb-0">
-                <div className="md:mx-auto md:max-w-[820px] md:px-10 md:py-10">
+              <main className='min-w-0 flex-1 pb-24 md:pb-0'>
+                <div className='md:mx-auto md:max-w-[820px] md:px-10 md:py-10'>
                   <Outlet />
                 </div>
               </main>
@@ -87,20 +88,20 @@ function RootLayout() {
       </ErrorBoundary>
       <TabBar />
     </div>
-  );
+  )
 }
 
 function NotFound() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-      <p className="text-xs uppercase tracking-[0.16em] text-distant-graphite">404</p>
-      <h1 className="text-2xl font-medium tracking-tight">Страница не найдена</h1>
+    <div className='flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center'>
+      <p className='text-distant-graphite text-xs tracking-[0.16em] uppercase'>404</p>
+      <h1 className='text-2xl font-medium tracking-tight'>Страница не найдена</h1>
       <Link
-        to="/"
-        className="rounded-pill bg-clinic-teal px-6 py-3 text-sm font-medium text-card-white hover:bg-brick-teal"
+        to='/'
+        className='rounded-pill bg-clinic-teal text-card-white hover:bg-brick-teal px-6 py-3 text-sm font-medium'
       >
         На главную
       </Link>
     </div>
-  );
+  )
 }

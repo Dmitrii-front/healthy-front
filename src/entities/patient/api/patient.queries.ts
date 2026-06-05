@@ -1,11 +1,12 @@
-import { queryOptions } from "@tanstack/react-query";
-import { getCurrentPatient } from "./get-current-patient";
+import { queryOptions } from '@tanstack/react-query'
+
+import { getCurrentPatient } from './get-current-patient'
 
 export const PATIENT_QUERIES = {
-  all: () => ["patient"] as const,
+  all: () => ['patient'] as const,
   current: () =>
     queryOptions({
-      queryKey: [...PATIENT_QUERIES.all(), "current"],
+      queryKey: [...PATIENT_QUERIES.all(), 'current'],
       queryFn: () => getCurrentPatient(),
     }),
-} as const;
+} as const

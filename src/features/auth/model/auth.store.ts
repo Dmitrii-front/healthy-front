@@ -1,19 +1,19 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
+  accessToken: string
+  refreshToken: string
 }
 
 interface AuthState {
-  accessToken: string | null;
-  refreshToken: string | null;
-  userId: string | null;
-  isAuthenticated: boolean;
-  setSession: (tokens: AuthTokens, userId: string) => void;
-  setTokens: (tokens: AuthTokens) => void;
-  clear: () => void;
+  accessToken: string | null
+  refreshToken: string | null
+  userId: string | null
+  isAuthenticated: boolean
+  setSession: (tokens: AuthTokens, userId: string) => void
+  setTokens: (tokens: AuthTokens) => void
+  clear: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -41,12 +41,12 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           userId: null,
           isAuthenticated: false,
-        });
-        useAuthStore.persist.clearStorage();
+        })
+        useAuthStore.persist.clearStorage()
       },
     }),
     {
-      name: "healthy.auth",
+      name: 'healthy.auth',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
@@ -56,11 +56,11 @@ export const useAuthStore = create<AuthState>()(
       }),
     },
   ),
-);
+)
 
 /** Imperative accessor for non-React code (e.g. fetch interceptor). */
-const _setState = useAuthStore.setState.bind(useAuthStore);
+const _setState = useAuthStore.setState.bind(useAuthStore)
 export const authStore = {
   getState: () => useAuthStore.getState(),
   setState: _setState,
-};
+}

@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { HistoryPage, historyLoader } from "@/pages/history";
+import { createFileRoute } from '@tanstack/react-router'
 
-export const Route = createFileRoute("/history")({
+import { HistoryPage, historyLoader } from '@/pages/history'
+
+export const Route = createFileRoute('/history')({
   loader: historyLoader,
   component: HistoryPage,
-});
+})

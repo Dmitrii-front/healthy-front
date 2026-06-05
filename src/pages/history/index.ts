@@ -1,2 +1,2 @@
-export { HistoryPage } from "./ui/HistoryPage";
-export { historyLoader } from "./api/loader";
+export { HistoryPage } from './ui/HistoryPage'
+export { historyLoader } from './api/loader'

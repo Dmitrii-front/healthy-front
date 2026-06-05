@@ -1,6 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod'
 
-export const RoleSchema = z.enum(["patient", "doctor", "clinic", "admin"]);
+export const RoleSchema = z.enum(['patient', 'doctor', 'clinic', 'admin'])
 
 export const UserSchema = z.object({
   id: z.string(),
@@ -12,4 +12,7 @@ export const UserSchema = z.object({
   isActive: z.boolean().default(true),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
-});
+})
+
+export type Role = z.infer<typeof RoleSchema>
+export type User = z.infer<typeof UserSchema>

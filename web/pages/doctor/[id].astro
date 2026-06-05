@@ -5,7 +5,7 @@ import BookingTrigger from "../../components/booking/BookingTrigger.astro";
 import BookingModal from "../../components/booking/BookingModal.astro";
 import FavoriteButton from "../../components/catalog/FavoriteButton.astro";
 import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
-import { SPECIALTIES } from "@/entities/specialty";
+import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../../lib/slug";
 
 export async function getStaticPaths() {

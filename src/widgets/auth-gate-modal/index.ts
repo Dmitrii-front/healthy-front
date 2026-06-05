@@ -1,1 +1,1 @@
-export { AuthGateModal } from "./ui/AuthGateModal";
+export { AuthGateModal } from './ui/AuthGateModal'

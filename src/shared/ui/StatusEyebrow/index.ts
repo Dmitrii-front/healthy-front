@@ -1,1 +1,1 @@
-export { StatusEyebrow } from "./StatusEyebrow";
+export { StatusEyebrow } from './StatusEyebrow'

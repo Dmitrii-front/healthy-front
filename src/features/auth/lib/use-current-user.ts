@@ -1,11 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../model/auth.store";
-import { AUTH_QUERIES } from "../api/auth.queries";
+import { useQuery } from '@tanstack/react-query'
+
+import { AUTH_QUERIES } from '../api/auth.queries'
+import { useAuthStore } from '../model/auth.store'
 
 export function useCurrentUser() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return useQuery({
     ...AUTH_QUERIES.me(),
     enabled: isAuthenticated,
-  });
+  })
 }

@@ -1,19 +1,20 @@
-import type { ReactNode } from "react";
-import { cn } from "@/shared/lib/cn";
+import type { ReactNode } from 'react'
+
+import { cn } from '@/shared/lib'
 
 interface FieldLabelProps {
-  children: ReactNode;
-  htmlFor?: string;
-  className?: string;
+  children: ReactNode
+  htmlFor?: string
+  className?: string
 }
 
 export function FieldLabel({ children, htmlFor, className }: FieldLabelProps) {
   return (
     <label
       htmlFor={htmlFor}
-      className={cn("text-[13px] font-medium text-soft-graphite", className)}
+      className={cn('text-[13px] font-medium text-soft-graphite', className)}
     >
       {children}
     </label>
-  );
+  )
 }

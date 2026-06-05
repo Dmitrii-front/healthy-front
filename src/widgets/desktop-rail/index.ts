@@ -1,1 +1,1 @@
-export { DesktopRail } from "./ui/DesktopRail";
+export { DesktopRail } from './ui/DesktopRail'

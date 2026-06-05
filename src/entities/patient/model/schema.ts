@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod'
 
 export const PatientSchema = z.object({
   id: z.string(),
@@ -10,4 +10,4 @@ export const PatientSchema = z.object({
   memberId: z.string().optional(),
   memberSinceYear: z.number().int().optional(),
   initials: z.string().optional(),
-});
+})

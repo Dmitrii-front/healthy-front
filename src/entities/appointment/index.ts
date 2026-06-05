@@ -1,5 +1,5 @@
-export type { Appointment, AppointmentStatus } from "./model/types";
-export { AppointmentSchema } from "./model/schema";
-export { getTimeGroup } from "./lib/timeGroup";
-export { APPOINTMENT_QUERIES } from "./api/appointment.queries";
-export { APPOINTMENT_MUTATIONS } from "./api/appointment.mutations";
+export type { Appointment, AppointmentStatus } from './model/types'
+export { AppointmentSchema } from './model/schema'
+export { getTimeGroup } from './lib/timeGroup'
+export { APPOINTMENT_QUERIES } from './api/appointment.queries'
+export { APPOINTMENT_MUTATIONS } from './api/appointment.mutations'

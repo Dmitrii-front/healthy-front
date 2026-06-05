@@ -4,7 +4,7 @@ import JsonLd from "../components/seo/JsonLd.astro";
 import LoginButton from "../components/auth/LoginButton.astro";
 import LoginModal from "../components/auth/LoginModal.astro";
 import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
-import { SPECIALTIES } from "@/entities/specialty";
+import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../lib/slug";
 
 // ── Design tokens (TEAL + N) ───────────────────────────────
@@ -426,12 +426,6 @@ const websiteJsonLd = {
         <div class="mw-footer-col">
           <div class="mw-footer-title">Пациентам</div>
           <a href="/search">Найти врача</a>
-          <a href="/search">Лаборатории</a>
-          <a href="/search">Аптеки</a>
-        </div>
-        <div class="mw-footer-col">
-          <div class="mw-footer-title">Врачам</div>
-          <a href="#">Личный кабинет</a>
         </div>
         <div class="mw-footer-col">
           <div class="mw-footer-title">Компания</div>
@@ -441,13 +435,13 @@ const websiteJsonLd = {
         <div class="mw-footer-col">
           <div class="mw-footer-title">Поддержка</div>
           <a href="#">Помощь</a>
-          <a href="#">Условия</a>
           <a href="#">Политика</a>
         </div>
       </div>
+      {/* No fake licence — KG/KZ registration data goes here once it exists. */}
       <div class="mw-footer-fine">
         <div>© 2026 Healthy. Сервис записи к врачам.</div>
-        <div>Лицензия № ЛО-77-01-019384</div>
+        <div>Бишкек · Алматы</div>
         <div>Информация на сайте не является публичной офертой.</div>
       </div>
     </footer>
@@ -465,11 +459,9 @@ const websiteJsonLd = {
             <span class="mw-logo-mark">H</span>
             <span class="mw-logo-text">Healthy</span>
           </a>
+          {/* Only ship nav items with real destinations. Add the rest as routes land. */}
           <nav class="dw-nav">
             <a href="/search">Найти врача</a>
-            <a href="/search">Клиники</a>
-            <a href="/search">Лаборатории</a>
-            <a href="/search">Аптеки</a>
           </nav>
         </div>
         <div class="dw-header-right">
@@ -797,12 +789,6 @@ const websiteJsonLd = {
           <div class="dw-footer-col">
             <div class="dw-footer-title">Пациентам</div>
             <a href="/search">Найти врача</a>
-              <a href="/search">Лаборатории</a>
-            <a href="/search">Аптеки</a>
-          </div>
-          <div class="dw-footer-col">
-            <div class="dw-footer-title">Врачам</div>
-              <a href="#">Личный кабинет</a>
           </div>
           <div class="dw-footer-col">
             <div class="dw-footer-title">Компания</div>
@@ -812,13 +798,18 @@ const websiteJsonLd = {
           <div class="dw-footer-col">
             <div class="dw-footer-title">Поддержка</div>
             <a href="#">Помощь</a>
-            <a href="#">Условия</a>
             <a href="#">Политика</a>
           </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Регионы</div>
+            <a href="#">Бишкек</a>
+            <a href="#">Алматы</a>
+          </div>
         </div>
+        {/* No fake licence — KG/KZ registration data goes here once it exists. */}
         <div class="dw-footer-bottom">
           <span>© 2026 Healthy. Все права защищены.</span>
-          <span>Лицензия № ЛО-77-01-019384</span>
+          <span>Бишкек · Алматы</span>
         </div>
       </div>
     </footer>
