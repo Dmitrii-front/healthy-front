@@ -1,4 +1,5 @@
-import { Icon, type IconName } from '@/shared/ui/Icon'
+import { Icon } from '@/shared/ui/Icon'
+import type { IconName } from '@/shared/ui/Icon'
 
 export interface SettingsItem {
   icon: IconName

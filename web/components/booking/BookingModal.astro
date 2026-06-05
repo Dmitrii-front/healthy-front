@@ -121,15 +121,11 @@
     quickBook,
     isAuthed,
   } from "../../lib/auth";
-  import {
-    generateMockSlots,
-    formatSlotForDisplay,
-    type DaySlots,
-    type Slot,
-  } from "../../lib/mock-slots";
+  import { generateMockSlots, formatSlotForDisplay } from '../../lib/mock-slots';
+  import type { DaySlots, Slot } from '../../lib/mock-slots';
 
-  const modal = document.getElementById("hm-booking-modal") as HTMLDialogElement | null;
-  if (modal) {
+  const modal = document.getElementById("hm-booking-modal");
+  if (modal == null) return;
     type Mode = "login" | "register";
     type Step = "slot" | "account" | "success";
 
@@ -357,5 +353,4 @@
       accountError.textContent = "";
       accountError.hidden = true;
     }
-  }
 </script>

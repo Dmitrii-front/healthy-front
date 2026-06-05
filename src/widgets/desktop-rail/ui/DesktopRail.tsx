@@ -5,7 +5,8 @@ import { PATIENT_QUERIES } from '@/entities/patient'
 import { useCurrentUser } from '@/features/auth'
 import { Avatar } from '@/shared/ui/Avatar'
 import { BrandMark } from '@/shared/ui/BrandMark'
-import { Icon, type IconName } from '@/shared/ui/Icon'
+import { Icon } from '@/shared/ui/Icon'
+import type { IconName } from '@/shared/ui/Icon'
 
 interface NavItem {
   label: string

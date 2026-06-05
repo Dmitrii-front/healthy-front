@@ -11,7 +11,8 @@ import { Icon } from '@/shared/ui/Icon'
 import { ageFromDob, formatDateLong, pluralizeYears } from '../lib/format'
 import { InfoListGroup, InfoListRow } from './InfoListGroup'
 import { ProfileSection } from './ProfileSection'
-import { SettingsList, type SettingsItem } from './SettingsList'
+import { SettingsList } from './SettingsList'
+import type { SettingsItem } from './SettingsList'
 
 export function ProfilePage() {
   const signOut = useSignOut()

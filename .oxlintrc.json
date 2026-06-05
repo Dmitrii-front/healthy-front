@@ -1,6 +1,11 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "react", "import"],
+  "plugins": ["typescript", "react", "oxc", "import", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
   "jsPlugins": [
     {
       "name": "react-hooks-js",
@@ -9,7 +14,35 @@
   ],
   "rules": {
     "react-hooks-js/rules-of-hooks": "error",
-    "react-hooks-js/exhaustive-deps": "warn"
+    "react-hooks-js/exhaustive-deps": "warn",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/no-for-in-array": "error",
+    "typescript/unbound-method": "error",
+    "typescript/consistent-type-imports": [
+      "error",
+      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
+    ],
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "typescript/consistent-return": "off",
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/exhaustive-deps": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "import/no-duplicates": "error",
+    "import/no-unassigned-import": "off",
+    "promise/no-return-wrap": "error"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true
   },
   "ignorePatterns": ["dist", "node_modules", "src/routeTree.gen.ts"]
 }

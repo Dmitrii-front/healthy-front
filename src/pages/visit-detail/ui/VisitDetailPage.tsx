@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, useRouter } from '@tanstack/react-router'
 
-import { APPOINTMENT_QUERIES, type AppointmentStatus } from '@/entities/appointment'
+import { APPOINTMENT_QUERIES } from '@/entities/appointment'
+import type { AppointmentStatus } from '@/entities/appointment'
 import { DOCTOR_QUERIES } from '@/entities/doctor'
 import { Avatar } from '@/shared/ui/Avatar'
 import { Icon } from '@/shared/ui/Icon'

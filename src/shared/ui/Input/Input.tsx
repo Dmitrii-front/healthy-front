@@ -2,7 +2,8 @@ import type { InputHTMLAttributes, Ref } from 'react'
 import { useState } from 'react'
 
 import { cn } from '@/shared/lib'
-import { Icon, type IconName } from '@/shared/ui/Icon'
+import { Icon } from '@/shared/ui/Icon'
+import type { IconName } from '@/shared/ui/Icon'
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   icon?: IconName

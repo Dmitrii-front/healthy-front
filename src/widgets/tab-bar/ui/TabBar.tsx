@@ -1,6 +1,7 @@
 import { Link, useMatches } from '@tanstack/react-router'
 
-import { Icon, type IconName } from '@/shared/ui/Icon'
+import { Icon } from '@/shared/ui/Icon'
+import type { IconName } from '@/shared/ui/Icon'
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {

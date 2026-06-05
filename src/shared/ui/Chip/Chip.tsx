@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 import { cn } from '@/shared/lib'
-import { Icon, type IconName } from '@/shared/ui/Icon'
+import { Icon } from '@/shared/ui/Icon'
+import type { IconName } from '@/shared/ui/Icon'
 
 interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean
