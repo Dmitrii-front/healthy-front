@@ -59,8 +59,8 @@ export const useAuthStore = create<AuthState>()(
 )
 
 /** Imperative accessor for non-React code (e.g. fetch interceptor). */
-const _setState = useAuthStore.setState.bind(useAuthStore)
+const boundSetState = useAuthStore.setState.bind(useAuthStore)
 export const authStore = {
   getState: () => useAuthStore.getState(),
-  setState: _setState,
+  setState: boundSetState,
 }

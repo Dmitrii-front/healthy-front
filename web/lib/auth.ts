@@ -20,7 +20,9 @@ import * as v from 'valibot'
 
 export const AUTH_STORAGE_KEY = 'healthy.auth'
 
-const API_URL = (import.meta.env.PUBLIC_API_URL as string | undefined) ?? 'http://localhost:3000'
+const envApiUrl = import.meta.env.PUBLIC_API_URL
+const API_URL =
+  typeof envApiUrl === 'string' && envApiUrl.length > 0 ? envApiUrl : 'http://localhost:3000'
 
 interface AuthState {
   accessToken: string
@@ -69,6 +71,8 @@ export function readAuth(): AuthState | null {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY)
     if (!raw) return null
+    // localStorage payload written by writeAuth (same origin) — trusted shape.
+    // eslint-disable-next-line typescript/no-unsafe-type-assertion
     const parsed = JSON.parse(raw) as AuthSnapshot
     return parsed.state ?? null
   } catch {
@@ -145,10 +149,10 @@ interface VerificationRequiredBody {
 
 function isVerificationRequiredBody(body: unknown): body is VerificationRequiredBody {
   if (!body || typeof body !== 'object') return false
-  const b = body as Record<string, unknown>
+  if (!('code' in body) || !('email' in body)) return false
   return (
-    (b.code === 'EMAIL_NOT_VERIFIED' || b.code === 'VERIFICATION_REQUIRED') &&
-    typeof b.email === 'string'
+    (body.code === 'EMAIL_NOT_VERIFIED' || body.code === 'VERIFICATION_REQUIRED') &&
+    typeof body.email === 'string'
   )
 }
 
@@ -279,24 +283,38 @@ async function apiFetch<T>(path: string, body: unknown): Promise<T> {
     // there's something to parse; otherwise return null cast to T (callers
     // that depend on a real shape must defensively handle null).
     const raw = await response.text()
-    if (!raw) return null as T
+    if (!raw) {
+      // Empty body — caller's T is expected to accept null (see RegisterBackendResponse).
+      // eslint-disable-next-line typescript/no-unsafe-type-assertion
+      return null as T
+    }
     try {
+      // Boundary cast: caller passes the expected shape; runtime trust on backend contract.
+      // eslint-disable-next-line typescript/no-unsafe-type-assertion
       return JSON.parse(raw) as T
     } catch {
       throw new Error('Сервер вернул некорректный ответ')
     }
   }
 
-  const errBody = (await response.json().catch(() => null)) as
-    | (ApiErrorBody & Partial<VerificationRequiredBody>)
-    | null
+  const errBody: unknown = await response.json().catch(() => null)
   // 403 + structured verification-required body → throw the typed error so
   // the modal can switch to the verify-pending pane instead of showing
   // "Ошибка 403" in red. Backend contract: { code: "EMAIL_NOT_VERIFIED", email }
-  if (response.status === 403 && errBody && isVerificationRequiredBody(errBody)) {
+  if (response.status === 403 && isVerificationRequiredBody(errBody)) {
     throw new EmailNotVerifiedError(errBody.email)
   }
-  throw new Error(formatBackendError(response.status, errBody))
+  throw new Error(formatBackendError(response.status, toApiErrorBody(errBody)))
+}
+
+function toApiErrorBody(value: unknown): ApiErrorBody | null {
+  if (!value || typeof value !== 'object') return null
+  const message = 'message' in value ? value.message : undefined
+  const statusCode = 'statusCode' in value ? value.statusCode : undefined
+  const out: ApiErrorBody = {}
+  if (typeof message === 'string' || Array.isArray(message)) out.message = message
+  if (typeof statusCode === 'number') out.statusCode = statusCode
+  return out
 }
 
 function formatBackendError(status: number, body: ApiErrorBody | null): string {

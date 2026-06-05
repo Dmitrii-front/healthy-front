@@ -3,7 +3,6 @@ dist
 .DS_Store
 *.log
 .vite
-src/app/routeTree.gen.ts
 .idea
 tsconfig.tsbuildinfo
 .claude

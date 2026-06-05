@@ -124,8 +124,11 @@
   import { generateMockSlots, formatSlotForDisplay } from '../../lib/mock-slots';
   import type { DaySlots, Slot } from '../../lib/mock-slots';
 
-  const modal = document.getElementById("hm-booking-modal");
-  if (modal == null) return;
+  // Astro <script> compiles as an ES module — top-level `return` is illegal,
+  // so the bootstrap logic lives in an IIFE that we can early-exit from.
+  (() => {
+    const modal = document.getElementById("hm-booking-modal");
+    if (modal == null) return;
     type Mode = "login" | "register";
     type Step = "slot" | "account" | "success";
 
@@ -353,4 +356,5 @@
       accountError.textContent = "";
       accountError.hidden = true;
     }
+  })();
 </script>

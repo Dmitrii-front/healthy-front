@@ -42,7 +42,6 @@
     "@feature-sliced/steiger-plugin": "^0.5.8",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-router-devtools": "latest",
-    "@tanstack/router-plugin": "latest",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",

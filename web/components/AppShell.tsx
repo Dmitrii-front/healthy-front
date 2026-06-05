@@ -3,7 +3,7 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 
 import { queryClient } from '@/app/providers/queryClient'
-import { routeTree } from '@/app/routeTree.gen'
+import { routeTree } from '@/app/router'
 import { bootstrapAuth } from '@/features/auth'
 
 bootstrapAuth()

@@ -8,23 +8,28 @@ const PLACEHOLDER = '"__HM_PREFETCH_LIST__"'
 // either dist/ or dist/client/ depending on the version. Probe both.
 async function findClientRoot(dir) {
   const fsPath = fileURLToPath(dir)
-  for (const candidate of [join(fsPath, 'client'), fsPath]) {
-    try {
-      await readdir(join(candidate, '_astro'))
-      return candidate
-    } catch {}
-  }
-  return null
+  const candidates = [join(fsPath, 'client'), fsPath]
+  const probes = await Promise.all(
+    candidates.map((candidate) =>
+      readdir(join(candidate, '_astro'))
+        .then(() => candidate)
+        .catch(() => null),
+    ),
+  )
+  return probes.find((c) => c !== null) ?? null
 }
 
 async function walkHtml(dir) {
-  const out = []
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const p = join(dir, entry.name)
-    if (entry.isDirectory()) out.push(...(await walkHtml(p)))
-    else if (entry.name.endsWith('.html')) out.push(p)
-  }
-  return out
+  const entries = await readdir(dir, { withFileTypes: true })
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const p = join(dir, entry.name)
+      if (entry.isDirectory()) return walkHtml(p)
+      if (entry.name.endsWith('.html')) return [p]
+      return []
+    }),
+  )
+  return nested.flat()
 }
 
 // Astro integration: after the build is done, scan the built _astro/
@@ -52,14 +57,15 @@ export default function prefetchList() {
         const urls = ['/app/', ...chunks]
         const json = JSON.stringify(urls)
         const htmls = await walkHtml(clientRoot)
-        let touched = 0
-        for (const html of htmls) {
-          const content = await readFile(html, 'utf8')
-          if (content.includes(PLACEHOLDER)) {
+        const writes = await Promise.all(
+          htmls.map(async (html) => {
+            const content = await readFile(html, 'utf8')
+            if (!content.includes(PLACEHOLDER)) return 0
             await writeFile(html, content.replace(PLACEHOLDER, json))
-            touched += 1
-          }
-        }
+            return 1
+          }),
+        )
+        const touched = writes.reduce((sum, n) => sum + n, 0)
         logger.info(
           `Injected prefetch list (${urls.length} URLs, ${json.length} B) into ${touched} HTML file${touched === 1 ? '' : 's'}.`,
         )

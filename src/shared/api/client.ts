@@ -96,8 +96,15 @@ export class ApiClient {
       throw new ApiError(response.status, response.statusText, errorBody)
     }
 
-    if (response.status === 204) return undefined as T
-    return response.json() as Promise<T>
+    if (response.status === 204) {
+      // 204 No Content — caller's T is expected to accommodate void.
+      // eslint-disable-next-line typescript/no-unsafe-type-assertion
+      return undefined as T
+    }
+    const data: unknown = await response.json()
+    // Boundary cast: we trust the caller to pass the right T for this endpoint.
+    // eslint-disable-next-line typescript/no-unsafe-type-assertion
+    return data as T
   }
 
   private request<T>(path: string, options: RequestOptions = {}): Promise<T> {

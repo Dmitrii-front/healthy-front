@@ -5,13 +5,12 @@ import cloudflare from '@astrojs/cloudflare'
 import react from '@astrojs/react'
 import sitemap from '@astrojs/sitemap'
 import tailwindcss from '@tailwindcss/vite'
-import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 // @ts-check
 import { defineConfig } from 'astro/config'
 
 import prefetchList from './web/integrations/prefetch-list.mjs'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   site: 'https://sdoctorom.health',
@@ -26,18 +25,10 @@ export default defineConfig({
     prefetchList(),
   ],
   vite: {
-    plugins: [
-      tailwindcss(),
-      TanStackRouterVite({
-        target: 'react',
-        autoCodeSplitting: true,
-        routesDirectory: path.resolve(__dirname, 'src/app/routes'),
-        generatedRouteTree: path.resolve(__dirname, 'src/app/routeTree.gen.ts'),
-      }),
-    ],
+    plugins: [tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'src'),
+        '@': path.resolve(rootDir, 'src'),
       },
     },
     optimizeDeps: {
