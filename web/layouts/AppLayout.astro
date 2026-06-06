@@ -25,13 +25,10 @@ const { title = "Healthy" } = Astro.props;
       rel="stylesheet"
     />
 
-    {/* Prefetch popular SEO entry points so clicks from SPA → catalog
-        feel instant. Browser caches the HTML in the background after the
-        SPA shell hydrates. */}
+    {/* Prefetch the catalog so clicks from SPA → search feel instant.
+        Specialty filtering is now a search-param on /search, so a single
+        prefetch covers every category tile on the home page. */}
     <link rel="prefetch" href="/search" />
-    <link rel="prefetch" href="/specialty/cardiology" />
-    <link rel="prefetch" href="/specialty/family-medicine" />
-    <link rel="prefetch" href="/specialty/dentistry" />
   </head>
   <body class="bg-warm-paper text-graphite">
     <slot />

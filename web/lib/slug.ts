@@ -1,5 +1,5 @@
 // Cyrillic → Latin transliteration for SEO-friendly slugs.
-// Build-time only — used in getStaticPaths for /doctor/[id] and /specialty/[slug].
+// Build-time only — used in getStaticPaths for /doctor/[id].
 
 const CYRILLIC_MAP: Record<string, string> = {
   а: 'a',

@@ -135,7 +135,7 @@ const breadcrumbs = {
             "@type": "ListItem",
             position: 3,
             name: specialty.label,
-            item: `https://sdoctorom.health/specialty/${specialty.key}`,
+            item: `https://sdoctorom.health/search?specialty=${encodeURIComponent(specialty.doctorSpecialty)}`,
           },
           { "@type": "ListItem", position: 4, name: doctor.name },
         ]
@@ -153,7 +153,7 @@ const breadcrumbs = {
         <span class="mx-1.5">›</span>
         {specialty ? (
           <>
-            <a href={`/specialty/${specialty.key}`} class="hover:text-[#2a2d33]">{specialty.label}</a>
+            <a href={`/search?specialty=${encodeURIComponent(specialty.doctorSpecialty)}`} class="hover:text-[#2a2d33]">{specialty.label}</a>
             <span class="mx-1.5">›</span>
           </>
         ) : (
