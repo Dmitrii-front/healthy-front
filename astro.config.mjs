@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 // @ts-check
 import { defineConfig } from 'astro/config'
 
+import cfWranglerMirror from './web/integrations/cf-wrangler-mirror.mjs'
 import prefetchList from './web/integrations/prefetch-list.mjs'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +24,7 @@ export default defineConfig({
     }),
     sitemap({ filter: (page) => !page.includes('/app/') }),
     prefetchList(),
+    cfWranglerMirror(),
   ],
   vite: {
     plugins: [tailwindcss()],

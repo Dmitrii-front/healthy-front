@@ -4,10 +4,13 @@
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    // The @astrojs/cloudflare adapter generates the full config at
-    // dist/server/wrangler.json after `pnpm build` (with main + the correct
-    // assets.directory). For local CF emulation, run:
-    //   pnpm exec wrangler dev --config dist/server/wrangler.json
+    // The @astrojs/cloudflare adapter (v13+) generates the full config at
+    // dist/client/wrangler.json after `pnpm build`. The cf-wrangler-mirror
+    // integration also copies it to dist/server/wrangler.json (with
+    // assets.directory rewritten to ../client) so Cloudflare Workers Builds'
+    // default deploy command — which targets the legacy dist/server path —
+    // works without dashboard tweaks. For local CF emulation, run:
+    //   pnpm exec wrangler dev --config dist/client/wrangler.json
     //
     // not_found_handling is intentionally omitted here: with "404-page",
     // the Cloudflare assets handler intercepts navigations (Sec-Fetch-Mode:
