@@ -3,10 +3,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import JsonLd from "../../components/seo/JsonLd.astro";
 import BookingTrigger from "../../components/booking/BookingTrigger.astro";
 import BookingModal from "../../components/booking/BookingModal.astro";
-import FavoriteButton from "../../components/catalog/FavoriteButton.astro";
 import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../../lib/slug";
+import { generateMockSlots } from "../../lib/mock-slots";
 
 export async function getStaticPaths() {
   return DOCTOR_MOCKS.map((doctor) => ({
@@ -22,6 +22,71 @@ const description = doctor.bio
   ? doctor.bio.slice(0, 155) + (doctor.bio.length > 155 ? "…" : "")
   : `${doctor.name} — ${doctor.specialty} в клинике «${doctor.clinic}». Запись онлайн.`;
 
+// ── Display helpers ────────────────────────────────────────────────
+const FORMAT_LABELS: Record<string, string> = {
+  online: "Онлайн по видео",
+  "in-person": "В клинике",
+  "home-visit": "Выезд на дом",
+};
+const MONTHS_GEN = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const MONTHS_NOM = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const DOW_SHORT = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
+function pluralYears(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "год";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "года";
+  return "лет";
+}
+
+const priceLabel =
+  doctor.priceFrom != null ? `${new Intl.NumberFormat("ru-RU").format(doctor.priceFrom)} ₸` : null;
+const formats = (doctor.consultationFormats ?? []).map((f) => FORMAT_LABELS[f] ?? f);
+const treats = doctor.conditionsTreated ?? [];
+const certificates = doctor.certificates ?? [];
+const hasCredentials = Boolean(doctor.education) || certificates.length > 0;
+
+// "О враче" always renders. When the doctor has no written bio, compose a
+// truthful intro from the fields we do have (no invented medical claims).
+const bioText =
+  doctor.bio ??
+  [
+    `${doctor.specialty}${doctor.subspecialty ? `, ${doctor.subspecialty.toLowerCase()}` : ""}.`,
+    doctor.yearsExperience != null
+      ? `Опыт работы — ${doctor.yearsExperience} ${pluralYears(doctor.yearsExperience)}.`
+      : "",
+    `Принимает в клинике ${doctor.clinic}${doctor.city ? `, ${doctor.city}` : ""}.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+const mapQuery = encodeURIComponent(
+  [doctor.clinic, doctor.address, doctor.city].filter(Boolean).join(", "),
+);
+
+// ── Inline booking calendar data (reuses the same mock slots as the modal) ──
+const rawDays = generateMockSlots(doctor.id, 14);
+const days = rawDays.map((d, i) => {
+  const dt = new Date(d.date);
+  const available = d.slots.filter((s) => s.available).map((s) => ({ id: s.id, time: s.timeLabel }));
+  return {
+    date: d.date,
+    dayNum: dt.getDate(),
+    dow: (dt.getDay() + 6) % 7, // Mon = 0
+    label:
+      i === 0
+        ? `Сегодня, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`
+        : `${DOW_SHORT[dt.getDay()]}, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`,
+    slots: available,
+  };
+});
+const firstIdx = days.findIndex((d) => d.slots.length > 0);
+const activeIdx = firstIdx === -1 ? 0 : firstIdx;
+const firstMonth = days[0] ? new Date(days[0].date) : new Date();
+const monthLabel = `${MONTHS_NOM[firstMonth.getMonth()]} ${firstMonth.getFullYear()}`;
+const padStart = days[0] ? days[0].dow : 0;
+
+// ── SEO structured data (Physician + breadcrumbs) ──────────────────
 const physicianJsonLd: Record<string, unknown> = {
   "@context": "https://schema.org",
   "@type": "Physician",
@@ -51,12 +116,7 @@ const physicianJsonLd: Record<string, unknown> = {
           "@type": "Review",
           author: { "@type": "Person", name: r.author },
           datePublished: r.date,
-          reviewRating: {
-            "@type": "Rating",
-            ratingValue: r.rating,
-            bestRating: 5,
-            worstRating: 1,
-          },
+          reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
           reviewBody: r.text,
         })),
       }
@@ -84,119 +144,383 @@ const breadcrumbs = {
 };
 ---
 
-<BaseLayout
-  title={`${doctor.name} — ${doctor.specialty} | Healthy`}
-  description={description}
->
-  <main class="mx-auto max-w-screen-md px-4 pb-24 pt-8">
-    <nav class="mb-4 text-[12.5px] text-distant-graphite">
-      <a href="/" class="hover:text-soft-graphite">Главная</a> ·
-      <a href="/search" class="hover:text-soft-graphite">Поиск</a>
-      {specialty && (
-        <>
-          {" "}
-          ·
-          <a href={`/specialty/${specialty.key}`} class="hover:text-soft-graphite">{specialty.label}</a>
-        </>
-      )}
-    </nav>
-
-    <header class="flex items-start gap-5">
-      <span
-        class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-[20px] font-semibold text-graphite"
-        style={`background-color: ${doctor.color}`}
-      >
-        {doctor.initials}
-      </span>
-      <div class="flex-1 min-w-0">
-        <p class="text-[12.5px] uppercase tracking-[0.14em] text-distant-graphite">{doctor.specialty}</p>
-        <h1 class="mt-1 text-[26px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite">
-          {doctor.name}
-        </h1>
-        {doctor.subspecialty && (
-          <p class="mt-1 text-[14px] text-soft-graphite">{doctor.subspecialty}</p>
+<BaseLayout title={`${doctor.name} — ${doctor.specialty} | Healthy`} description={description}>
+  <div class="min-h-dvh bg-[#faf8f5]">
+    <main class="mx-auto max-w-[960px] px-4 pb-16 pt-5 sm:px-8">
+      {/* Breadcrumbs */}
+      <nav class="mb-5 text-[12.5px] text-[#8a8e96]">
+        <a href="/" class="hover:text-[#2a2d33]">Главная</a>
+        <span class="mx-1.5">›</span>
+        {specialty ? (
+          <>
+            <a href={`/specialty/${specialty.key}`} class="hover:text-[#2a2d33]">{specialty.label}</a>
+            <span class="mx-1.5">›</span>
+          </>
+        ) : (
+          <>
+            <a href="/search" class="hover:text-[#2a2d33]">Поиск</a>
+            <span class="mx-1.5">›</span>
+          </>
         )}
-        <p class="mt-1.5 text-[13px] text-distant-graphite">
-          {doctor.clinic}{doctor.distance ? ` · ${doctor.distance}` : ""}
-        </p>
-        {doctor.rating && (
-          <p class="mt-2 text-[13.5px] text-soft-graphite">
-            ★ {doctor.rating.toFixed(1)}
-            {doctor.ratingCount ? ` · ${doctor.ratingCount} отзывов` : ""}
-            {doctor.yearsExperience ? ` · стаж ${doctor.yearsExperience} лет` : ""}
-          </p>
+        <span class="text-[#2a2d33]">{doctor.name}</span>
+      </nav>
+
+      <div class="flex flex-col gap-6">
+        {/* ── Hero ─────────────────────────────────────────── */}
+        <section class="grid grid-cols-1 gap-7 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:grid-cols-[140px_1fr] sm:p-7">
+          {doctor.photoUrl ? (
+            <img
+              src={doctor.photoUrl}
+              alt={doctor.name}
+              width="140"
+              height="140"
+              class="h-[140px] w-[140px] rounded-[20px] object-cover"
+            />
+          ) : (
+            <span
+              class="flex h-[140px] w-[140px] items-center justify-center rounded-[20px] text-[40px] font-semibold tracking-[0.01em] text-[#0f1115]"
+              style={`background-color: ${doctor.color}`}
+            >
+              {doctor.initials}
+            </span>
+          )}
+
+          <div class="flex min-w-0 flex-col gap-3">
+            <span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#eef6f8] px-2.5 py-[5px] text-[12px] font-bold tracking-[0.02em] text-[#0e7c8c]">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z" /><path d="M9 12l2 2 4-4" />
+              </svg>
+              Документы проверены
+            </span>
+
+            <div>
+              <h1 class="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#0f1115] text-pretty">
+                {doctor.name}
+              </h1>
+              <p class="mt-1.5 text-[14px] font-medium text-[#2a2d33]">
+                {doctor.specialty}{doctor.subspecialty ? `, ${doctor.subspecialty.toLowerCase()}` : ""}
+              </p>
+            </div>
+
+            <div class="mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-[#2a2d33]">
+              {doctor.yearsExperience != null && (
+                <span><strong class="font-semibold text-[#0f1115]">{doctor.yearsExperience}</strong> {pluralYears(doctor.yearsExperience)} стажа</span>
+              )}
+              {doctor.rating != null && (
+                <span>
+                  <strong class="font-semibold text-[#0f1115]">★ {doctor.rating.toFixed(1)}</strong>
+                  {doctor.ratingCount ? <span class="text-[#8a8e96]"> · {doctor.ratingCount} отзывов</span> : null}
+                </span>
+              )}
+              <span class="text-[#2a2d33]">{doctor.clinic}</span>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Booking (inline) ─────────────────────────────── */}
+        <section id="booking" class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Записаться на приём</h2>
+              <p class="mt-1 text-[13px] text-[#8a8e96]">
+                Первичный приём · 45 минут{priceLabel ? <> · от <span class="font-bold text-[#0f1115]">{priceLabel}</span></> : null}
+              </p>
+              {doctor.scheduleNote && (
+                <p class="mt-2 inline-flex items-center gap-1.5 text-[12px] text-[#2a2d33]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18" /><path d="M8 3v4M16 3v4" />
+                  </svg>
+                  {doctor.scheduleNote}
+                </p>
+              )}
+            </div>
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-[#2a2d33]">
+              <span class="inline-flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a8e64" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+                Без предоплаты
+              </span>
+              <span class="inline-flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a8e64" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+                Бесплатная отмена за 2 часа
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-6 grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,360px)_1fr]">
+            {/* Calendar */}
+            <div>
+              <div class="mb-2.5 flex items-center justify-between">
+                <div class="text-[13px] font-bold text-[#0f1115] capitalize">{monthLabel}</div>
+                <div class="flex gap-1">
+                  <span class="grid h-[26px] w-[26px] place-items-center rounded-[8px] border border-[#edebe6] text-[#b5b8bd] opacity-40">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(180deg)"><path d="M9 6l6 6-6 6" /></svg>
+                  </span>
+                  <span class="grid h-[26px] w-[26px] place-items-center rounded-[8px] border border-[#edebe6] text-[#b5b8bd] opacity-40">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+                  </span>
+                </div>
+              </div>
+              <div class="mb-1 grid grid-cols-7 gap-0.5">
+                {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((w, i) => (
+                  <div class={`py-0.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] ${i >= 5 ? "text-[#b5b8bd]" : "text-[#8a8e96]"}`}>{w}</div>
+                ))}
+              </div>
+              <div class="grid grid-cols-7 gap-1" data-el="day-grid">
+                {Array.from({ length: padStart }).map(() => <div></div>)}
+                {days.map((d, i) => {
+                  const empty = d.slots.length === 0;
+                  return (
+                    <button
+                      type="button"
+                      data-day={i}
+                      data-empty={empty ? "1" : "0"}
+                      disabled={empty}
+                      aria-pressed={i === activeIdx ? "true" : "false"}
+                      class="hm-cal-day relative grid aspect-square place-items-center rounded-[10px] text-[13px] font-semibold"
+                    >
+                      {d.dayNum}
+                      {!empty && <span class="hm-cal-dot absolute bottom-[5px] h-1 w-1 rounded-full bg-[#0e7c8c]"></span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Slots */}
+            <div class="min-w-0">
+              <div class="flex items-baseline justify-between border-b border-[#edebe6] pb-3">
+                <div>
+                  <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
+                  <div class="mt-1 text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]" data-el="slot-day-label"></div>
+                </div>
+                <div class="text-[12px] text-[#8a8e96]" data-el="slot-count"></div>
+              </div>
+
+              <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
+
+              <button type="button" data-el="cta" disabled class="hm-book-cta mt-5 inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[12px] text-[15px] font-bold">
+                Выберите время
+              </button>
+            </div>
+          </div>
+
+          {/* Hidden trigger — the inline CTA opens the shared booking modal through it */}
+          <span class="sr-only">
+            <BookingTrigger
+              doctorId={doctor.id}
+              doctorName={doctor.name}
+              doctorSpecialty={doctor.specialty}
+              doctorClinic={doctor.clinic}
+              label="Записаться"
+            />
+          </span>
+        </section>
+
+        {/* ── Where / map ──────────────────────────────────── */}
+        <section class="grid grid-cols-1 overflow-hidden rounded-[24px] border border-[#edebe6] bg-white md:grid-cols-[1.2fr_1fr]">
+          <div class="relative min-h-[260px] bg-[#eaf2f4]">
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" class="absolute inset-0" aria-hidden="true">
+              <defs>
+                <pattern id="dgrid" width="6" height="6" patternUnits="userSpaceOnUse">
+                  <path d="M 6 0 L 0 0 0 6" fill="none" stroke="rgba(14,124,140,0.08)" stroke-width="0.15" />
+                </pattern>
+                <radialGradient id="dmap" cx="50%" cy="50%" r="60%">
+                  <stop offset="0%" stop-color="#d2e4e8" /><stop offset="100%" stop-color="#eaf2f4" />
+                </radialGradient>
+              </defs>
+              <rect width="100" height="100" fill="url(#dmap)" />
+              <rect width="100" height="100" fill="url(#dgrid)" />
+              <path d="M0 50 Q 30 45 50 50 T 100 48" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" />
+              <path d="M50 0 Q 48 30 50 50 T 52 100" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" />
+              <ellipse cx="35" cy="35" rx="6" ry="4" fill="#cfe0cc" opacity="0.7" />
+              <ellipse cx="70" cy="65" rx="8" ry="5" fill="#cfe0cc" opacity="0.7" />
+            </svg>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
+              <div class="flex items-center gap-2 whitespace-nowrap rounded-[14px] bg-[#0e7c8c] px-3.5 py-2.5 text-[12px] font-bold text-white shadow-[0_12px_28px_rgba(10,31,37,0.25)]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V7l7-4 7 4v14" /></svg>
+                {doctor.clinic}
+              </div>
+            </div>
+            {(doctor.city || doctor.distance) && (
+              <div class="absolute left-4 top-4 inline-flex items-center gap-2 rounded-[10px] bg-white/95 px-3 py-2 text-[12px] font-semibold text-[#0f1115] backdrop-blur-sm">
+                <span class="h-2.5 w-2.5 rounded-full bg-[#e8b96a]"></span>
+                {[doctor.city, doctor.distance].filter(Boolean).join(" · ")}
+              </div>
+            )}
+          </div>
+
+          <div class="flex flex-col gap-3.5 p-7">
+            <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Где принимает</h2>
+            <div class="text-[16px] font-bold text-[#0f1115]">{doctor.clinic}</div>
+            <div class="text-[13px] leading-relaxed text-[#2a2d33]">
+              {doctor.address && <>{doctor.address}<br /></>}
+              {doctor.clinicHours && <>{doctor.clinicHours}<br /></>}
+              {doctor.phone && <span class="tabular-nums">{doctor.phone}</span>}
+            </div>
+            <a
+              href={`https://2gis.kz/search/${mapQuery}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mt-1 inline-flex h-[42px] w-fit items-center gap-2 rounded-full border border-[#e2e2df] px-[18px] text-[13px] font-semibold text-[#0f1115] transition-colors hover:border-[#b5b8bd]"
+            >
+              Построить маршрут
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+            </a>
+          </div>
+        </section>
+
+        {/* ── О враче ──────────────────────────────────────── */}
+        {(
+          <section class="flex flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+            <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">О враче</h2>
+            <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{bioText}</p>
+
+            {treats.length > 0 && (
+              <div>
+                <div class="mb-2.5 text-[13px] font-bold text-[#0f1115]">Лечит и помогает разобраться</div>
+                <div class="flex flex-wrap gap-2">
+                  {treats.map((t) => (
+                    <span class="rounded-full border border-[#edebe6] bg-[#faf8f5] px-[13px] py-[7px] text-[12px] font-medium text-[#2a2d33]">{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(doctor.languages?.length || formats.length > 0) && (
+              <div class="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[13px] text-[#2a2d33]">
+                {doctor.languages && doctor.languages.length > 0 && (
+                  <span class="inline-flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M2 12h20" /><path d="M12 2a14 14 0 0 1 0 20" /><path d="M12 2a14 14 0 0 0 0 20" /></svg>
+                    {doctor.languages.join(", ")}
+                  </span>
+                )}
+                {formats.length > 0 && (
+                  <span class="inline-flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h6l3-9 4 18 3-9h4" /></svg>
+                    {formats.join(" · ")}
+                  </span>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Образование ──────────────────────────────────── */}
+        {hasCredentials && (
+          <section class="flex flex-col gap-5 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+            <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Образование</h2>
+            {doctor.education && <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{doctor.education}</p>}
+            {certificates.length > 0 && (
+              <div class="border-t border-[#edebe6] pt-5">
+                <div class="mb-3 text-[11px] font-bold uppercase tracking-[0.06em] text-[#8a8e96]">Сертификаты и членство</div>
+                <ul class="flex flex-col gap-2">
+                  {certificates.map((c) => (
+                    <li class="flex items-start gap-2.5 text-[14px] leading-[1.5] text-[#2a2d33]">
+                      <svg class="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0e7c8c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
         )}
       </div>
-    </header>
-
-    <div class="mt-6 flex flex-wrap items-center gap-3">
-      <BookingTrigger
-        doctorId={doctor.id}
-        doctorName={doctor.name}
-        doctorSpecialty={doctor.specialty}
-        doctorClinic={doctor.clinic}
-      />
-      <FavoriteButton doctorId={doctor.id} variant="chip" />
-    </div>
-
-    {doctor.bio && (
-      <section class="mt-10">
-        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">О докторе</h2>
-        <p class="text-[15px] leading-relaxed text-soft-graphite">{doctor.bio}</p>
-      </section>
-    )}
-
-    {doctor.education && (
-      <section class="mt-8">
-        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Образование</h2>
-        <p class="text-[14.5px] leading-relaxed text-soft-graphite">{doctor.education}</p>
-      </section>
-    )}
-
-    {doctor.conditionsTreated && doctor.conditionsTreated.length > 0 && (
-      <section class="mt-8">
-        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Что лечит</h2>
-        <ul class="flex flex-wrap gap-2">
-          {doctor.conditionsTreated.map((c) => (
-            <li class="rounded-pill border border-hairline-strong bg-card-white px-3 py-1.5 text-[13px] text-graphite">
-              {c}
-            </li>
-          ))}
-        </ul>
-      </section>
-    )}
-
-    {doctor.languages && doctor.languages.length > 0 && (
-      <section class="mt-8">
-        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Языки</h2>
-        <p class="text-[14.5px] text-soft-graphite">{doctor.languages.join(", ")}</p>
-      </section>
-    )}
-
-    {doctor.reviews && doctor.reviews.length > 0 && (
-      <section class="mt-10">
-        <h2 class="mb-3 text-[18px] font-medium tracking-tight text-graphite">Отзывы</h2>
-        <ul class="flex flex-col gap-3">
-          {doctor.reviews.map((r) => (
-            <li class="rounded-[16px] border border-hairline-strong bg-card-white p-4">
-              <p class="text-[13.5px] font-medium text-graphite">
-                {r.author} <span class="text-distant-graphite">· {r.date}</span> · ★ {r.rating}
-              </p>
-              <p class="mt-1.5 text-[14px] leading-relaxed text-soft-graphite">{r.text}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )}
-
-    <section class="mt-10 rounded-[18px] border border-hairline-strong bg-card-white p-5">
-      <h2 class="text-[16px] font-medium tracking-tight text-graphite">Клиника</h2>
-      <p class="mt-1 text-[14.5px] text-graphite">{doctor.clinic}</p>
-      {doctor.address && <p class="mt-1 text-[13.5px] text-soft-graphite">{doctor.address}</p>}
-    </section>
-  </main>
+    </main>
+  </div>
 
   <JsonLd data={physicianJsonLd} />
   <JsonLd data={breadcrumbs} />
   <BookingModal />
 </BaseLayout>
+
+<style is:global>
+  .hm-cal-day { color: #0f1115; cursor: pointer; transition: background-color 0.12s; }
+  .hm-cal-day:hover:not([aria-pressed="true"]):not(:disabled) { background-color: #edebe6; }
+  .hm-cal-day[aria-pressed="true"] { background-color: #0e7c8c; color: #fff; }
+  .hm-cal-day[aria-pressed="true"] .hm-cal-dot { display: none; }
+  .hm-cal-day:disabled { color: #b5b8bd; cursor: not-allowed; }
+  .hm-slot { height: 46px; border: 1px solid #e2e2df; border-radius: 10px; background: #fff; color: #0f1115; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.12s; }
+  .hm-slot:hover { border-color: #0e7c8c; }
+  .hm-slot[aria-pressed="true"] { background: #0e7c8c; border-color: #0e7c8c; color: #fff; }
+  .hm-book-cta { background: #edebe6; color: #8a8e96; cursor: not-allowed; transition: all 0.15s; }
+  .hm-book-cta[data-ready="1"] { background: #0e7c8c; color: #fff; cursor: pointer; box-shadow: 0 6px 18px rgba(14,124,140,0.25); }
+  .hm-empty-day { padding: 24px 16px; border-radius: 12px; background: #faf8f5; font-size: 14px; color: #8a8e96; text-align: center; line-height: 1.5; }
+</style>
+
+<script define:vars={{ days, activeIdx }}>
+  (() => {
+    const grid = document.querySelector('[data-el="day-grid"]');
+    const slotGrid = document.querySelector('[data-el="slot-grid"]');
+    const dayLabel = document.querySelector('[data-el="slot-day-label"]');
+    const count = document.querySelector('[data-el="slot-count"]');
+    const cta = document.querySelector('[data-el="cta"]');
+    const hiddenTrigger = document.querySelector('[data-action="hm-book-open"]');
+    if (!grid || !slotGrid || !cta) return;
+
+    let active = activeIdx;
+    let picked = null;
+
+    function renderSlots() {
+      const day = days[active];
+      if (dayLabel) dayLabel.textContent = day.label;
+      if (count) count.textContent = day.slots.length > 0 ? `${day.slots.length} слотов` : 'нет свободных';
+      picked = null;
+      setCta();
+
+      if (day.slots.length === 0) {
+        slotGrid.className = '';
+        slotGrid.innerHTML = '<div class="hm-empty-day">В этот день приёма нет.<br>Выберите другую дату в календаре.</div>';
+        return;
+      }
+      slotGrid.className = 'mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2';
+      slotGrid.innerHTML = '';
+      day.slots.forEach((s) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'hm-slot';
+        b.textContent = s.time;
+        b.setAttribute('aria-pressed', 'false');
+        b.addEventListener('click', () => {
+          picked = s;
+          slotGrid.querySelectorAll('.hm-slot').forEach((el) => el.setAttribute('aria-pressed', String(el === b)));
+          setCta();
+        });
+        slotGrid.appendChild(b);
+      });
+    }
+
+    function setCta() {
+      if (picked) {
+        cta.dataset.ready = '1';
+        cta.disabled = false;
+        cta.textContent = `Записаться на ${picked.time}`;
+      } else {
+        delete cta.dataset.ready;
+        cta.disabled = true;
+        cta.textContent = 'Выберите время';
+      }
+    }
+
+    grid.querySelectorAll('.hm-cal-day').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.empty === '1') return;
+        active = Number(btn.dataset.day);
+        grid.querySelectorAll('.hm-cal-day').forEach((el) => el.setAttribute('aria-pressed', String(el === btn)));
+        renderSlots();
+      });
+    });
+
+    cta.addEventListener('click', () => {
+      if (!picked || !hiddenTrigger) return;
+      // Carry the already-chosen slot into the shared modal so it skips its own
+      // time step and goes straight to login/confirm (or books, if signed in).
+      hiddenTrigger.dataset.slotId = picked.id;
+      hiddenTrigger.dataset.slotDate = days[active].date;
+      hiddenTrigger.dataset.slotTime = picked.time;
+      hiddenTrigger.click();
+    });
+
+    renderSlots();
+  })();
+</script>

@@ -171,9 +171,34 @@
         if (doctorMetaEl) doctorMetaEl.textContent = `${specialty} · ${clinic}`;
 
         days = generateMockSlots(doctorId);
-        activeDate = days[0]?.date ?? "";
         pickedSlot = null;
 
+        // A trigger may carry an already-chosen slot (e.g. the doctor page's
+        // inline calendar). In that case skip the time step entirely and go
+        // straight to login/confirm — or book immediately if already signed in.
+        const preId = trigger.dataset.slotId;
+        const preDate = trigger.dataset.slotDate;
+        const preTime = trigger.dataset.slotTime;
+        if (preId && preDate && preTime) {
+          // Rebuild the timestamp in the browser's timezone (the inline calendar
+          // only hands us a local date + "HH:MM"), so the displayed time matches.
+          const [hh, mm] = preTime.split(":").map(Number);
+          const startsAt = new Date(`${preDate}T00:00:00`);
+          startsAt.setHours(hh ?? 0, mm ?? 0, 0, 0);
+          activeDate = preDate;
+          renderDays();
+          renderSlots();
+          openModal(modal);
+          void onPickSlot({
+            id: preId,
+            startsAt: startsAt.toISOString(),
+            timeLabel: preTime,
+            available: true,
+          });
+          return;
+        }
+
+        activeDate = days[0]?.date ?? "";
         renderDays();
         renderSlots();
         goToStep("slot");

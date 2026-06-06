@@ -33,4 +33,14 @@ export const DoctorSchema = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   reviews: z.array(ReviewSchema).optional(),
+
+  // Profile/booking fields surfaced on the doctor-detail screen.
+  city: z.string().optional(),
+  licenseNumber: z.string().optional(),
+  priceFrom: z.number().int().nonnegative().optional(),
+  scheduleNote: z.string().optional(),
+  consultationFormats: z.array(z.enum(['online', 'in-person', 'home-visit'])).optional(),
+  certificates: z.array(z.string()).optional(),
+  recommendRate: z.number().int().min(0).max(100).optional(),
+  clinicHours: z.string().optional(),
 })

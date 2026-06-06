@@ -44,5 +44,5 @@
     "browser": true,
     "node": true
   },
-  "ignorePatterns": ["dist", "node_modules", "src/routeTree.gen.ts"]
+  "ignorePatterns": ["dist", "node_modules"]
 }
