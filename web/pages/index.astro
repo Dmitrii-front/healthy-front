@@ -630,7 +630,7 @@ const websiteJsonLd = {
         </a>
       </div>
       <div class="dw-specs-grid">
-        {SPECIALTIES.map((s, i) => {
+        {SPECIALTIES.filter((s) => s.key === "urgent-care" || s.key === "dentistry").map((s, i) => {
           const palette = [
             { bg: "#B9DCE2", icon: "#0E7C8C" },
             { bg: "#EBDBBE", icon: "#A07842" },
@@ -664,63 +664,67 @@ const websiteJsonLd = {
     </section>
 
     {/* ── ONLINE DOCTORS (cream card with aurora) ─ */}
-    <section class="dw-section dw-online-section">
-      <div class="dw-online-card">
-        <div class="dw-aurora" aria-hidden="true"><span /></div>
-        <div class="dw-online-head">
-          <div>
-            <span class="dw-tag dw-tag-online">
-              <span class="dw-live-dot" />
-              Онлайн
-            </span>
-            <h2>Онлайн-консультации</h2>
-            <p>Подключение по видео за 5 минут, без очередей · {onlineDoctors.length} {pluralizeDoctor(onlineDoctors.length)}</p>
+    {
+      <!-- false && (
+      <section class="dw-section dw-online-section">
+        <div class="dw-online-card">
+          <div class="dw-aurora" aria-hidden="true"><span /></div>
+          <div class="dw-online-head">
+            <div>
+              <span class="dw-tag dw-tag-online">
+                <span class="dw-live-dot" />
+                Онлайн
+              </span>
+              <h2>Онлайн-консультации</h2>
+              <p>Подключение по видео за 5 минут, без очередей · {onlineDoctors.length} {pluralizeDoctor(onlineDoctors.length)}</p>
+            </div>
+            <a href="/search" class="dw-text-link">Все онлайн-врачи →</a>
           </div>
-          <a href="/search" class="dw-text-link">Все онлайн-врачи →</a>
-        </div>
-        <div class="dw-carousel">
-          <div class="dw-carousel-track">
-            {onlineDoctors.map((d) => (
-              <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor dw-doctor-slide">
-                <div class="dw-doctor-head">
-                  <div class="dw-doctor-avatar-wrap">
-                    <img
-                      class="dw-doctor-avatar dw-doctor-avatar-img"
-                      src={DOCTOR_PHOTOS[d.id]}
-                      alt={d.name}
-                      loading="lazy"
-                      decoding="async"
-                      width="56"
-                      height="56"
-                    />
-                    <span class="dw-doctor-online-dot" />
+          <div class="dw-carousel">
+            <div class="dw-carousel-track">
+              {onlineDoctors.map((d) => (
+                <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor dw-doctor-slide">
+                  <div class="dw-doctor-head">
+                    <div class="dw-doctor-avatar-wrap">
+                      <img
+                        class="dw-doctor-avatar dw-doctor-avatar-img"
+                        src={DOCTOR_PHOTOS[d.id]}
+                        alt={d.name}
+                        loading="lazy"
+                        decoding="async"
+                        width="56"
+                        height="56"
+                      />
+                      <span class="dw-doctor-online-dot" />
+                    </div>
+                    <div class="dw-doctor-head-body">
+                      <span class="dw-doctor-name">{d.name}</span>
+                      <span class="dw-doctor-spec">{d.specialty}</span>
+                    </div>
                   </div>
-                  <div class="dw-doctor-head-body">
-                    <span class="dw-doctor-name">{d.name}</span>
-                    <span class="dw-doctor-spec">{d.specialty}</span>
+                  <div class="dw-doctor-meta">
+                    <span class="dw-doctor-rating">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
+                      {d.rating?.toFixed(1) ?? "—"}
+                    </span>
+                    <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
                   </div>
-                </div>
-                <div class="dw-doctor-meta">
-                  <span class="dw-doctor-rating">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                    {d.rating?.toFixed(1) ?? "—"}
-                  </span>
-                  <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-                </div>
-                <div class="dw-doctor-slot dw-doctor-slot-online">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
-                  Видео — через 15 мин
-                </div>
-                <div class="dw-doctor-cta-row">
-                  <span class="dw-doctor-price">от <strong>2 200 ₽</strong></span>
-                  <span class="dw-doctor-book">Записаться</span>
-                </div>
-              </a>
-            ))}
+                  <div class="dw-doctor-slot dw-doctor-slot-online">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
+                    Видео — через 15 мин
+                  </div>
+                  <div class="dw-doctor-cta-row">
+                    <span class="dw-doctor-price">от <strong>2 200 ₽</strong></span>
+                    <span class="dw-doctor-book">Записаться</span>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    )-->
+    }
 
     {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
     <section class="dw-section dw-offline-section">
