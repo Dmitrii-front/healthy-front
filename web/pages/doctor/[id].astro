@@ -30,8 +30,12 @@ export async function getStaticPaths() {
 const { doctor } = Astro.props;
 
 const specialty = SPECIALTIES.find((s) => s.doctorSpecialty === doctor.specialization);
-const workplace = doctor.workplaces[0] ?? null;
-const clinicName = workplace?.name ?? null;
+const clinicName = doctor.workplaces[0]?.name ?? null;
+// Врач часто принимает в нескольких местах, и первое из них ничем не выделено:
+// в шапке перечисляем все, а не одно произвольное.
+const workplaceNames = doctor.workplaces.map((place) => place.name);
+// В meta description оставляем одно место: у строки бюджет ~155 символов,
+// перечисление трёх клиник его съест и обрежет сниппет в выдаче.
 const description = doctor.bio
   ? doctor.bio.slice(0, 155) + (doctor.bio.length > 155 ? "…" : "")
   : `${doctor.fullName} — ${doctor.specialization}${clinicName ? ` в клинике «${clinicName}»` : ""}. Запись онлайн.`;
@@ -58,36 +62,63 @@ const bioText =
     doctor.yearsExperience !== null
       ? `Опыт работы — ${doctor.yearsExperience} ${pluralYears(doctor.yearsExperience)}.`
       : "",
-    clinicName ? `Принимает в клинике ${clinicName}${doctor.city ? `, ${doctor.city}` : ""}.` : "",
+    workplaceNames.length > 0
+      ? `Принимает: ${workplaceNames.join(", ")}${doctor.city ? ` (${doctor.city})` : ""}.`
+      : "",
   ]
     .filter(Boolean)
     .join(" ");
-const mapQuery = encodeURIComponent(
-  [clinicName, workplace?.address, doctor.city].filter(Boolean).join(", "),
-);
 
-// ── Виды приёма ────────────────────────────────────────────────────
-// Место приёма не выбирается отдельно: бэкенд выводит его из вида приёма
-// (available-slots берёт work_place_id из типа), поэтому чип сразу показывает
-// и длительность, и клинику.
-const workplaceNameById = new Map(doctor.workplaces.map((w) => [w.id, w.name]));
-const typeOptions = doctor.appointmentTypes.map((type) => ({
-  id: type.id,
-  name: type.name,
-  durationMin: type.durationMin,
-  workPlaceId: type.workPlaceId,
-  workplaceName: workplaceNameById.get(type.workPlaceId) ?? null,
-}));
+// Тизер описания в шапке. Режем по последнему пробелу до лимита, а не ровно по
+// 250-му символу: иначе строка обрывается посередине слова. Хвостовую пунктуацию
+// снимаем, чтобы не получить «…, …».
+const BIO_PREVIEW_LIMIT = 250;
+const bioTruncated = bioText.length > BIO_PREVIEW_LIMIT;
+const bioPreview = bioTruncated
+  ? `${bioText
+      .slice(
+        0,
+        // Пробела может не быть вовсе (одно длинное слово) — тогда режем по лимиту.
+        bioText.lastIndexOf(" ", BIO_PREVIEW_LIMIT) > 0
+          ? bioText.lastIndexOf(" ", BIO_PREVIEW_LIMIT)
+          : BIO_PREVIEW_LIMIT,
+      )
+      .replace(/[\s,;:.—-]+$/u, "")}…`
+  : bioText;
+// ── Места приёма ───────────────────────────────────────────────────
+// Место — не шаг выбора: у каждого места свой календарь, и все они открыты
+// сразу. Так видно, где есть время, без перебора, и нельзя записаться не в ту
+// клинику. Вид приёма живёт внутри места, потому что appointment_type
+// принадлежит work_place и задаёт длительность слота.
+const typesByPlace = new Map<string, typeof doctor.appointmentTypes>();
+for (const type of doctor.appointmentTypes) {
+  const list = typesByPlace.get(type.workPlaceId);
+  if (list === undefined) typesByPlace.set(type.workPlaceId, [type]);
+  else list.push(type);
+}
 
-// Пустой список — не ошибка: врач просто не открыл запись. Календарь в этом
-// случае не рендерим вовсе, чтобы не показывать вечно пустую сетку.
-const bookingOpen = typeOptions.length > 0;
+const placeBlocks = doctor.workplaces.map((place) => {
+  const types = typesByPlace.get(place.id) ?? [];
+  return {
+    ...place,
+    types,
+    // Один вид приёма не выбирают — показываем строкой. Селект от двух и выше.
+    soleType: types.length === 1 ? (types[0] ?? null) : null,
+    routeUrl: `https://2gis.kz/search/${encodeURIComponent(
+      [place.name, place.address, doctor.city].filter(Boolean).join(", "),
+    )}`,
+  };
+});
 
-// Бэкенд отдаёт формат словарём "offline"/"online" (сиды) либо null (прод), а
-// прежняя фронтовая схема ждала "in-person"/"online". Единственное, что можно
-// проверить надёжно, — присутствие "online"; нет его, значит записи онлайн нет,
-// и тумблер не показываем, а is_online уходит false.
-const onlineAvailable = doctor.consultationFormats.includes("online");
+// Ни одного места — врач не заполнил профиль. Места есть, а видов приёма ни в
+// одном нет — не открыл онлайн-запись. Оба случая показываем текстом: пустая
+// сетка календаря соврала бы, что всё занято.
+const bookingOpen = placeBlocks.some((place) => place.types.length > 0);
+
+// Выбора формата на странице нет: все записи уходят как офлайн (is_online:
+// false). Бэкенд к тому же отдаёт словарь непоследовательно — "offline"/"online"
+// в сидах и null у прод-врачей, — так что тумблер всё равно опирался бы на
+// ненадёжное поле. consultation_formats остаётся в слое данных.
 
 // ── SEO structured data (Physician + breadcrumbs) ──────────────────
 const physicianJsonLd: Record<string, unknown> = {
@@ -95,15 +126,17 @@ const physicianJsonLd: Record<string, unknown> = {
   "@type": "Physician",
   name: doctor.fullName,
   medicalSpecialty: doctor.specialization,
-  // Место работы попадает в разметку, только если врач его завёл: выдумывать
+  // Места работы попадают в разметку, только если врач их завёл: выдумывать
   // организацию ради заполненного поля нельзя — это structured data для поисковика.
-  ...(workplace
+  // Мест может быть несколько, и worksFor по схеме допускает массив: раньше
+  // сюда уезжало только первое, и разметка противоречила видимой странице.
+  ...(doctor.workplaces.length > 0
     ? {
-        worksFor: {
+        worksFor: doctor.workplaces.map((place) => ({
           "@type": "MedicalOrganization",
-          name: workplace.name,
-          address: workplace.address,
-        },
+          name: place.name,
+          address: place.address,
+        })),
       }
     : {}),
   ...(doctor.education ? { alumniOf: doctor.education } : {}),
@@ -184,13 +217,6 @@ const breadcrumbs = {
           )}
 
           <div class="flex min-w-0 flex-col gap-3">
-            <span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#eef6f8] px-2.5 py-[5px] text-[12px] font-bold tracking-[0.02em] text-[#0e7c8c]">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z" /><path d="M9 12l2 2 4-4" />
-              </svg>
-              Документы проверены
-            </span>
-
             <div>
               <h1 class="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#0f1115] text-pretty">
                 {doctor.fullName}
@@ -200,229 +226,247 @@ const breadcrumbs = {
               </p>
             </div>
 
-            <div class="mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-[#2a2d33]">
+            <div class="mt-0.5 flex flex-col gap-1.5 text-[13px] text-[#2a2d33]">
+              {/* Верификация без проверки статуса: в каталог попадают только
+                  проверенные врачи, так что доступность врача и есть верификация. */}
+              <span class="hm-chip inline-flex w-fit items-center gap-1.5 rounded-full">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0">
+                  <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z" /><path d="M9 12l2 2 4-4" />
+                </svg>
+                Документы проверены
+              </span>
+              {/* Стаж — плоской строкой, без фона: пилюля остаётся только у
+                  верификации, и глазу не надо решать, какая из двух важнее. */}
               {doctor.yearsExperience != null && (
-                <span><strong class="font-semibold text-[#0f1115]">{doctor.yearsExperience}</strong> {pluralYears(doctor.yearsExperience)} стажа</span>
-              )}
-              {doctor.rating != null && (
-                <span>
-                  <strong class="font-semibold text-[#0f1115]">★ {doctor.rating.toFixed(1)}</strong>
-                  {doctor.reviewsCount ? <span class="text-[#8a8e96]"> · {doctor.reviewsCount} отзывов</span> : null}
+                <span class="hm-tenure mt-0.5 mb-1.5 w-fit">
+                  Стаж <b class="hm-tenure-num">{doctor.yearsExperience}</b> {pluralYears(doctor.yearsExperience)}
                 </span>
               )}
-              {clinicName && <span class="text-[#2a2d33]">{clinicName}</span>}
+              {/* Места в столбик: перечисление через запятую сливалось в абзац,
+                  по которому не видно, сколько их вообще. Пин на каждой строке —
+                  тот же, что у адресов ниже: без него это просто текст. */}
+              {workplaceNames.map((name) => (
+                <span class="flex items-start gap-1.5">
+                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin mt-[3px] shrink-0">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+                    </svg>
+                  <span>{name}</span>
+                </span>
+              ))}
+            </div>
+
+            {/* Цена и языки — здесь, а не в «О враче»: это то, по чему пациент
+                отсеивает врача, и смотрит он на это сразу. Обёртку рендерим
+                только при непустом содержимом, иначе останется голая линия. */}
+            {(priceLabel || doctor.languages.length > 0) && (
+              <dl class="mt-1 grid grid-cols-1 gap-4 border-t border-[#edebe6] pt-4 sm:grid-cols-2">
+                {priceLabel && (
+                  <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                      Стоимость приёма
+                    </dt>
+                    <dd class="mt-1.5 text-[15px] text-[#2a2d33]">
+                      от <span class="font-bold text-[#0f1115]">{priceLabel}</span>
+                    </dd>
+                  </div>
+                )}
+
+                {doctor.languages.length > 0 && (
+                  <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                      Языки приёма
+                    </dt>
+                    <dd class="mt-1.5 text-[14px] text-[#2a2d33]">{doctor.languages.join(", ")}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+
+            {/* Тизер описания. «ещё» — обычная ссылка на #about: скроллит без
+                JS, доступна с клавиатуры и работает до гидратации. Плавность
+                даёт scroll-behavior в стилях страницы. */}
+            <div class="mt-1 border-t border-[#edebe6] pt-4">
+              <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">
+                {bioPreview}
+                {bioTruncated && (
+                  <a href="#about" class="hm-more-link">ещё</a>
+                )}
+              </p>
             </div>
           </div>
         </section>
 
-        {/* ── Booking (inline) ─────────────────────────────── */}
+        {/* ── Booking: одно место — один блок, все открыты сразу ─ */}
         <section
           id="booking"
           data-doctor-id={doctor.id}
-          data-online-available={onlineAvailable ? "1" : "0"}
-          class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+          class="flex flex-col gap-4"
         >
-          <div class="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Записаться на приём</h2>
-              {priceLabel && (
-                <p class="mt-1 text-[13px] text-[#8a8e96]">
-                  от <span class="font-bold text-[#0f1115]">{priceLabel}</span>
-                </p>
-              )}
-              {doctor.scheduleNote && (
-                <p class="mt-2 inline-flex items-center gap-1.5 text-[12px] text-[#2a2d33]">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18" /><path d="M8 3v4M16 3v4" />
-                  </svg>
-                  {doctor.scheduleNote}
-                </p>
-              )}
+          {/* Пустые состояния: карточек мест в этих случаях нет, а молчать
+              нельзя — пациент должен понять, почему нет ни одного календаря. */}
+          {placeBlocks.length === 0 && (
+            <div class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+              <p class="hm-empty-day">
+                Врач пока не указал, где принимает.<br />
+                Записаться онлайн не получится.
+              </p>
             </div>
-            <div class="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-[#2a2d33]">
-              <span class="inline-flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a8e64" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
-                Без предоплаты
-              </span>
-              <span class="inline-flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a8e64" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
-                Бесплатная отмена за 2 часа
-              </span>
+          )}
+          {placeBlocks.length > 0 && !bookingOpen && (
+            <div class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+              <p class="hm-empty-day">
+                Врач пока не открыл запись онлайн.<br />
+                Свяжитесь с клиникой, чтобы договориться о приёме.
+              </p>
             </div>
-          </div>
+          )}
 
-          {!bookingOpen ? (
-            <p class="hm-empty-day mt-6">
-              Врач пока не открыл запись онлайн.<br />
-              Свяжитесь с клиникой, чтобы договориться о приёме.
-            </p>
-          ) : (
-            <>
-              {/* Вид приёма: задаёт и длительность слота, и место приёма */}
-              <div class="mt-6">
-                <div class="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
-                  Вид приёма
-                </div>
-                <div class="flex flex-wrap gap-2" data-el="type-row" role="tablist">
-                  {typeOptions.map((type, i) => (
-                    <button
-                      type="button"
-                      role="tab"
-                      data-type-id={type.id}
-                      data-work-place-id={type.workPlaceId}
-                      data-type-name={type.name}
-                      data-duration={String(type.durationMin)}
-                      data-workplace-name={type.workplaceName ?? ""}
-                      aria-selected={i === 0 ? "true" : "false"}
-                      class="hm-type-chip rounded-full border px-[14px] py-[9px] text-left text-[13px] font-semibold"
-                    >
-                      {type.name}
-                      <span class="hm-type-chip-meta">
-                        {type.durationMin} мин{type.workplaceName ? ` · ${type.workplaceName}` : ""}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {onlineAvailable && (
-                <div class="mt-5">
-                  <div class="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
-                    Формат
-                  </div>
-                  <div class="flex gap-2" data-el="format-row" role="tablist">
-                    <button type="button" role="tab" data-online="0" aria-selected="true"
-                      class="hm-type-chip rounded-full border px-[14px] py-[9px] text-[13px] font-semibold">В клинике</button>
-                    <button type="button" role="tab" data-online="1" aria-selected="false"
-                      class="hm-type-chip rounded-full border px-[14px] py-[9px] text-[13px] font-semibold">Онлайн по видео</button>
-                  </div>
-                </div>
-              )}
-
-              <div class="mt-6 grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,360px)_1fr]">
-                {/* Календарь: сетка рисуется на клиенте по реальной доступности */}
-                <div>
-                  <div class="mb-2.5 flex items-center justify-between">
-                    <div class="text-[13px] font-bold text-[#0f1115] capitalize" data-el="month-label"></div>
-                  </div>
-                  <div class="mb-1 grid grid-cols-7 gap-0.5">
-                    {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((w, i) => (
-                      <div class={`py-0.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] ${i >= 5 ? "text-[#b5b8bd]" : "text-[#8a8e96]"}`}>{w}</div>
-                    ))}
-                  </div>
-                  <div class="grid grid-cols-7 gap-1" data-el="day-grid"></div>
-                </div>
-
-                {/* Слоты */}
+          {placeBlocks.map((place) => (
+            <article
+              data-el="place-block"
+              data-place-id={place.id}
+              class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+            >
+              <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                 <div class="min-w-0">
-                  <div class="flex items-baseline justify-between border-b border-[#edebe6] pb-3">
-                    <div>
-                      <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
-                      <div class="mt-1 text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]" data-el="slot-day-label"></div>
-                    </div>
-                    <div class="text-[12px] text-[#8a8e96]" data-el="slot-count"></div>
-                  </div>
-
-                  <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
-                  <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
-
-                  <button type="button" data-el="cta" disabled class="hm-book-cta mt-5 inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[12px] text-[15px] font-bold">
-                    Выберите время
-                  </button>
+                  <h3 class="text-[16px] font-bold tracking-[-0.015em] text-[#0f1115]">{place.name}</h3>
+                  <p class="mt-1.5 flex items-start gap-1.5 text-[13px] text-[#2a2d33]">
+                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin mt-[3px] shrink-0">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+                      </svg>
+                    <span>{place.address}</span>
+                  </p>
+                  {place.description && (
+                    <p class="mt-1.5 text-[13px] leading-relaxed text-[#8a8e96]">{place.description}</p>
+                  )}
                 </div>
+                <a
+                  href={place.routeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex h-[38px] shrink-0 items-center gap-2 rounded-full border border-[#e2e2df] px-4 text-[12.5px] font-semibold text-[#0f1115] transition-colors hover:border-[#b5b8bd]"
+                >
+                  Построить маршрут
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                </a>
               </div>
 
-              {/* Скрытый триггер: инлайн-CTA открывает через него общий шит */}
-              <span class="sr-only">
-                <BookingTrigger
-                  doctorId={doctor.id}
-                  doctorName={doctor.fullName}
-                  doctorSpecialty={doctor.specialization}
-                  doctorClinic={clinicName ?? ""}
-                  label="Записаться"
+              {/* Карта — только настоящая, отрендеренная бэкендом. Пин ставит сам
+                  врач: не поставил — карты нет, декоративную подсовывать нельзя. */}
+              {place.mapImageUrl && (
+                <img
+                  src={place.mapImageUrl}
+                  alt={`Расположение: ${place.name}`}
+                  loading="lazy"
+                  class="mt-4 h-[150px] w-full rounded-[14px] border border-[#edebe6] object-cover"
                 />
-              </span>
-            </>
+              )}
+
+              {place.types.length === 0 ? (
+                <p class="hm-empty-day mt-5">Онлайн-запись в это место пока недоступна.</p>
+              ) : (
+                <>
+                  <div class="mt-5 border-t border-[#edebe6] pt-5">
+                    <div class="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                      Вид приёма
+                    </div>
+                    {place.soleType ? (
+                      <p
+                        data-el="type-static"
+                        data-type-id={place.soleType.id}
+                        data-type-name={place.soleType.name}
+                        data-duration={String(place.soleType.durationMin)}
+                        class="text-[14px] font-semibold text-[#0f1115]"
+                      >
+                        {place.soleType.name}
+                        <span class="font-medium text-[#8a8e96]"> · {place.soleType.durationMin} мин</span>
+                      </p>
+                    ) : (
+                      <select data-el="type-select" class="hm-type-select" aria-label="Вид приёма">
+                        {place.types.map((type) => (
+                          <option value={type.id} data-type-name={type.name} data-duration={String(type.durationMin)}>
+                            {type.name} · {type.durationMin} мин
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div class="mt-6 grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,360px)_1fr]">
+                    {/* Календарь: сетка рисуется на клиенте по реальной доступности */}
+                    <div>
+                      <div class="mb-2.5 flex items-center justify-between">
+                        <div class="text-[13px] font-bold text-[#0f1115] capitalize" data-el="month-label"></div>
+                      </div>
+                      <div class="mb-1 grid grid-cols-7 gap-0.5">
+                        {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((w, i) => (
+                          <div class={`py-0.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] ${i >= 5 ? "text-[#b5b8bd]" : "text-[#8a8e96]"}`}>{w}</div>
+                        ))}
+                      </div>
+                      <div class="grid grid-cols-7 gap-1" data-el="day-grid"></div>
+                    </div>
+
+                    {/* Слоты */}
+                    <div class="min-w-0">
+                      <div class="flex items-baseline justify-between border-b border-[#edebe6] pb-3">
+                        <div>
+                          <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
+                          <div class="mt-1 text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]" data-el="slot-day-label"></div>
+                        </div>
+                        <div class="text-[12px] text-[#8a8e96]" data-el="slot-count"></div>
+                      </div>
+
+                      <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
+                      <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
+
+                      <button type="button" data-el="cta" disabled class="hm-book-cta mt-5 inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[12px] text-[15px] font-bold">
+                        Выберите время
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </article>
+          ))}
+
+          {/* Скрытый триггер: CTA любого блока открывает через него общий шит.
+              doctorClinic заполняем только при единственном месте — назвать
+              первое из нескольких было бы ложью, CTA подставит своё. */}
+          {bookingOpen && (
+            <span class="sr-only">
+              <BookingTrigger
+                doctorId={doctor.id}
+                doctorName={doctor.fullName}
+                doctorSpecialty={doctor.specialization}
+                doctorClinic={placeBlocks.length === 1 ? (clinicName ?? "") : ""}
+                label="Записаться"
+              />
+            </span>
           )}
         </section>
 
-        {/* ── Where / map ──────────────────────────────────── */}
-        {/* Врач мог не завести рабочее место — тогда «Где принимает» показывать нечем. */}
-        {workplace && (
-        <section class="grid grid-cols-1 overflow-hidden rounded-[24px] border border-[#edebe6] bg-white md:grid-cols-[1.2fr_1fr]">
-          <div class="relative min-h-[260px] bg-[#eaf2f4]">
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" class="absolute inset-0" aria-hidden="true">
-              <defs>
-                <pattern id="dgrid" width="6" height="6" patternUnits="userSpaceOnUse">
-                  <path d="M 6 0 L 0 0 0 6" fill="none" stroke="rgba(14,124,140,0.08)" stroke-width="0.15" />
-                </pattern>
-                <radialGradient id="dmap" cx="50%" cy="50%" r="60%">
-                  <stop offset="0%" stop-color="#d2e4e8" /><stop offset="100%" stop-color="#eaf2f4" />
-                </radialGradient>
-              </defs>
-              <rect width="100" height="100" fill="url(#dmap)" />
-              <rect width="100" height="100" fill="url(#dgrid)" />
-              <path d="M0 50 Q 30 45 50 50 T 100 48" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" />
-              <path d="M50 0 Q 48 30 50 50 T 52 100" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" />
-              <ellipse cx="35" cy="35" rx="6" ry="4" fill="#cfe0cc" opacity="0.7" />
-              <ellipse cx="70" cy="65" rx="8" ry="5" fill="#cfe0cc" opacity="0.7" />
-            </svg>
-            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
-              <div class="flex items-center gap-2 whitespace-nowrap rounded-[14px] bg-[#0e7c8c] px-3.5 py-2.5 text-[12px] font-bold text-white shadow-[0_12px_28px_rgba(10,31,37,0.25)]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V7l7-4 7 4v14" /></svg>
-                {clinicName ?? ""}
-              </div>
-            </div>
-            {doctor.city && (
-              <div class="absolute left-4 top-4 inline-flex items-center gap-2 rounded-[10px] bg-white/95 px-3 py-2 text-[12px] font-semibold text-[#0f1115] backdrop-blur-sm">
-                <span class="h-2.5 w-2.5 rounded-full bg-[#e8b96a]"></span>
-                {doctor.city}
-              </div>
-            )}
-          </div>
-
-          <div class="flex flex-col gap-3.5 p-7">
-            <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Где принимает</h2>
-            <div class="text-[16px] font-bold text-[#0f1115]">{clinicName ?? ""}</div>
-            <div class="text-[13px] leading-relaxed text-[#2a2d33]">
-              {workplace?.address && <>{workplace.address}<br /></>}
-              {workplace?.description && <>{workplace.description}</>}
-            </div>
-            <a
-              href={`https://2gis.kz/search/${mapQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="mt-1 inline-flex h-[42px] w-fit items-center gap-2 rounded-full border border-[#e2e2df] px-[18px] text-[13px] font-semibold text-[#0f1115] transition-colors hover:border-[#b5b8bd]"
-            >
-              Построить маршрут
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
-            </a>
-          </div>
-        </section>
-        )}
-
-        {/* ── О враче ──────────────────────────────────────── */}
-        <section class="flex flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
-          <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">О враче</h2>
+        {/* ── О себе: последняя секция страницы, цель ссылки «Подробнее о
+               враче» из шапки. Выше — запись, потому что пациент приходит
+               выбирать время, а биографию читает уже после, если вообще читает.
+               Цена и языки живут в блоке с аватаром, отдельной секции
+               «Образование» больше нет, scheduleNote не показываем — пока
+               запись у всех предварительная. ──────────────────────────── */}
+        <section
+          id="about"
+          class="flex scroll-mt-5 flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+        >
+          <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">О себе</h2>
           <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{bioText}</p>
 
-          {doctor.languages.length > 0 && (
-            <div class="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[13px] text-[#2a2d33]">
-              <span class="inline-flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M2 12h20" /><path d="M12 2a14 14 0 0 1 0 20" /><path d="M12 2a14 14 0 0 0 0 20" /></svg>
-                {doctor.languages.join(", ")}
-              </span>
+          {doctor.education && (
+            <div class="mt-1 border-t border-[#edebe6] pt-5">
+              <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                Образование
+              </div>
+              <p class="mt-1.5 text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{doctor.education}</p>
             </div>
           )}
         </section>
-
-        {/* ── Образование ──────────────────────────────────── */}
-        {doctor.education && (
-          <section class="flex flex-col gap-5 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
-            <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Образование</h2>
-            <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{doctor.education}</p>
-          </section>
-        )}
       </div>
     </main>
   </div>
@@ -433,6 +477,12 @@ const breadcrumbs = {
 </BaseLayout>
 
 <style is:global>
+  /* Плавность для единственной якорной ссылки на странице — «Подробнее о
+     враче» → #about. Уважаем prefers-reduced-motion: для кого-то плавный
+     автоскролл — это тошнота, а не украшение. */
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
   .hm-cal-day { color: #0f1115; cursor: pointer; transition: background-color 0.12s; }
   .hm-cal-day:hover:not([aria-pressed="true"]):not(:disabled) { background-color: #edebe6; }
   .hm-cal-day[aria-pressed="true"] { background-color: #0e7c8c; color: #fff; }
@@ -450,6 +500,53 @@ const breadcrumbs = {
   .hm-type-chip-meta { font-size: 11px; font-weight: 600; color: #8a8e96; }
   .hm-type-chip[aria-selected="true"] .hm-type-chip-meta { color: rgba(255,255,255,0.75); }
   .hm-retry { margin-top: 8px; display: inline-block; border-bottom: 1px solid currentColor; color: #0e7c8c; font-weight: 600; cursor: pointer; background: none; border-width: 0 0 1px; padding: 0; }
+  /* Чипы шапки: «Документы проверены» и «N лет стажа», один под другим.
+     Геометрия по спеке DESIGN.md §5 Chips: pill, 34px, padding 0 12px. Размер
+     текста 14px вместо спековых 13 — чтобы совпадать со строкой специализации.
+     Бирюза — действующая база бренда: globals.css фиксирует ребренд
+     clinic-coral → clinic-teal. Текст берёт brick-teal, а не clinic-teal:
+     исходная пара #0e7c8c на #eef6f8 давала 4.48 и не проходила AA, а
+     deep-вариант для текста на этом тоне система и предписывает. */
+  .hm-chip {
+    height: 34px; padding: 0 12px; font-size: 14px; font-weight: 500;
+    background: var(--color-tinted-linen);
+    color: var(--color-brick-teal);
+  }
+  /* Пины мест — бирюзой, единственным существующим акцентом. Коралл для этого
+     не годится: pivot 2026-05b его снял, токена в теме нет.
+     Залитый глиф, а не обводка: на 13px stroke 1.8px читается хуже. Дырка в
+     капле — вторым подпутём с обратным направлением, nonzero winding её
+     выбивает, без fill-rule="evenodd". */
+  .hm-pin { fill: var(--color-clinic-teal); }
+  /* Стаж плоской строкой. 14px, чтобы совпадать со строкой специализации; цвет
+     наследуется от мета-колонки (#2a2d33). */
+  .hm-tenure { font-size: 14px; }
+  /* Mono-Numeral Rule: стаж — длительность, значит число идёт моно с
+     tabular-nums, как времена в слотах и дата-стампах. Графит на полтона темнее
+     слов: число — это факт, «лет стажа» — подпись к нему. */
+  .hm-tenure-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--color-graphite);
+  }
+  /* «ещё» в конце обрезанного описания. Инлайн, а не кнопка: продолжает строку
+     текста, и отбивку слева задаём margin — пробел в разметке Astro съел бы.
+     Вертикальный padding с компенсирующим отрицательным margin поднимает
+     область нажатия до 25px: 17px строки не проходили минимум 24×24 из
+     WCAG 2.5.8, а целевая аудитория — 3G-Android и пользователи 50+. */
+  .hm-more-link {
+    margin: -4px -6px -4px -1px;
+    padding: 4px 6px;
+    color: #0e7c8c; font-weight: 600; white-space: nowrap;
+  }
+  .hm-more-link:hover { text-decoration: underline; }
+  .hm-more-link:focus-visible { outline: 2px solid #0e7c8c; outline-offset: 2px; border-radius: 3px; }
+  /* Нативный select: у места редко больше одного-двух видов приёма, и системный
+     дропдаун на мобильном удобнее самописного меню. */
+  .hm-type-select { appearance: none; width: 100%; max-width: 420px; height: 46px; padding: 0 40px 0 14px; border: 1px solid #e2e2df; border-radius: 12px; background-color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8e96' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; color: #0f1115; font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color 0.12s; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .hm-type-select:hover { border-color: #b5b8bd; }
+  .hm-type-select:focus-visible { outline: 2px solid #0e7c8c; outline-offset: 1px; }
 </style>
 
 <script>
@@ -458,20 +555,15 @@ const breadcrumbs = {
   // Слоты НЕЛЬЗЯ вшить в статическую страницу: доступность меняется постоянно,
   // а страница прегенерится на сборке. Поэтому календарь — клиентский остров,
   // читающий конфиг из data-атрибутов (define:vars инлайнится и не умеет import).
+  // У каждого места приёма свой блок и своё состояние: запросы уходят
+  // параллельно, поэтому пациент сразу видит, где есть время, и не перебирает
+  // варианты вслепую. Место при этом не выбирается — им нельзя ошибиться.
   (() => {
     const section = document.getElementById("booking");
-    const doctorId = section?.dataset.doctorId ?? "";
-    const dayGrid = section?.querySelector('[data-el="day-grid"]');
-    const slotGrid = section?.querySelector('[data-el="slot-grid"]');
-    const slotStatus = section?.querySelector('[data-el="slot-status"]');
-    const monthLabel = section?.querySelector('[data-el="month-label"]');
-    const dayLabel = section?.querySelector('[data-el="slot-day-label"]');
-    const countEl = section?.querySelector('[data-el="slot-count"]');
-    const cta = section?.querySelector('[data-el="cta"]');
-    const typeChips = [...(section?.querySelectorAll("[data-type-id]") ?? [])];
-    const formatChips = [...(section?.querySelectorAll("[data-online]") ?? [])];
-    const trigger = section?.querySelector('[data-action="hm-book-open"]');
-    if (!section || !dayGrid || !slotGrid || !cta || typeChips.length === 0) return;
+    if (!section) return;
+    const doctorId = section.dataset.doctorId ?? "";
+    const trigger = section.querySelector('[data-action="hm-book-open"]');
+    const blocks = [...section.querySelectorAll('[data-el="place-block"]')];
 
     const MONTHS_NOM = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
     const MONTHS_GEN = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
@@ -480,13 +572,6 @@ const breadcrumbs = {
 
     /** YYYY-MM-DD по ЛОКАЛЬНОЙ дате: toISOString() съехал бы на день в UTC+6. */
     const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-    let activeType = typeChips[0];
-    let isOnline = false;
-    /** date → { workPlaceId, workplaceName, times: string[] } */
-    let byDate = new Map();
-    let activeDate = "";
-    let pickedTime = "";
 
     const windowDates = () => {
       const out = [];
@@ -500,182 +585,211 @@ const breadcrumbs = {
       return out;
     };
 
-    function setStatus(text) {
-      if (!slotStatus) return;
-      if (text === null) {
-        slotStatus.hidden = true;
-        slotStatus.textContent = "";
-      } else {
-        slotStatus.hidden = false;
-        slotStatus.innerHTML = text;
-      }
-    }
+    function initPlace(root) {
+      const dayGrid = root.querySelector('[data-el="day-grid"]');
+      const slotGrid = root.querySelector('[data-el="slot-grid"]');
+      const slotStatus = root.querySelector('[data-el="slot-status"]');
+      const monthLabel = root.querySelector('[data-el="month-label"]');
+      const dayLabel = root.querySelector('[data-el="slot-day-label"]');
+      const countEl = root.querySelector('[data-el="slot-count"]');
+      const cta = root.querySelector('[data-el="cta"]');
+      const typeSelect = root.querySelector('[data-el="type-select"]');
+      const typeStatic = root.querySelector('[data-el="type-static"]');
+      // Место без активных видов приёма рендерится без календаря — вести нечего.
+      if (!dayGrid || !slotGrid || !cta) return;
 
-    function setCta() {
-      if (pickedTime !== "") {
-        cta.dataset.ready = "1";
-        cta.disabled = false;
-        cta.textContent = `Записаться на ${pickedTime}`;
-      } else {
-        delete cta.dataset.ready;
-        cta.disabled = true;
-        cta.textContent = "Выберите время";
-      }
-    }
+      /** date → { workPlaceId, workplaceName, times: string[] } */
+      let byDate = new Map();
+      let activeDate = "";
+      let pickedTime = "";
 
-    function renderCalendar() {
-      const dates = windowDates();
-      const first = dates[0];
-      const last = dates[dates.length - 1];
-      if (monthLabel) {
-        monthLabel.textContent =
-          first.getMonth() === last.getMonth()
-            ? `${MONTHS_NOM[first.getMonth()]} ${first.getFullYear()}`
-            : `${MONTHS_NOM[first.getMonth()]} – ${MONTHS_NOM[last.getMonth()]} ${last.getFullYear()}`;
+      /** Вид приёма: из селекта, если их несколько, иначе из статичной строки. */
+      function currentType() {
+        const source = typeSelect === null ? typeStatic : typeSelect.selectedOptions[0];
+        return {
+          id: (typeSelect === null ? source?.dataset.typeId : source?.value) ?? "",
+          name: source?.dataset.typeName ?? "",
+          duration: source?.dataset.duration ?? "",
+        };
       }
 
-      dayGrid.innerHTML = "";
-      // Пн = 0: getDay() отдаёт Вс = 0, поэтому сдвигаем.
-      const pad = (first.getDay() + 6) % 7;
-      for (let i = 0; i < pad; i += 1) dayGrid.appendChild(document.createElement("div"));
+      /** Пусто — не тупик: подсказываем то, что в этом блоке реально доступно. */
+      function emptyHint() {
+        if (typeSelect !== null) return "<br>Попробуйте другой вид приёма.";
+        if (blocks.length > 1) return "<br>Посмотрите другое место приёма.";
+        return "";
+      }
 
-      dates.forEach((d) => {
-        const iso = isoDate(d);
-        const has = (byDate.get(iso)?.times.length ?? 0) > 0;
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "hm-cal-day relative grid aspect-square place-items-center rounded-[10px] text-[13px] font-semibold";
-        b.textContent = String(d.getDate());
-        b.disabled = !has;
-        b.dataset.date = iso;
-        b.setAttribute("aria-pressed", String(iso === activeDate));
-        if (has) {
-          const dot = document.createElement("span");
-          dot.className = "hm-cal-dot absolute bottom-[5px] h-1 w-1 rounded-full bg-[#0e7c8c]";
-          b.appendChild(dot);
-          b.addEventListener("click", () => {
-            activeDate = iso;
-            pickedTime = "";
-            renderCalendar();
-            renderSlots();
-          });
+      function setStatus(text) {
+        if (!slotStatus) return;
+        if (text === null) {
+          slotStatus.hidden = true;
+          slotStatus.textContent = "";
+        } else {
+          slotStatus.hidden = false;
+          slotStatus.innerHTML = text;
         }
-        dayGrid.appendChild(b);
-      });
-    }
-
-    function renderSlots() {
-      const day = byDate.get(activeDate);
-      const times = day?.times ?? [];
-      const d = activeDate === "" ? null : new Date(`${activeDate}T00:00:00`);
-      const today = isoDate(new Date());
-      if (dayLabel && d) {
-        dayLabel.textContent =
-          activeDate === today
-            ? `Сегодня, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`
-            : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
       }
-      if (countEl) countEl.textContent = times.length > 0 ? `${times.length} слотов` : "";
 
-      slotGrid.innerHTML = "";
-      setCta();
-      if (times.length === 0) return;
+      function setCta() {
+        if (pickedTime !== "") {
+          cta.dataset.ready = "1";
+          cta.disabled = false;
+          cta.textContent = `Записаться на ${pickedTime}`;
+        } else {
+          delete cta.dataset.ready;
+          cta.disabled = true;
+          cta.textContent = "Выберите время";
+        }
+      }
 
-      times.forEach((time) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "hm-slot";
-        b.textContent = time;
-        b.setAttribute("aria-pressed", "false");
-        b.addEventListener("click", () => {
-          pickedTime = time;
-          slotGrid.querySelectorAll(".hm-slot").forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
-          setCta();
+      function renderCalendar() {
+        const dates = windowDates();
+        const first = dates[0];
+        const last = dates[dates.length - 1];
+        if (monthLabel) {
+          monthLabel.textContent =
+            first.getMonth() === last.getMonth()
+              ? `${MONTHS_NOM[first.getMonth()]} ${first.getFullYear()}`
+              : `${MONTHS_NOM[first.getMonth()]} – ${MONTHS_NOM[last.getMonth()]} ${last.getFullYear()}`;
+        }
+
+        dayGrid.innerHTML = "";
+        // Пн = 0: getDay() отдаёт Вс = 0, поэтому сдвигаем.
+        const pad = (first.getDay() + 6) % 7;
+        for (let i = 0; i < pad; i += 1) dayGrid.appendChild(document.createElement("div"));
+
+        dates.forEach((d) => {
+          const iso = isoDate(d);
+          const has = (byDate.get(iso)?.times.length ?? 0) > 0;
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "hm-cal-day relative grid aspect-square place-items-center rounded-[10px] text-[13px] font-semibold";
+          b.textContent = String(d.getDate());
+          b.disabled = !has;
+          b.dataset.date = iso;
+          b.setAttribute("aria-pressed", String(iso === activeDate));
+          if (has) {
+            const dot = document.createElement("span");
+            dot.className = "hm-cal-dot absolute bottom-[5px] h-1 w-1 rounded-full bg-[#0e7c8c]";
+            b.appendChild(dot);
+            b.addEventListener("click", () => {
+              activeDate = iso;
+              pickedTime = "";
+              renderCalendar();
+              renderSlots();
+            });
+          }
+          dayGrid.appendChild(b);
         });
-        slotGrid.appendChild(b);
-      });
-    }
+      }
 
-    async function loadSlots() {
-      const typeId = activeType.dataset.typeId ?? "";
-      byDate = new Map();
-      activeDate = "";
-      pickedTime = "";
-      dayGrid.innerHTML = "";
-      slotGrid.innerHTML = "";
-      if (dayLabel) dayLabel.textContent = "";
-      if (countEl) countEl.textContent = "";
-      setCta();
-      setStatus("Смотрим свободное время…");
+      function renderSlots() {
+        const day = byDate.get(activeDate);
+        const times = day?.times ?? [];
+        const d = activeDate === "" ? null : new Date(`${activeDate}T00:00:00`);
+        const today = isoDate(new Date());
+        if (dayLabel && d) {
+          dayLabel.textContent =
+            activeDate === today
+              ? `Сегодня, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`
+              : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+        }
+        if (countEl) countEl.textContent = times.length > 0 ? `${times.length} слотов` : "";
 
-      const dates = windowDates();
-      try {
-        const availability = await fetchAvailableSlots(
-          doctorId,
-          typeId,
-          isoDate(dates[0]),
-          isoDate(dates[dates.length - 1]),
-        );
-        availability.forEach((day) => {
-          const times = day.slots.filter((s) => s.available).map((s) => s.start_time.slice(0, 5));
-          if (times.length === 0) return;
-          byDate.set(day.date, {
-            workPlaceId: day.workplace.id,
-            workplaceName: day.workplace.name,
-            times,
+        slotGrid.innerHTML = "";
+        setCta();
+        if (times.length === 0) return;
+
+        times.forEach((time) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "hm-slot";
+          b.textContent = time;
+          b.setAttribute("aria-pressed", "false");
+          b.addEventListener("click", () => {
+            pickedTime = time;
+            slotGrid.querySelectorAll(".hm-slot").forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
+            setCta();
           });
+          slotGrid.appendChild(b);
         });
-      } catch {
-        // Сеть, а не отсутствие слотов: показывать «всё занято» здесь было бы ложью.
-        setStatus('Не удалось загрузить расписание. <button type="button" data-el="retry" class="hm-retry">Повторить</button>');
-        section.querySelector('[data-el="retry"]')?.addEventListener("click", () => void loadSlots());
-        return;
       }
 
-      const firstFree = [...byDate.keys()].sort()[0];
-      if (firstFree === undefined) {
+      async function loadSlots() {
+        byDate = new Map();
+        activeDate = "";
+        pickedTime = "";
+        dayGrid.innerHTML = "";
+        slotGrid.innerHTML = "";
+        if (dayLabel) dayLabel.textContent = "";
+        if (countEl) countEl.textContent = "";
+        setCta();
+        setStatus("Смотрим свободное время…");
+
+        const dates = windowDates();
+        try {
+          const availability = await fetchAvailableSlots(
+            doctorId,
+            currentType().id,
+            isoDate(dates[0]),
+            isoDate(dates[dates.length - 1]),
+          );
+          availability.forEach((day) => {
+            const times = day.slots.filter((s) => s.available).map((s) => s.start_time.slice(0, 5));
+            if (times.length === 0) return;
+            byDate.set(day.date, {
+              workPlaceId: day.workplace.id,
+              workplaceName: day.workplace.name,
+              times,
+            });
+          });
+        } catch {
+          // Сеть, а не отсутствие слотов: показывать «всё занято» здесь было бы ложью.
+          setStatus('Не удалось загрузить расписание. <button type="button" data-el="retry" class="hm-retry">Повторить</button>');
+          root.querySelector('[data-el="retry"]')?.addEventListener("click", () => void loadSlots());
+          return;
+        }
+
+        const firstFree = [...byDate.keys()].sort()[0];
+        if (firstFree === undefined) {
+          renderCalendar();
+          setStatus(`Свободного времени в ближайшие две недели нет.${emptyHint()}`);
+          return;
+        }
+        activeDate = firstFree;
+        setStatus(null);
         renderCalendar();
-        setStatus("Свободного времени в ближайшие две недели нет.<br>Попробуйте другой вид приёма.");
-        return;
+        renderSlots();
       }
-      activeDate = firstFree;
-      setStatus(null);
-      renderCalendar();
-      renderSlots();
+
+      typeSelect?.addEventListener("change", () => void loadSlots());
+
+      cta.addEventListener("click", () => {
+        const day = byDate.get(activeDate);
+        if (pickedTime === "" || !day || !trigger) return;
+        const type = currentType();
+        // Всё, что нужно для брони, уезжает в шит через dataset: своего состояния
+        // у шита нет, он только подтверждает. work_place_id берём из ответа
+        // слотов, а не из блока: сервер тут авторитетнее вёрстки.
+        trigger.dataset.appointmentTypeId = type.id;
+        trigger.dataset.typeName = type.name;
+        trigger.dataset.durationMin = type.duration;
+        trigger.dataset.workPlaceId = day.workPlaceId;
+        trigger.dataset.workplaceName = day.workplaceName;
+        // Шапка шита обязана назвать то же место, что и запись под ней: у врача
+        // мест несколько, и разойтись здесь — это приехать не в ту клинику.
+        trigger.dataset.doctorClinic = day.workplaceName;
+        trigger.dataset.slotDate = activeDate;
+        trigger.dataset.slotTime = pickedTime;
+        // Выбора формата на странице нет — все записи офлайн.
+        trigger.dataset.isOnline = "0";
+        trigger.click();
+      });
+
+      void loadSlots();
     }
 
-    typeChips.forEach((chip) => {
-      chip.addEventListener("click", () => {
-        if (chip === activeType) return;
-        activeType = chip;
-        typeChips.forEach((el) => el.setAttribute("aria-selected", String(el === chip)));
-        void loadSlots();
-      });
-    });
-
-    formatChips.forEach((chip) => {
-      chip.addEventListener("click", () => {
-        isOnline = chip.dataset.online === "1";
-        formatChips.forEach((el) => el.setAttribute("aria-selected", String(el === chip)));
-      });
-    });
-
-    cta.addEventListener("click", () => {
-      const day = byDate.get(activeDate);
-      if (pickedTime === "" || !day || !trigger) return;
-      // Всё, что нужно для брони, уезжает в шит через dataset: своего состояния
-      // у шита нет, он только подтверждает.
-      trigger.dataset.appointmentTypeId = activeType.dataset.typeId ?? "";
-      trigger.dataset.typeName = activeType.dataset.typeName ?? "";
-      trigger.dataset.durationMin = activeType.dataset.duration ?? "";
-      trigger.dataset.workPlaceId = day.workPlaceId;
-      trigger.dataset.workplaceName = day.workplaceName;
-      trigger.dataset.slotDate = activeDate;
-      trigger.dataset.slotTime = pickedTime;
-      trigger.dataset.isOnline = isOnline ? "1" : "0";
-      trigger.click();
-    });
-
-    void loadSlots();
+    blocks.forEach(initPlace);
   })();
 </script>
