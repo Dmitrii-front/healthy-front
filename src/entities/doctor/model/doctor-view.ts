@@ -36,6 +36,13 @@ export interface DoctorWorkplaceView {
   mapImageUrl: string | null
 }
 
+export interface DoctorAppointmentTypeView {
+  id: string
+  name: string
+  durationMin: number
+  workPlaceId: string
+}
+
 export interface DoctorProfileView extends DoctorListItem {
   bio: string | null
   education: string | null
@@ -44,7 +51,9 @@ export interface DoctorProfileView extends DoctorListItem {
   yearsExperience: number | null
   rating: number | null
   reviewsCount: number
+  consultationFormats: string[]
   workplaces: DoctorWorkplaceView[]
+  appointmentTypes: DoctorAppointmentTypeView[]
 }
 
 export function toDoctorListItem(dto: DoctorSearchItemDto): DoctorListItem {
@@ -72,6 +81,7 @@ export function toDoctorProfileView(dto: DoctorProfileDto): DoctorProfileView {
     yearsExperience: yearsSince(dto.start_practise_date),
     rating: dto.rating,
     reviewsCount: dto.reviews_count,
+    consultationFormats: dto.consultation_formats ?? [],
     workplaces: dto.workplaces.map((workplace) => ({
       id: workplace.id,
       name: workplace.name,
@@ -79,6 +89,12 @@ export function toDoctorProfileView(dto: DoctorProfileDto): DoctorProfileView {
       description: workplace.description,
       coordinates: workplace.coordinates,
       mapImageUrl: workplace.map_image_url,
+    })),
+    appointmentTypes: dto.appointment_types.map((type) => ({
+      id: type.id,
+      name: type.name,
+      durationMin: type.duration_min,
+      workPlaceId: type.work_place_id,
     })),
   }
 }

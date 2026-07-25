@@ -8,8 +8,8 @@
  * key `healthy.auth` in zustand persist v0 format so the React SPA at
  * `/app/*` sees the session without extra wiring.
  *
- * `quickBook` is still a mock — backend has no `/appointments/quick-book`
- * yet. Replace with a real `apiFetch` call when it lands.
+ * Запись на приём живёт в `lib/booking.ts` и ходит через `lib/api.ts` —
+ * здесь только аутентификация.
  *
  * SPA continues to use full `zod` (chained API + better DX). Validation
  * rules below mirror the NestJS `class-validator` constraints so error
@@ -236,27 +236,6 @@ export async function resendVerification(email: string): Promise<{ email: string
   return { email: result.output.email }
 }
 
-/* ─── Booking (mock until backend exposes /appointments/quick-book) ──── */
-
-export interface QuickBookInput {
-  doctorId: string
-  slotId: string
-  email?: string
-}
-
-export interface QuickBookResult {
-  appointmentId: string
-  scheduledAt: string
-}
-
-export async function quickBook(input: QuickBookInput): Promise<QuickBookResult> {
-  await wait(400)
-  return {
-    appointmentId: `a-${input.slotId}-${Date.now()}`,
-    scheduledAt: new Date().toISOString(),
-  }
-}
-
 /* ─── Internals ──────────────────────────────────────────────────────── */
 
 interface ApiErrorBody {
@@ -326,8 +305,4 @@ function formatBackendError(status: number, body: ApiErrorBody | null): string {
   if (status === 400) return 'Проверьте email и пароль'
   if (status >= 500) return 'Сервер недоступен. Попробуйте через минуту'
   return `Ошибка ${status}`
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

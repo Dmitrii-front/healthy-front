@@ -6,7 +6,6 @@ import BookingModal from "../../components/booking/BookingModal.astro";
 import { searchDoctors, getDoctorProfile, formatPriceKgs } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../../lib/slug";
-import { generateMockSlots } from "../../lib/mock-slots";
 
 export async function getStaticPaths() {
   const catalog = await searchDoctors();
@@ -38,10 +37,8 @@ const description = doctor.bio
   : `${doctor.fullName} — ${doctor.specialization}${clinicName ? ` в клинике «${clinicName}»` : ""}. Запись онлайн.`;
 
 // ── Display helpers ────────────────────────────────────────────────
-const MONTHS_GEN = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-const MONTHS_NOM = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-const DOW_SHORT = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-
+// Названия месяцев и дней недели живут в клиентском скрипте: сетку календаря
+// теперь рисует он, а не сборка.
 function pluralYears(n: number): string {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -69,27 +66,28 @@ const mapQuery = encodeURIComponent(
   [clinicName, workplace?.address, doctor.city].filter(Boolean).join(", "),
 );
 
-// ── Inline booking calendar data (reuses the same mock slots as the modal) ──
-const rawDays = generateMockSlots(doctor.id, 14);
-const days = rawDays.map((d, i) => {
-  const dt = new Date(d.date);
-  const available = d.slots.filter((s) => s.available).map((s) => ({ id: s.id, time: s.timeLabel }));
-  return {
-    date: d.date,
-    dayNum: dt.getDate(),
-    dow: (dt.getDay() + 6) % 7, // Mon = 0
-    label:
-      i === 0
-        ? `Сегодня, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`
-        : `${DOW_SHORT[dt.getDay()]}, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`,
-    slots: available,
-  };
-});
-const firstIdx = days.findIndex((d) => d.slots.length > 0);
-const activeIdx = firstIdx === -1 ? 0 : firstIdx;
-const firstMonth = days[0] ? new Date(days[0].date) : new Date();
-const monthLabel = `${MONTHS_NOM[firstMonth.getMonth()]} ${firstMonth.getFullYear()}`;
-const padStart = days[0] ? days[0].dow : 0;
+// ── Виды приёма ────────────────────────────────────────────────────
+// Место приёма не выбирается отдельно: бэкенд выводит его из вида приёма
+// (available-slots берёт work_place_id из типа), поэтому чип сразу показывает
+// и длительность, и клинику.
+const workplaceNameById = new Map(doctor.workplaces.map((w) => [w.id, w.name]));
+const typeOptions = doctor.appointmentTypes.map((type) => ({
+  id: type.id,
+  name: type.name,
+  durationMin: type.durationMin,
+  workPlaceId: type.workPlaceId,
+  workplaceName: workplaceNameById.get(type.workPlaceId) ?? null,
+}));
+
+// Пустой список — не ошибка: врач просто не открыл запись. Календарь в этом
+// случае не рендерим вовсе, чтобы не показывать вечно пустую сетку.
+const bookingOpen = typeOptions.length > 0;
+
+// Бэкенд отдаёт формат словарём "offline"/"online" (сиды) либо null (прод), а
+// прежняя фронтовая схема ждала "in-person"/"online". Единственное, что можно
+// проверить надёжно, — присутствие "online"; нет его, значит записи онлайн нет,
+// и тумблер не показываем, а is_online уходит false.
+const onlineAvailable = doctor.consultationFormats.includes("online");
 
 // ── SEO structured data (Physician + breadcrumbs) ──────────────────
 const physicianJsonLd: Record<string, unknown> = {
@@ -218,13 +216,20 @@ const breadcrumbs = {
         </section>
 
         {/* ── Booking (inline) ─────────────────────────────── */}
-        <section id="booking" class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+        <section
+          id="booking"
+          data-doctor-id={doctor.id}
+          data-online-available={onlineAvailable ? "1" : "0"}
+          class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+        >
           <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Записаться на приём</h2>
-              <p class="mt-1 text-[13px] text-[#8a8e96]">
-                Первичный приём · 45 минут{priceLabel ? <> · от <span class="font-bold text-[#0f1115]">{priceLabel}</span></> : null}
-              </p>
+              {priceLabel && (
+                <p class="mt-1 text-[13px] text-[#8a8e96]">
+                  от <span class="font-bold text-[#0f1115]">{priceLabel}</span>
+                </p>
+              )}
               {doctor.scheduleNote && (
                 <p class="mt-2 inline-flex items-center gap-1.5 text-[12px] text-[#2a2d33]">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -246,74 +251,99 @@ const breadcrumbs = {
             </div>
           </div>
 
-          <div class="mt-6 grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,360px)_1fr]">
-            {/* Calendar */}
-            <div>
-              <div class="mb-2.5 flex items-center justify-between">
-                <div class="text-[13px] font-bold text-[#0f1115] capitalize">{monthLabel}</div>
-                <div class="flex gap-1">
-                  <span class="grid h-[26px] w-[26px] place-items-center rounded-[8px] border border-[#edebe6] text-[#b5b8bd] opacity-40">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(180deg)"><path d="M9 6l6 6-6 6" /></svg>
-                  </span>
-                  <span class="grid h-[26px] w-[26px] place-items-center rounded-[8px] border border-[#edebe6] text-[#b5b8bd] opacity-40">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
-                  </span>
+          {!bookingOpen ? (
+            <p class="hm-empty-day mt-6">
+              Врач пока не открыл запись онлайн.<br />
+              Свяжитесь с клиникой, чтобы договориться о приёме.
+            </p>
+          ) : (
+            <>
+              {/* Вид приёма: задаёт и длительность слота, и место приёма */}
+              <div class="mt-6">
+                <div class="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                  Вид приёма
                 </div>
-              </div>
-              <div class="mb-1 grid grid-cols-7 gap-0.5">
-                {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((w, i) => (
-                  <div class={`py-0.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] ${i >= 5 ? "text-[#b5b8bd]" : "text-[#8a8e96]"}`}>{w}</div>
-                ))}
-              </div>
-              <div class="grid grid-cols-7 gap-1" data-el="day-grid">
-                {Array.from({ length: padStart }).map(() => <div></div>)}
-                {days.map((d, i) => {
-                  const empty = d.slots.length === 0;
-                  return (
+                <div class="flex flex-wrap gap-2" data-el="type-row" role="tablist">
+                  {typeOptions.map((type, i) => (
                     <button
                       type="button"
-                      data-day={i}
-                      data-empty={empty ? "1" : "0"}
-                      disabled={empty}
-                      aria-pressed={i === activeIdx ? "true" : "false"}
-                      class="hm-cal-day relative grid aspect-square place-items-center rounded-[10px] text-[13px] font-semibold"
+                      role="tab"
+                      data-type-id={type.id}
+                      data-work-place-id={type.workPlaceId}
+                      data-type-name={type.name}
+                      data-duration={String(type.durationMin)}
+                      data-workplace-name={type.workplaceName ?? ""}
+                      aria-selected={i === 0 ? "true" : "false"}
+                      class="hm-type-chip rounded-full border px-[14px] py-[9px] text-left text-[13px] font-semibold"
                     >
-                      {d.dayNum}
-                      {!empty && <span class="hm-cal-dot absolute bottom-[5px] h-1 w-1 rounded-full bg-[#0e7c8c]"></span>}
+                      {type.name}
+                      <span class="hm-type-chip-meta">
+                        {type.durationMin} мин{type.workplaceName ? ` · ${type.workplaceName}` : ""}
+                      </span>
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Slots */}
-            <div class="min-w-0">
-              <div class="flex items-baseline justify-between border-b border-[#edebe6] pb-3">
-                <div>
-                  <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
-                  <div class="mt-1 text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]" data-el="slot-day-label"></div>
+                  ))}
                 </div>
-                <div class="text-[12px] text-[#8a8e96]" data-el="slot-count"></div>
               </div>
 
-              <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
+              {onlineAvailable && (
+                <div class="mt-5">
+                  <div class="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                    Формат
+                  </div>
+                  <div class="flex gap-2" data-el="format-row" role="tablist">
+                    <button type="button" role="tab" data-online="0" aria-selected="true"
+                      class="hm-type-chip rounded-full border px-[14px] py-[9px] text-[13px] font-semibold">В клинике</button>
+                    <button type="button" role="tab" data-online="1" aria-selected="false"
+                      class="hm-type-chip rounded-full border px-[14px] py-[9px] text-[13px] font-semibold">Онлайн по видео</button>
+                  </div>
+                </div>
+              )}
 
-              <button type="button" data-el="cta" disabled class="hm-book-cta mt-5 inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[12px] text-[15px] font-bold">
-                Выберите время
-              </button>
-            </div>
-          </div>
+              <div class="mt-6 grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,360px)_1fr]">
+                {/* Календарь: сетка рисуется на клиенте по реальной доступности */}
+                <div>
+                  <div class="mb-2.5 flex items-center justify-between">
+                    <div class="text-[13px] font-bold text-[#0f1115] capitalize" data-el="month-label"></div>
+                  </div>
+                  <div class="mb-1 grid grid-cols-7 gap-0.5">
+                    {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((w, i) => (
+                      <div class={`py-0.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] ${i >= 5 ? "text-[#b5b8bd]" : "text-[#8a8e96]"}`}>{w}</div>
+                    ))}
+                  </div>
+                  <div class="grid grid-cols-7 gap-1" data-el="day-grid"></div>
+                </div>
 
-          {/* Hidden trigger — the inline CTA opens the shared booking modal through it */}
-          <span class="sr-only">
-            <BookingTrigger
-              doctorId={doctor.id}
-              doctorName={doctor.fullName}
-              doctorSpecialty={doctor.specialization}
-              doctorClinic={clinicName ?? ""}
-              label="Записаться"
-            />
-          </span>
+                {/* Слоты */}
+                <div class="min-w-0">
+                  <div class="flex items-baseline justify-between border-b border-[#edebe6] pb-3">
+                    <div>
+                      <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
+                      <div class="mt-1 text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]" data-el="slot-day-label"></div>
+                    </div>
+                    <div class="text-[12px] text-[#8a8e96]" data-el="slot-count"></div>
+                  </div>
+
+                  <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
+                  <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
+
+                  <button type="button" data-el="cta" disabled class="hm-book-cta mt-5 inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[12px] text-[15px] font-bold">
+                    Выберите время
+                  </button>
+                </div>
+              </div>
+
+              {/* Скрытый триггер: инлайн-CTA открывает через него общий шит */}
+              <span class="sr-only">
+                <BookingTrigger
+                  doctorId={doctor.id}
+                  doctorName={doctor.fullName}
+                  doctorSpecialty={doctor.specialization}
+                  doctorClinic={clinicName ?? ""}
+                  label="Записаться"
+                />
+              </span>
+            </>
+          )}
         </section>
 
         {/* ── Where / map ──────────────────────────────────── */}
@@ -414,81 +444,238 @@ const breadcrumbs = {
   .hm-book-cta { background: #edebe6; color: #8a8e96; cursor: not-allowed; transition: all 0.15s; }
   .hm-book-cta[data-ready="1"] { background: #0e7c8c; color: #fff; cursor: pointer; box-shadow: 0 6px 18px rgba(14,124,140,0.25); }
   .hm-empty-day { padding: 24px 16px; border-radius: 12px; background: #faf8f5; font-size: 14px; color: #8a8e96; text-align: center; line-height: 1.5; }
+  .hm-type-chip { display: flex; flex-direction: column; gap: 2px; border-color: #e2e2df; background: #fff; color: #0f1115; cursor: pointer; transition: border-color 0.12s, background-color 0.12s; }
+  .hm-type-chip:hover { border-color: #b5b8bd; }
+  .hm-type-chip[aria-selected="true"] { background: #0e7c8c; border-color: #0e7c8c; color: #fff; }
+  .hm-type-chip-meta { font-size: 11px; font-weight: 600; color: #8a8e96; }
+  .hm-type-chip[aria-selected="true"] .hm-type-chip-meta { color: rgba(255,255,255,0.75); }
+  .hm-retry { margin-top: 8px; display: inline-block; border-bottom: 1px solid currentColor; color: #0e7c8c; font-weight: 600; cursor: pointer; background: none; border-width: 0 0 1px; padding: 0; }
 </style>
 
-<script define:vars={{ days, activeIdx }}>
-  (() => {
-    const grid = document.querySelector('[data-el="day-grid"]');
-    const slotGrid = document.querySelector('[data-el="slot-grid"]');
-    const dayLabel = document.querySelector('[data-el="slot-day-label"]');
-    const count = document.querySelector('[data-el="slot-count"]');
-    const cta = document.querySelector('[data-el="cta"]');
-    const hiddenTrigger = document.querySelector('[data-action="hm-book-open"]');
-    if (!grid || !slotGrid || !cta) return;
+<script>
+  import { fetchAvailableSlots } from "../../lib/booking";
 
-    let active = activeIdx;
-    let picked = null;
+  // Слоты НЕЛЬЗЯ вшить в статическую страницу: доступность меняется постоянно,
+  // а страница прегенерится на сборке. Поэтому календарь — клиентский остров,
+  // читающий конфиг из data-атрибутов (define:vars инлайнится и не умеет import).
+  (() => {
+    const section = document.getElementById("booking");
+    const doctorId = section?.dataset.doctorId ?? "";
+    const dayGrid = section?.querySelector('[data-el="day-grid"]');
+    const slotGrid = section?.querySelector('[data-el="slot-grid"]');
+    const slotStatus = section?.querySelector('[data-el="slot-status"]');
+    const monthLabel = section?.querySelector('[data-el="month-label"]');
+    const dayLabel = section?.querySelector('[data-el="slot-day-label"]');
+    const countEl = section?.querySelector('[data-el="slot-count"]');
+    const cta = section?.querySelector('[data-el="cta"]');
+    const typeChips = [...(section?.querySelectorAll("[data-type-id]") ?? [])];
+    const formatChips = [...(section?.querySelectorAll("[data-online]") ?? [])];
+    const trigger = section?.querySelector('[data-action="hm-book-open"]');
+    if (!section || !dayGrid || !slotGrid || !cta || typeChips.length === 0) return;
+
+    const MONTHS_NOM = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    const MONTHS_GEN = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+    const DOW_SHORT = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
+    const WINDOW_DAYS = 14;
+
+    /** YYYY-MM-DD по ЛОКАЛЬНОЙ дате: toISOString() съехал бы на день в UTC+6. */
+    const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    let activeType = typeChips[0];
+    let isOnline = false;
+    /** date → { workPlaceId, workplaceName, times: string[] } */
+    let byDate = new Map();
+    let activeDate = "";
+    let pickedTime = "";
+
+    const windowDates = () => {
+      const out = [];
+      const base = new Date();
+      base.setHours(0, 0, 0, 0);
+      for (let i = 0; i < WINDOW_DAYS; i += 1) {
+        const d = new Date(base);
+        d.setDate(base.getDate() + i);
+        out.push(d);
+      }
+      return out;
+    };
+
+    function setStatus(text) {
+      if (!slotStatus) return;
+      if (text === null) {
+        slotStatus.hidden = true;
+        slotStatus.textContent = "";
+      } else {
+        slotStatus.hidden = false;
+        slotStatus.innerHTML = text;
+      }
+    }
+
+    function setCta() {
+      if (pickedTime !== "") {
+        cta.dataset.ready = "1";
+        cta.disabled = false;
+        cta.textContent = `Записаться на ${pickedTime}`;
+      } else {
+        delete cta.dataset.ready;
+        cta.disabled = true;
+        cta.textContent = "Выберите время";
+      }
+    }
+
+    function renderCalendar() {
+      const dates = windowDates();
+      const first = dates[0];
+      const last = dates[dates.length - 1];
+      if (monthLabel) {
+        monthLabel.textContent =
+          first.getMonth() === last.getMonth()
+            ? `${MONTHS_NOM[first.getMonth()]} ${first.getFullYear()}`
+            : `${MONTHS_NOM[first.getMonth()]} – ${MONTHS_NOM[last.getMonth()]} ${last.getFullYear()}`;
+      }
+
+      dayGrid.innerHTML = "";
+      // Пн = 0: getDay() отдаёт Вс = 0, поэтому сдвигаем.
+      const pad = (first.getDay() + 6) % 7;
+      for (let i = 0; i < pad; i += 1) dayGrid.appendChild(document.createElement("div"));
+
+      dates.forEach((d) => {
+        const iso = isoDate(d);
+        const has = (byDate.get(iso)?.times.length ?? 0) > 0;
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "hm-cal-day relative grid aspect-square place-items-center rounded-[10px] text-[13px] font-semibold";
+        b.textContent = String(d.getDate());
+        b.disabled = !has;
+        b.dataset.date = iso;
+        b.setAttribute("aria-pressed", String(iso === activeDate));
+        if (has) {
+          const dot = document.createElement("span");
+          dot.className = "hm-cal-dot absolute bottom-[5px] h-1 w-1 rounded-full bg-[#0e7c8c]";
+          b.appendChild(dot);
+          b.addEventListener("click", () => {
+            activeDate = iso;
+            pickedTime = "";
+            renderCalendar();
+            renderSlots();
+          });
+        }
+        dayGrid.appendChild(b);
+      });
+    }
 
     function renderSlots() {
-      const day = days[active];
-      if (dayLabel) dayLabel.textContent = day.label;
-      if (count) count.textContent = day.slots.length > 0 ? `${day.slots.length} слотов` : 'нет свободных';
-      picked = null;
-      setCta();
-
-      if (day.slots.length === 0) {
-        slotGrid.className = '';
-        slotGrid.innerHTML = '<div class="hm-empty-day">В этот день приёма нет.<br>Выберите другую дату в календаре.</div>';
-        return;
+      const day = byDate.get(activeDate);
+      const times = day?.times ?? [];
+      const d = activeDate === "" ? null : new Date(`${activeDate}T00:00:00`);
+      const today = isoDate(new Date());
+      if (dayLabel && d) {
+        dayLabel.textContent =
+          activeDate === today
+            ? `Сегодня, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`
+            : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
       }
-      slotGrid.className = 'mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2';
-      slotGrid.innerHTML = '';
-      day.slots.forEach((s) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'hm-slot';
-        b.textContent = s.time;
-        b.setAttribute('aria-pressed', 'false');
-        b.addEventListener('click', () => {
-          picked = s;
-          slotGrid.querySelectorAll('.hm-slot').forEach((el) => el.setAttribute('aria-pressed', String(el === b)));
+      if (countEl) countEl.textContent = times.length > 0 ? `${times.length} слотов` : "";
+
+      slotGrid.innerHTML = "";
+      setCta();
+      if (times.length === 0) return;
+
+      times.forEach((time) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "hm-slot";
+        b.textContent = time;
+        b.setAttribute("aria-pressed", "false");
+        b.addEventListener("click", () => {
+          pickedTime = time;
+          slotGrid.querySelectorAll(".hm-slot").forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
           setCta();
         });
         slotGrid.appendChild(b);
       });
     }
 
-    function setCta() {
-      if (picked) {
-        cta.dataset.ready = '1';
-        cta.disabled = false;
-        cta.textContent = `Записаться на ${picked.time}`;
-      } else {
-        delete cta.dataset.ready;
-        cta.disabled = true;
-        cta.textContent = 'Выберите время';
+    async function loadSlots() {
+      const typeId = activeType.dataset.typeId ?? "";
+      byDate = new Map();
+      activeDate = "";
+      pickedTime = "";
+      dayGrid.innerHTML = "";
+      slotGrid.innerHTML = "";
+      if (dayLabel) dayLabel.textContent = "";
+      if (countEl) countEl.textContent = "";
+      setCta();
+      setStatus("Смотрим свободное время…");
+
+      const dates = windowDates();
+      try {
+        const availability = await fetchAvailableSlots(
+          doctorId,
+          typeId,
+          isoDate(dates[0]),
+          isoDate(dates[dates.length - 1]),
+        );
+        availability.forEach((day) => {
+          const times = day.slots.filter((s) => s.available).map((s) => s.start_time.slice(0, 5));
+          if (times.length === 0) return;
+          byDate.set(day.date, {
+            workPlaceId: day.workplace.id,
+            workplaceName: day.workplace.name,
+            times,
+          });
+        });
+      } catch {
+        // Сеть, а не отсутствие слотов: показывать «всё занято» здесь было бы ложью.
+        setStatus('Не удалось загрузить расписание. <button type="button" data-el="retry" class="hm-retry">Повторить</button>');
+        section.querySelector('[data-el="retry"]')?.addEventListener("click", () => void loadSlots());
+        return;
       }
+
+      const firstFree = [...byDate.keys()].sort()[0];
+      if (firstFree === undefined) {
+        renderCalendar();
+        setStatus("Свободного времени в ближайшие две недели нет.<br>Попробуйте другой вид приёма.");
+        return;
+      }
+      activeDate = firstFree;
+      setStatus(null);
+      renderCalendar();
+      renderSlots();
     }
 
-    grid.querySelectorAll('.hm-cal-day').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (btn.dataset.empty === '1') return;
-        active = Number(btn.dataset.day);
-        grid.querySelectorAll('.hm-cal-day').forEach((el) => el.setAttribute('aria-pressed', String(el === btn)));
-        renderSlots();
+    typeChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        if (chip === activeType) return;
+        activeType = chip;
+        typeChips.forEach((el) => el.setAttribute("aria-selected", String(el === chip)));
+        void loadSlots();
       });
     });
 
-    cta.addEventListener('click', () => {
-      if (!picked || !hiddenTrigger) return;
-      // Carry the already-chosen slot into the shared modal so it skips its own
-      // time step and goes straight to login/confirm (or books, if signed in).
-      hiddenTrigger.dataset.slotId = picked.id;
-      hiddenTrigger.dataset.slotDate = days[active].date;
-      hiddenTrigger.dataset.slotTime = picked.time;
-      hiddenTrigger.click();
+    formatChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        isOnline = chip.dataset.online === "1";
+        formatChips.forEach((el) => el.setAttribute("aria-selected", String(el === chip)));
+      });
     });
 
-    renderSlots();
+    cta.addEventListener("click", () => {
+      const day = byDate.get(activeDate);
+      if (pickedTime === "" || !day || !trigger) return;
+      // Всё, что нужно для брони, уезжает в шит через dataset: своего состояния
+      // у шита нет, он только подтверждает.
+      trigger.dataset.appointmentTypeId = activeType.dataset.typeId ?? "";
+      trigger.dataset.typeName = activeType.dataset.typeName ?? "";
+      trigger.dataset.durationMin = activeType.dataset.duration ?? "";
+      trigger.dataset.workPlaceId = day.workPlaceId;
+      trigger.dataset.workplaceName = day.workplaceName;
+      trigger.dataset.slotDate = activeDate;
+      trigger.dataset.slotTime = pickedTime;
+      trigger.dataset.isOnline = isOnline ? "1" : "0";
+      trigger.click();
+    });
+
+    void loadSlots();
   })();
 </script>

@@ -50,6 +50,19 @@ export const PublicWorkplaceSchema = z.object({
 })
 
 /**
+ * Активный вид приёма врача. Без него пациент не может ни запросить слоты, ни
+ * забронировать: `appointmentTypeId` обязателен и в available-slots, и в
+ * POST /appointments. `work_place_id` нужен потому, что место брони выводится из
+ * типа, а не выбирается отдельно.
+ */
+export const PublicAppointmentTypeSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  duration_min: z.number(),
+  work_place_id: z.uuid(),
+})
+
+/**
  * GET /doctor-profile/:id отдаёт сырую сущность, а не урезанный DoctorDto,
  * поэтому полей заметно больше, чем в поиске.
  */
@@ -59,9 +72,18 @@ export const DoctorProfileSchema = DoctorSearchItemSchema.extend({
   education: z.string().nullable().default(null),
   schedule_note: z.string().nullable().default(null),
   subspecializations: z.array(z.string()).nullable().default(null),
+  // Свободный массив строк, а не enum: бэкенд отдаёт "offline"/"online" в сидах
+  // и null в проде, тогда как фронтовая мок-схема ждала
+  // "in-person"/"online"/"home-visit". Жёсткий enum уронил бы парсинг на живых
+  // данных, поэтому принимаем как есть и трактуем на месте использования.
+  consultation_formats: z.array(z.string()).nullable().default(null),
   rating: numericNullable.default(null),
   reviews_count: z.number().default(0),
   workplaces: z.array(PublicWorkplaceSchema).default([]),
+  // default([]) обязателен, а не косметика: пока правка бэкенда не задеплоена,
+  // поля в ответе нет вовсе, и без дефолта профиль перестал бы парситься —
+  // страница врача исчезла бы из сборки целиком.
+  appointment_types: z.array(PublicAppointmentTypeSchema).default([]),
 })
 
 export const DoctorProfileResponseSchema = z.object({

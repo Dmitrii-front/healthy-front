@@ -1,6 +1,10 @@
 ---
-// One booking modal mounted per page. Triggers (BookingTrigger.astro) populate
-// it via data attributes on click. Vanilla TS only — no React.
+// Один шит на страницу. Триггеры (BookingTrigger.astro) наполняют его через
+// data-атрибуты при клике. Vanilla TS, без React.
+//
+// Своего состояния выбора у шита НЕТ: вид приёма, место, дата и время выбираются
+// на странице врача и приезжают готовыми. Шит только подтверждает: вход или
+// регистрация → анкета пациента, если профиля ещё нет → бронь.
 ---
 
 <dialog
@@ -8,7 +12,7 @@
   class="hm-dialog"
   aria-label="Запись к врачу"
   data-locked="false"
-  data-step="slot"
+  data-step="account"
   data-mode="login"
 >
   <div class="hm-modal-body">
@@ -18,7 +22,7 @@
             <path d="M10 3L5 8L10 13" />
           </svg>
         </button>
-        <span class="hm-step-label" data-el="step-label">Шаг 1 из 2 · Время</span>
+        <span class="hm-step-label" data-el="step-label">Подтверждение</span>
         <button type="button" class="hm-icon-btn" data-action="hm-book-close" aria-label="Закрыть">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
             <path d="M3 3L11 11M11 3L3 11" />
@@ -29,22 +33,33 @@
       <h2 class="hm-modal-title" data-el="doctor-name">Имя врача</h2>
       <p class="hm-modal-subtitle" data-el="doctor-meta">Специальность · Клиника</p>
 
-      <!-- Step: slot -->
-      <div data-step-pane="slot">
-        <div class="hm-day-row" data-el="day-row" role="tablist"></div>
-        <div class="hm-slot-grid" data-el="slot-grid"></div>
-        <p class="hm-hint" style="margin-top:16px">
-          Выберите свободное время. Запись займёт меньше минуты.
-        </p>
+      {/* Сводка записи — видна на всех шагах, кроме успеха */}
+      <div class="hm-summary" data-el="summary">
+        <span class="hm-summary-label">Запись</span>
+        <span class="hm-summary-value" data-el="summary-when">—</span>
+        <span class="hm-summary-extra" data-el="summary-what"></span>
+        <span class="hm-summary-extra" data-el="summary-where"></span>
       </div>
 
-      <!-- Step: account -->
-      <div data-step-pane="account" hidden>
-        <div class="hm-summary">
-          <span class="hm-summary-label">Выбрано время</span>
-          <span class="hm-summary-value" data-el="picked-summary">—</span>
-        </div>
+      <p class="hm-error" data-el="book-error" hidden></p>
+      <button type="button" class="hm-btn hm-btn-ghost hm-btn-block-spacing" data-el="pick-again" hidden>
+        Выбрать другое время
+      </button>
 
+      {/* Шаг: подтверждение — для вошедшего пациента с готовым профилем.
+          Без него бронь уходила бы по одному клику на странице, без явного
+          подтверждения, и шиту некуда было бы вернуться после ошибки. */}
+      <div data-step-pane="confirm" hidden>
+        <p class="hm-hint" style="margin-top:16px">
+          Проверьте время и подтвердите. Отменить можно бесплатно не позже чем за 2 часа.
+        </p>
+        <button type="button" class="hm-btn hm-btn-primary hm-btn-block-spacing" data-el="confirm-submit">
+          Подтвердить запись
+        </button>
+      </div>
+
+      {/* Шаг: аккаунт */}
+      <div data-step-pane="account" hidden>
         <div class="hm-tabs" role="tablist">
           <span class="hm-tabs-thumb" aria-hidden="true"></span>
           <button type="button" class="hm-tab-btn" role="tab" aria-selected="true" data-mode="login">
@@ -89,7 +104,50 @@
         </form>
       </div>
 
-      <!-- Step: success -->
+      {/* Шаг: анкета пациента (только при первой записи) */}
+      <div data-step-pane="profile" hidden>
+        <p class="hm-hint" style="margin-top:16px">
+          Это первая запись, поэтому нужны данные пациента. Врач увидит их вместе с записью.
+        </p>
+
+        <form data-el="profile-form" novalidate>
+          <label class="hm-label" for="hm-pp-last">Фамилия</label>
+          <input id="hm-pp-last" class="hm-input" type="text" autocomplete="family-name" placeholder="Иванов" required />
+
+          <label class="hm-label" for="hm-pp-first">Имя</label>
+          <input id="hm-pp-first" class="hm-input" type="text" autocomplete="given-name" placeholder="Иван" required />
+
+          <label class="hm-label" for="hm-pp-gender">Пол</label>
+          <select id="hm-pp-gender" class="hm-input" required>
+            <option value="">Выберите</option>
+            <option value="male">Мужской</option>
+            <option value="female">Женский</option>
+          </select>
+
+          <label class="hm-label" for="hm-pp-dob">Дата рождения</label>
+          <input id="hm-pp-dob" class="hm-input" type="date" autocomplete="bday" required />
+
+          <label class="hm-label" for="hm-pp-phone">Телефон</label>
+          <input id="hm-pp-phone" class="hm-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="+996 700 123456" required />
+
+          <label class="hm-check">
+            <input type="checkbox" data-el="consent-personal" />
+            <span>Согласен на обработку персональных данных</span>
+          </label>
+          <label class="hm-check">
+            <input type="checkbox" data-el="consent-medical" />
+            <span>Согласен на обработку медицинских данных</span>
+          </label>
+
+          <p class="hm-error" data-el="profile-error" hidden></p>
+
+          <button type="submit" class="hm-btn hm-btn-primary hm-btn-block-spacing" data-el="profile-submit">
+            Подтвердить запись
+          </button>
+        </form>
+      </div>
+
+      {/* Шаг: успех */}
       <div data-step-pane="success" hidden>
         <div class="hm-success">
           <div class="hm-success-icon">
@@ -97,16 +155,17 @@
               <path d="M5 12.5L9.5 17L19 7.5" />
             </svg>
           </div>
-          <h3 class="hm-success-title">Запись подтверждена</h3>
+          <h3 class="hm-success-title">Запись создана</h3>
           <p class="hm-success-text">
             <span data-el="success-doctor"></span><br />
-            <span data-el="success-when"></span>
+            <span data-el="success-when"></span><br />
+            <span data-el="success-where"></span>
           </p>
-          <a href="/app/visits" class="hm-btn hm-btn-primary hm-btn-block-spacing">
-            В личный кабинет →
-          </a>
-          <button type="button" class="hm-btn hm-btn-ghost hm-btn-block-spacing" data-action="hm-book-close" style="margin-top:8px">
-            На главную
+          <p class="hm-hint" data-el="success-note">
+            Врач подтвердит запись — статус придёт на email.
+          </p>
+          <button type="button" class="hm-btn hm-btn-primary hm-btn-block-spacing" data-action="hm-book-close">
+            Готово
           </button>
         </div>
       </div>
@@ -115,94 +174,119 @@
 
 <script>
   import { openModal, closeModal, lockModal, bindModalDismiss } from "../../lib/modal";
+  import { EmailNotVerifiedError, loginWithEmail, registerWithEmail, isAuthed } from "../../lib/auth";
   import {
-    loginWithEmail,
-    registerWithEmail,
-    quickBook,
-    isAuthed,
-  } from "../../lib/auth";
-  import { generateMockSlots, formatSlotForDisplay } from '../../lib/mock-slots';
-  import type { DaySlots, Slot } from '../../lib/mock-slots';
+    bookingErrorMessage,
+    createAppointment,
+    createPatientProfile,
+    hasPatientProfile,
+    isSlotConflict,
+  } from "../../lib/booking";
 
-  // Astro <script> compiles as an ES module — top-level `return` is illegal,
-  // so the bootstrap logic lives in an IIFE that we can early-exit from.
+  // Astro <script> компилируется как ES-модуль — top-level return запрещён,
+  // поэтому вся логика в IIFE, из которой можно выйти раньше.
   (() => {
     const modal = document.getElementById("hm-booking-modal");
     if (modal == null) return;
     type Mode = "login" | "register";
-    type Step = "slot" | "account" | "success";
+    type Step = "confirm" | "account" | "profile" | "success";
 
-    /* ── elements ─────────────────────────────────────────────────── */
+    const MONTHS_GEN = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+    const DOW_SHORT = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
+
+    /* ── элементы ─────────────────────────────────────────────────── */
     const backBtn = modal.querySelector<HTMLButtonElement>('[data-action="hm-book-back"]');
     const stepLabel = modal.querySelector<HTMLSpanElement>('[data-el="step-label"]');
     const doctorNameEl = modal.querySelector<HTMLHeadingElement>('[data-el="doctor-name"]');
     const doctorMetaEl = modal.querySelector<HTMLParagraphElement>('[data-el="doctor-meta"]');
-    const dayRow = modal.querySelector<HTMLDivElement>('[data-el="day-row"]');
-    const slotGrid = modal.querySelector<HTMLDivElement>('[data-el="slot-grid"]');
-    const pickedSummary = modal.querySelector<HTMLSpanElement>('[data-el="picked-summary"]');
+    const summaryEl = modal.querySelector<HTMLDivElement>('[data-el="summary"]');
+    const summaryWhen = modal.querySelector<HTMLSpanElement>('[data-el="summary-when"]');
+    const summaryWhat = modal.querySelector<HTMLSpanElement>('[data-el="summary-what"]');
+    const summaryWhere = modal.querySelector<HTMLSpanElement>('[data-el="summary-where"]');
+    const bookError = modal.querySelector<HTMLParagraphElement>('[data-el="book-error"]');
+    const pickAgain = modal.querySelector<HTMLButtonElement>('[data-el="pick-again"]');
+
     const accountForm = modal.querySelector<HTMLFormElement>('[data-el="account-form"]');
     const accountError = modal.querySelector<HTMLParagraphElement>('[data-el="account-error"]');
     const accountHint = modal.querySelector<HTMLParagraphElement>('[data-el="account-hint"]');
     const accountSubmit = modal.querySelector<HTMLButtonElement>('[data-el="account-submit"]');
-    const emailInput = modal.querySelector<HTMLInputElement>('#hm-book-email');
-    const passwordInput = modal.querySelector<HTMLInputElement>('#hm-book-password');
+    const emailInput = modal.querySelector<HTMLInputElement>("#hm-book-email");
+    const passwordInput = modal.querySelector<HTMLInputElement>("#hm-book-password");
     const tabs = modal.querySelectorAll<HTMLButtonElement>('[data-step-pane="account"] [role="tab"]');
+
+    const profileForm = modal.querySelector<HTMLFormElement>('[data-el="profile-form"]');
+    const profileError = modal.querySelector<HTMLParagraphElement>('[data-el="profile-error"]');
+    const profileSubmit = modal.querySelector<HTMLButtonElement>('[data-el="profile-submit"]');
+    const ppLast = modal.querySelector<HTMLInputElement>("#hm-pp-last");
+    const ppFirst = modal.querySelector<HTMLInputElement>("#hm-pp-first");
+    const ppGender = modal.querySelector<HTMLSelectElement>("#hm-pp-gender");
+    const ppDob = modal.querySelector<HTMLInputElement>("#hm-pp-dob");
+    const ppPhone = modal.querySelector<HTMLInputElement>("#hm-pp-phone");
+    const consentPersonal = modal.querySelector<HTMLInputElement>('[data-el="consent-personal"]');
+    const consentMedical = modal.querySelector<HTMLInputElement>('[data-el="consent-medical"]');
+
+    const confirmSubmit = modal.querySelector<HTMLButtonElement>('[data-el="confirm-submit"]');
+
     const successDoctor = modal.querySelector<HTMLSpanElement>('[data-el="success-doctor"]');
     const successWhen = modal.querySelector<HTMLSpanElement>('[data-el="success-when"]');
+    const successWhere = modal.querySelector<HTMLSpanElement>('[data-el="success-where"]');
 
-    /* ── state ────────────────────────────────────────────────────── */
-    let days: DaySlots[] = [];
-    let activeDate = "";
-    let pickedSlot: Slot | null = null;
+    /* ── состояние брони ─────────────────────────────────────────────
+       Заполняется целиком из dataset триггера: выбор живёт на странице. */
     let doctorId = "";
     let doctorName = "";
+    let appointmentTypeId = "";
+    let workPlaceId = "";
+    let workplaceName = "";
+    let typeName = "";
+    let durationMin = "";
+    let slotDate = "";
+    let slotTime = "";
+    let isOnline = false;
 
     bindModalDismiss(modal);
 
-    /* ── triggers ─────────────────────────────────────────────────── */
+    /* ── форматирование ──────────────────────────────────────────── */
+
+    function whenLabel(): string {
+      if (slotDate === "" || slotTime === "") return "—";
+      const d = new Date(`${slotDate}T00:00:00`);
+      if (Number.isNaN(d.getTime())) return `${slotDate} · ${slotTime}`;
+      return `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]} · ${slotTime}`;
+    }
+
+    function whatLabel(): string {
+      const parts = [typeName];
+      if (durationMin !== "") parts.push(`${durationMin} мин`);
+      parts.push(isOnline ? "онлайн по видео" : "в клинике");
+      return parts.filter((p) => p !== "").join(" · ");
+    }
+
+    /* ── триггеры ─────────────────────────────────────────────────── */
     document.querySelectorAll<HTMLButtonElement>('[data-action="hm-book-open"]').forEach((trigger) => {
       trigger.addEventListener("click", () => {
         doctorId = trigger.dataset.doctorId ?? "";
         doctorName = trigger.dataset.doctorName ?? "";
+        appointmentTypeId = trigger.dataset.appointmentTypeId ?? "";
+        workPlaceId = trigger.dataset.workPlaceId ?? "";
+        workplaceName = trigger.dataset.workplaceName ?? "";
+        typeName = trigger.dataset.typeName ?? "";
+        durationMin = trigger.dataset.durationMin ?? "";
+        slotDate = trigger.dataset.slotDate ?? "";
+        slotTime = trigger.dataset.slotTime ?? "";
+        isOnline = trigger.dataset.isOnline === "1";
+
         const specialty = trigger.dataset.doctorSpecialty ?? "";
         const clinic = trigger.dataset.doctorClinic ?? "";
-
         if (doctorNameEl) doctorNameEl.textContent = doctorName;
-        if (doctorMetaEl) doctorMetaEl.textContent = `${specialty} · ${clinic}`;
+        if (doctorMetaEl) doctorMetaEl.textContent = [specialty, clinic].filter((s) => s !== "").join(" · ");
+        if (summaryWhen) summaryWhen.textContent = whenLabel();
+        if (summaryWhat) summaryWhat.textContent = whatLabel();
+        if (summaryWhere) summaryWhere.textContent = workplaceName;
 
-        days = generateMockSlots(doctorId);
-        pickedSlot = null;
-
-        // A trigger may carry an already-chosen slot (e.g. the doctor page's
-        // inline calendar). In that case skip the time step entirely and go
-        // straight to login/confirm — or book immediately if already signed in.
-        const preId = trigger.dataset.slotId;
-        const preDate = trigger.dataset.slotDate;
-        const preTime = trigger.dataset.slotTime;
-        if (preId && preDate && preTime) {
-          // Rebuild the timestamp in the browser's timezone (the inline calendar
-          // only hands us a local date + "HH:MM"), so the displayed time matches.
-          const [hh, mm] = preTime.split(":").map(Number);
-          const startsAt = new Date(`${preDate}T00:00:00`);
-          startsAt.setHours(hh ?? 0, mm ?? 0, 0, 0);
-          activeDate = preDate;
-          renderDays();
-          renderSlots();
-          openModal(modal);
-          void onPickSlot({
-            id: preId,
-            startsAt: startsAt.toISOString(),
-            timeLabel: preTime,
-            available: true,
-          });
-          return;
-        }
-
-        activeDate = days[0]?.date ?? "";
-        renderDays();
-        renderSlots();
-        goToStep("slot");
+        hideBookError();
         openModal(modal);
+        void startFlow();
       });
     });
 
@@ -210,13 +294,51 @@
       b.addEventListener("click", () => closeModal(modal));
     });
 
+    // «Выбрать другое время» — календарь остался на странице за шитом,
+    // поэтому достаточно закрыть шит.
+    pickAgain?.addEventListener("click", () => closeModal(modal));
+
+    confirmSubmit?.addEventListener("click", () => {
+      hideBookError();
+      void book();
+    });
+
+    /** lockModal гейтит только Esc и фон, кнопку надо гасить самим. */
+    function setConfirmPending(pending: boolean): void {
+      if (!confirmSubmit) return;
+      confirmSubmit.disabled = pending;
+      confirmSubmit.textContent = pending ? "Записываем…" : "Подтвердить запись";
+    }
+
     backBtn?.addEventListener("click", () => {
-      if (modal.dataset.step === "account") goToStep("slot");
+      if (modal.dataset.step === "profile" && !isAuthed()) goToStep("account");
     });
 
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => setMode(tab.dataset.mode as Mode));
     });
+
+    /* ── поток ────────────────────────────────────────────────────── */
+
+    /** Не вошёл → аккаунт. Вошёл → профиль есть? подтверждение : анкета. */
+    async function startFlow(): Promise<void> {
+      if (!isAuthed()) {
+        goToStep("account");
+        return;
+      }
+      lockModal(modal, true);
+      try {
+        const exists = await hasPatientProfile();
+        lockModal(modal, false);
+        goToStep(exists ? "confirm" : "profile");
+      } catch (error) {
+        lockModal(modal, false);
+        // Профиль не прочитался — чаще всего умерла сессия. Просим войти заново,
+        // а не показываем анкету: создать второй профиль всё равно не выйдет.
+        showBookError(bookingErrorMessage(error), false);
+        goToStep("account");
+      }
+    }
 
     accountForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -224,106 +346,145 @@
       const email = emailInput?.value.trim() ?? "";
       const password = passwordInput?.value ?? "";
       hideAccountError();
+      hideBookError();
       setAccountPending(true, mode);
       try {
-        if (mode === "login") {
-          await loginWithEmail(email, password);
-        } else {
-          await registerWithEmail(email, password);
-        }
-        await finaliseBooking();
+        if (mode === "login") await loginWithEmail(email, password);
+        else await registerWithEmail(email, password);
+        setAccountPending(false, mode);
+        await startFlow();
       } catch (e) {
-        showAccountError(e instanceof Error ? e.message : "Не удалось войти");
+        // Бэкенд не выдаёт токены до подтверждения email, поэтому сразу после
+        // регистрации записаться нельзя. Внутреннее «Email not verified»
+        // пациенту показывать нельзя — объясняем, что делать.
+        if (e instanceof EmailNotVerifiedError) {
+          showAccountError(
+            `Подтвердите email: письмо отправлено на ${e.email}. ` +
+              "После подтверждения вернитесь и войдите — время останется выбранным.",
+          );
+        } else {
+          showAccountError(e instanceof Error ? e.message : "Не удалось войти");
+        }
         setAccountPending(false, mode);
       }
     });
 
-    /* ── steps ────────────────────────────────────────────────────── */
+    profileForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      hideProfileError();
+      hideBookError();
+
+      const lastName = ppLast?.value.trim() ?? "";
+      const firstName = ppFirst?.value.trim() ?? "";
+      const gender = ppGender?.value ?? "";
+      const dob = ppDob?.value ?? "";
+      const phone = ppPhone?.value.trim() ?? "";
+
+      const problem = validateProfile(lastName, firstName, gender, dob, phone);
+      if (problem !== null) {
+        showProfileError(problem);
+        return;
+      }
+
+      setProfilePending(true);
+      try {
+        await createPatientProfile({
+          last_name: lastName,
+          first_name: firstName,
+          gender: gender === "female" ? "female" : "male",
+          date_of_birth: dob,
+          phone_number: phone,
+          consent_personal_data: true,
+          consent_medical_data: true,
+        });
+        setProfilePending(false);
+        await book();
+      } catch (error) {
+        setProfilePending(false);
+        showProfileError(bookingErrorMessage(error));
+      }
+    });
+
+    function validateProfile(
+      lastName: string,
+      firstName: string,
+      gender: string,
+      dob: string,
+      phone: string,
+    ): string | null {
+      if (lastName === "") return "Введите фамилию";
+      if (firstName === "") return "Введите имя";
+      if (gender !== "male" && gender !== "female") return "Выберите пол";
+      if (dob === "") return "Введите дату рождения";
+
+      const born = new Date(`${dob}T00:00:00`);
+      if (Number.isNaN(born.getTime())) return "Проверьте дату рождения";
+      const now = new Date();
+      if (born.getTime() > now.getTime()) return "Дата рождения не может быть в будущем";
+      if (now.getFullYear() - born.getFullYear() > 120) return "Проверьте дату рождения";
+
+      // Свободный формат: в KG и KZ пишут по-разному, поэтому считаем только цифры.
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length < 9) return "Введите телефон полностью";
+
+      if (consentPersonal?.checked !== true) return "Нужно согласие на обработку персональных данных";
+      if (consentMedical?.checked !== true) return "Нужно согласие на обработку медицинских данных";
+      return null;
+    }
+
+    async function book(): Promise<void> {
+      if (appointmentTypeId === "" || workPlaceId === "" || slotDate === "" || slotTime === "") {
+        showBookError("Не хватает данных о выбранном времени. Выберите слот заново.", true);
+        return;
+      }
+      lockModal(modal, true);
+      setConfirmPending(true);
+      try {
+        // end_time считает сервер из длительности вида приёма — не передаём.
+        await createAppointment({
+          doctor_id: doctorId,
+          appointment_date: slotDate,
+          start_time: slotTime,
+          work_place_id: workPlaceId,
+          is_online: isOnline,
+          appointmentTypeId,
+        });
+        if (successDoctor) successDoctor.textContent = doctorName;
+        if (successWhen) successWhen.textContent = `${whenLabel()} · ${whatLabel()}`;
+        if (successWhere) successWhere.textContent = workplaceName;
+        goToStep("success");
+      } catch (error) {
+        showBookError(bookingErrorMessage(error), isSlotConflict(error));
+      } finally {
+        lockModal(modal, false);
+        setConfirmPending(false);
+      }
+    }
+
+    /* ── шаги ─────────────────────────────────────────────────────── */
 
     function goToStep(step: Step): void {
       modal.dataset.step = step;
-      if (backBtn) backBtn.hidden = step !== "account";
+      if (backBtn) backBtn.hidden = !(step === "profile" && !isAuthed());
+      if (summaryEl) summaryEl.hidden = step === "success";
       if (stepLabel) {
-        if (step === "slot") stepLabel.textContent = "Шаг 1 из 2 · Время";
-        else if (step === "account") {
+        if (step === "confirm") {
+          stepLabel.textContent = "Подтверждение";
+        } else if (step === "account") {
           const mode = (modal.dataset.mode ?? "login") as Mode;
-          stepLabel.textContent = mode === "login" ? "Шаг 2 из 2 · Вход" : "Шаг 2 из 2 · Регистрация";
-        } else stepLabel.textContent = "Готово";
+          stepLabel.textContent = mode === "login" ? "Вход" : "Регистрация";
+        } else if (step === "profile") {
+          stepLabel.textContent = "Данные пациента";
+        } else {
+          stepLabel.textContent = "Готово";
+        }
       }
       modal.querySelectorAll<HTMLDivElement>("[data-step-pane]").forEach((pane) => {
         pane.hidden = pane.dataset.stepPane !== step;
       });
     }
 
-    function renderDays(): void {
-      if (!dayRow) return;
-      dayRow.replaceChildren(
-        ...days.map((d) => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "hm-day-chip";
-          btn.setAttribute("aria-selected", String(d.date === activeDate));
-          btn.textContent = d.shortLabel;
-          btn.addEventListener("click", () => {
-            activeDate = d.date;
-            renderDays();
-            renderSlots();
-          });
-          return btn;
-        }),
-      );
-    }
-
-    function renderSlots(): void {
-      if (!slotGrid) return;
-      const day = days.find((d) => d.date === activeDate);
-      if (!day) {
-        slotGrid.replaceChildren();
-        return;
-      }
-      slotGrid.replaceChildren(
-        ...day.slots.map((s) => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "hm-slot-btn";
-          btn.disabled = !s.available;
-          btn.textContent = s.timeLabel;
-          btn.setAttribute("aria-selected", String(pickedSlot?.id === s.id));
-          btn.addEventListener("click", () => onPickSlot(s));
-          return btn;
-        }),
-      );
-    }
-
-    async function onPickSlot(slot: Slot): Promise<void> {
-      pickedSlot = slot;
-      renderSlots();
-
-      if (isAuthed()) {
-        await finaliseBooking();
-        return;
-      }
-
-      if (pickedSummary) pickedSummary.textContent = formatSlotForDisplay(slot.startsAt);
-      goToStep("account");
-    }
-
-    async function finaliseBooking(): Promise<void> {
-      if (!pickedSlot) return;
-      lockModal(modal, true);
-      try {
-        await quickBook({ doctorId, slotId: pickedSlot.id });
-        if (successDoctor) successDoctor.textContent = doctorName;
-        if (successWhen) successWhen.textContent = formatSlotForDisplay(pickedSlot.startsAt);
-        goToStep("success");
-      } catch (e) {
-        showAccountError(e instanceof Error ? e.message : "Ошибка записи");
-      } finally {
-        lockModal(modal, false);
-      }
-    }
-
-    /* ── account helpers ──────────────────────────────────────────── */
+    /* ── помощники аккаунта ───────────────────────────────────────── */
 
     function setMode(mode: Mode | undefined): void {
       if (mode !== "login" && mode !== "register") return;
@@ -354,7 +515,6 @@
         }
       }
 
-      // Update step label too if we're on the account step.
       if (modal.dataset.step === "account") goToStep("account");
     }
 
@@ -370,6 +530,36 @@
       lockModal(modal, pending);
     }
 
+    function setProfilePending(pending: boolean): void {
+      if (profileSubmit) {
+        profileSubmit.disabled = pending;
+        profileSubmit.textContent = pending ? "Записываем…" : "Подтвердить запись";
+      }
+      [ppLast, ppFirst, ppDob, ppPhone].forEach((el) => {
+        if (el) el.disabled = pending;
+      });
+      if (ppGender) ppGender.disabled = pending;
+      lockModal(modal, pending);
+    }
+
+    /* ── ошибки ───────────────────────────────────────────────────── */
+
+    function showBookError(message: string, offerAnotherSlot: boolean): void {
+      if (bookError) {
+        bookError.textContent = message;
+        bookError.hidden = false;
+      }
+      if (pickAgain) pickAgain.hidden = !offerAnotherSlot;
+    }
+
+    function hideBookError(): void {
+      if (bookError) {
+        bookError.textContent = "";
+        bookError.hidden = true;
+      }
+      if (pickAgain) pickAgain.hidden = true;
+    }
+
     function showAccountError(message: string): void {
       if (!accountError) return;
       accountError.textContent = message;
@@ -380,6 +570,18 @@
       if (!accountError) return;
       accountError.textContent = "";
       accountError.hidden = true;
+    }
+
+    function showProfileError(message: string): void {
+      if (!profileError) return;
+      profileError.textContent = message;
+      profileError.hidden = false;
+    }
+
+    function hideProfileError(): void {
+      if (!profileError) return;
+      profileError.textContent = "";
+      profileError.hidden = true;
     }
   })();
 </script>
