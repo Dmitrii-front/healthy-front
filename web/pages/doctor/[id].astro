@@ -97,15 +97,34 @@ for (const type of doctor.appointmentTypes) {
   else list.push(type);
 }
 
+// Поиск в списке видов приёма включаем только когда их много. Поле с вводом на
+// телефоне поднимает клавиатуру от одного тапа, и при двух-трёх вариантах она
+// закрывает половину экрана ради выбора, который делается одним касанием. Ниже
+// порога поле остаётся readonly и работает как обычный дропдаун: клавиатуры нет,
+// стрелки и Enter — есть.
+const TYPE_SEARCH_FROM = 6;
+
 const placeBlocks = doctor.workplaces.map((place) => {
   const types = typesByPlace.get(place.id) ?? [];
+  const address = place.address ?? "";
   return {
     ...place,
     types,
-    // Один вид приёма не выбирают — показываем строкой. Селект от двух и выше.
+    // Единственную услугу на странице не показываем — выбирать нечего. Но её
+    // id и длительность нужны запросу слотов, и они уезжают в data-атрибуты
+    // карточки места.
     soleType: types.length === 1 ? (types[0] ?? null) : null,
-    routeUrl: `https://2gis.kz/search/${encodeURIComponent(
-      [place.name, place.address, doctor.city].filter(Boolean).join(", "),
+    // Начальное значение поля выбора: до первого клика выбран первый тип, и
+    // именно за его слотами уходит первый запрос.
+    firstType: types[0] ?? null,
+    searchable: types.length >= TYPE_SEARCH_FROM,
+    // 2ГИС Кыргызстана, не Казахстана: клиники каталога — Бишкек и Ош, и на .kz
+    // тот же запрос искал бы улицу в чужой стране. Город дописываем только если
+    // его нет в адресе, иначе в запрос уезжает «…, Бишкек, Бишкек».
+    mapUrl: `https://2gis.kg/search/${encodeURIComponent(
+      [place.name, address, address.includes(doctor.city) ? "" : doctor.city]
+        .filter(Boolean)
+        .join(", "),
     )}`,
   };
 });
@@ -235,13 +254,6 @@ const breadcrumbs = {
                 </svg>
                 Документы проверены
               </span>
-              {/* Стаж — плоской строкой, без фона: пилюля остаётся только у
-                  верификации, и глазу не надо решать, какая из двух важнее. */}
-              {doctor.yearsExperience != null && (
-                <span class="hm-tenure mt-0.5 mb-1.5 w-fit">
-                  Стаж <b class="hm-tenure-num">{doctor.yearsExperience}</b> {pluralYears(doctor.yearsExperience)}
-                </span>
-              )}
               {/* Места в столбик: перечисление через запятую сливалось в абзац,
                   по которому не видно, сколько их вообще. Пин на каждой строке —
                   тот же, что у адресов ниже: без него это просто текст. */}
@@ -255,11 +267,30 @@ const breadcrumbs = {
               ))}
             </div>
 
-            {/* Цена и языки — здесь, а не в «О враче»: это то, по чему пациент
-                отсеивает врача, и смотрит он на это сразу. Обёртку рендерим
-                только при непустом содержимом, иначе останется голая линия. */}
-            {(priceLabel || doctor.languages.length > 0) && (
-              <dl class="mt-1 grid grid-cols-1 gap-4 border-t border-[#edebe6] pt-4 sm:grid-cols-2">
+            {/* Стаж, цена и языки — здесь, а не в «О враче»: это то, по чему
+                пациент отсеивает врача, и смотрит он на это сразу. Обёртку
+                рендерим только при непустом содержимом, иначе останется голая
+                линия.
+
+                Стаж переехал сюда из мета-колонки над ней: там он был
+                единственной строкой без иконки — между пилюлей верификации и
+                местами с пинами — и проваливался. Здесь он однотипен цене:
+                подпись капсом, значение числом. Колонки auto auto 1fr — стажу и
+                цене хватает своей ширины, остаток забирают языки, которым его
+                и не хватало. */}
+            {(doctor.yearsExperience != null || priceLabel || doctor.languages.length > 0) && (
+              <dl class="mt-1 grid grid-cols-1 gap-y-4 border-t border-[#edebe6] pt-4 sm:grid-cols-[auto_auto_1fr] sm:gap-x-9">
+                {doctor.yearsExperience != null && (
+                  <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                      Стаж
+                    </dt>
+                    <dd class="mt-1.5 whitespace-nowrap text-[15px] text-[#2a2d33]">
+                      <span class="hm-tenure-num">{doctor.yearsExperience}</span> {pluralYears(doctor.yearsExperience)}
+                    </dd>
+                  </div>
+                )}
+
                 {priceLabel && (
                   <div>
                     <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
@@ -321,110 +352,148 @@ const breadcrumbs = {
             </div>
           )}
 
+          {/* Дата — одна на всю запись. У мест расписание разное, но выбирает
+              пациент день, а не место: три отдельные ленты заставляли делать
+              один и тот же выбор трижды и сравнивать места по памяти. Точка на
+              дне значит «свободно хотя бы где-то» — в каком именно месте,
+              видно уже по карточкам ниже. */}
+          {bookingOpen && (
+            <div
+              data-el="day-rail"
+              class="hm-rail -mx-4 border-y border-[#edebe6] bg-white px-4 py-2.5 top-0 sm:mx-0 sm:rounded-[24px] sm:border sm:px-7 sm:py-5 sm:top-3"
+            >
+              <div class="mb-1.5 flex items-end justify-between gap-3 sm:mb-3">
+                <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Дата записи</div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <div class="text-[12px] font-bold text-[#0f1115] capitalize sm:text-[13px]" data-el="month-label"></div>
+                  {/* Стрелки — только на мышке: на тач-экране их заменяет свайп,
+                      а 30px высоты они забирают у самой ленты. */}
+                  <div class="hidden items-center gap-1 sm:flex">
+                    <button type="button" data-el="day-prev" class="hm-day-nav" aria-label="Предыдущие дни" hidden>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+                    </button>
+                    <button type="button" data-el="day-next" class="hm-day-nav" aria-label="Следующие дни" hidden>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="hm-day-track" data-el="day-track" role="group" aria-label="Дата записи"></div>
+            </div>
+          )}
+
           {placeBlocks.map((place) => (
             <article
               data-el="place-block"
               data-place-id={place.id}
-              class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+              data-sole-type-id={place.soleType?.id}
+              data-sole-type-name={place.soleType?.name}
+              data-sole-duration={place.soleType ? String(place.soleType.durationMin) : undefined}
+              class="grid grid-cols-1 gap-6 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7 md:grid-cols-[minmax(0,280px)_1fr] md:gap-8"
             >
-              <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                <div class="min-w-0">
-                  <h3 class="text-[16px] font-bold tracking-[-0.015em] text-[#0f1115]">{place.name}</h3>
-                  <p class="mt-1.5 flex items-start gap-1.5 text-[13px] text-[#2a2d33]">
-                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin mt-[3px] shrink-0">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
-                      </svg>
-                    <span>{place.address}</span>
-                  </p>
-                  {place.description && (
-                    <p class="mt-1.5 text-[13px] leading-relaxed text-[#8a8e96]">{place.description}</p>
-                  )}
-                </div>
+              {/* Слева — куда ехать и с каким видом приёма, справа — время.
+                  Вертикально «адрес → тип → сетка времени» растягивало каждую
+                  карточку на экран, а мест у врача до трёх. */}
+              <div class="min-w-0">
+                <h3 class="text-[16px] font-bold tracking-[-0.015em] text-[#0f1115]">{place.name}</h3>
+                {/* Ссылкой стал сам адрес: отдельная кнопка «На карте» повторяла
+                    строчкой ниже то, что уже написано в адресе. Подчёркивание
+                    только на ховере — цветом адрес не выделяем, он читается как
+                    текст, а не как действие. Имя для скринридера дописываем:
+                    в видимом тексте не сказано, что ссылка ведёт на карту. */}
                 <a
-                  href={place.routeUrl}
+                  href={place.mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex h-[38px] shrink-0 items-center gap-2 rounded-full border border-[#e2e2df] px-4 text-[12.5px] font-semibold text-[#0f1115] transition-colors hover:border-[#b5b8bd]"
+                  aria-label={`${place.address} — на карте`}
+                  class="hm-address mt-0.5 flex w-fit items-start gap-1.5 py-1 text-[13px] text-[#2a2d33]"
                 >
-                  Построить маршрут
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin mt-[3px] shrink-0">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+                    </svg>
+                  <span>{place.address}</span>
                 </a>
+                {place.description && (
+                  <p class="mt-1.5 text-[13px] leading-relaxed text-[#8a8e96]">{place.description}</p>
+                )}
+
+                {/* Карта — только настоящая, отрендеренная бэкендом. Пин ставит сам
+                    врач: не поставил — карты нет, декоративную подсовывать нельзя. */}
+                {place.mapImageUrl && (
+                  <img
+                    src={place.mapImageUrl}
+                    alt={`Расположение: ${place.name}`}
+                    loading="lazy"
+                    class="mt-4 h-[150px] w-full rounded-[14px] border border-[#edebe6] object-cover"
+                  />
+                )}
+
+                {/* Единственная услуга — не выбор, а факт: показывать её вместе с
+                    подписью значит занимать блок сообщением «вариант один». Её
+                    название и длительность всё равно нужны для запроса слотов, но
+                    живут в data-атрибутах карточки, а не в вёрстке. */}
+                {place.types.length > 1 && (
+                  <div class="mt-4 border-t border-[#edebe6] pt-4">
+                    <div
+                      id={`type-label-${place.id}`}
+                      class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]"
+                    >
+                      Услуги
+                    </div>
+                    <div class="hm-combo" data-el="type-combo">
+                      <input
+                        type="text"
+                        class="hm-combo-input"
+                        data-el="type-input"
+                        role="combobox"
+                        aria-expanded="false"
+                        aria-controls={`type-listbox-${place.id}`}
+                        aria-labelledby={`type-label-${place.id}`}
+                        aria-autocomplete={place.searchable ? "list" : "none"}
+                        autocomplete="off"
+                        spellcheck="false"
+                        readonly={!place.searchable}
+                        placeholder={place.searchable ? "Введите название" : undefined}
+                        value={place.firstType ? `${place.firstType.name} · ${place.firstType.durationMin} мин` : ""}
+                      />
+                      <div class="hm-combo-pop" data-el="type-pop" hidden>
+                        <ul class="hm-combo-list" id={`type-listbox-${place.id}`} role="listbox">
+                          {place.types.map((type, index) => (
+                            <li
+                              class="hm-combo-opt"
+                              id={`type-opt-${place.id}-${index}`}
+                              role="option"
+                              aria-selected={index === 0 ? "true" : "false"}
+                              data-type-id={type.id}
+                              data-type-name={type.name}
+                              data-duration={String(type.durationMin)}
+                            >
+                              <span class="hm-type-name">{type.name}</span>
+                              <span class="hm-type-dur">{type.durationMin} мин</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p class="hm-combo-empty" data-el="type-empty" hidden>Ничего не найдено</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Карта — только настоящая, отрендеренная бэкендом. Пин ставит сам
-                  врач: не поставил — карты нет, декоративную подсовывать нельзя. */}
-              {place.mapImageUrl && (
-                <img
-                  src={place.mapImageUrl}
-                  alt={`Расположение: ${place.name}`}
-                  loading="lazy"
-                  class="mt-4 h-[150px] w-full rounded-[14px] border border-[#edebe6] object-cover"
-                />
-              )}
-
+              {/* Дату в eyebrow дублируем намеренно: лента остаётся выше, и у
+                  третьей карточки на телефоне её уже не видно — время без дня
+                  читается вслепую. */}
               {place.types.length === 0 ? (
-                <p class="hm-empty-day mt-5">Онлайн-запись в это место пока недоступна.</p>
+                <p class="hm-empty-day">Онлайн-запись в это место пока недоступна.</p>
               ) : (
-                <>
-                  <div class="mt-5 border-t border-[#edebe6] pt-5">
-                    <div class="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
-                      Вид приёма
-                    </div>
-                    {place.soleType ? (
-                      <p
-                        data-el="type-static"
-                        data-type-id={place.soleType.id}
-                        data-type-name={place.soleType.name}
-                        data-duration={String(place.soleType.durationMin)}
-                        class="text-[14px] font-semibold text-[#0f1115]"
-                      >
-                        {place.soleType.name}
-                        <span class="font-medium text-[#8a8e96]"> · {place.soleType.durationMin} мин</span>
-                      </p>
-                    ) : (
-                      <select data-el="type-select" class="hm-type-select" aria-label="Вид приёма">
-                        {place.types.map((type) => (
-                          <option value={type.id} data-type-name={type.name} data-duration={String(type.durationMin)}>
-                            {type.name} · {type.durationMin} мин
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                <div class="min-w-0">
+                  <div class="border-b border-[#edebe6] pb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                    Свободное время<span data-el="slot-day-label"></span>
                   </div>
 
-                  <div class="mt-6 grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,360px)_1fr]">
-                    {/* Календарь: сетка рисуется на клиенте по реальной доступности */}
-                    <div>
-                      <div class="mb-2.5 flex items-center justify-between">
-                        <div class="text-[13px] font-bold text-[#0f1115] capitalize" data-el="month-label"></div>
-                      </div>
-                      <div class="mb-1 grid grid-cols-7 gap-0.5">
-                        {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((w, i) => (
-                          <div class={`py-0.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] ${i >= 5 ? "text-[#b5b8bd]" : "text-[#8a8e96]"}`}>{w}</div>
-                        ))}
-                      </div>
-                      <div class="grid grid-cols-7 gap-1" data-el="day-grid"></div>
-                    </div>
-
-                    {/* Слоты */}
-                    <div class="min-w-0">
-                      <div class="flex items-baseline justify-between border-b border-[#edebe6] pb-3">
-                        <div>
-                          <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
-                          <div class="mt-1 text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]" data-el="slot-day-label"></div>
-                        </div>
-                        <div class="text-[12px] text-[#8a8e96]" data-el="slot-count"></div>
-                      </div>
-
-                      <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
-                      <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
-
-                      <button type="button" data-el="cta" disabled class="hm-book-cta mt-5 inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[12px] text-[15px] font-bold">
-                        Выберите время
-                      </button>
-                    </div>
-                  </div>
-                </>
+                  <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
+                  <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
+                </div>
               )}
             </article>
           ))}
@@ -483,22 +552,79 @@ const breadcrumbs = {
   @media (prefers-reduced-motion: no-preference) {
     html { scroll-behavior: smooth; }
   }
-  .hm-cal-day { color: #0f1115; cursor: pointer; transition: background-color 0.12s; }
-  .hm-cal-day:hover:not([aria-pressed="true"]):not(:disabled) { background-color: #edebe6; }
-  .hm-cal-day[aria-pressed="true"] { background-color: #0e7c8c; color: #fff; }
-  .hm-cal-day[aria-pressed="true"] .hm-cal-dot { display: none; }
-  .hm-cal-day:disabled { color: #b5b8bd; cursor: not-allowed; }
-  .hm-slot { height: 46px; border: 1px solid #e2e2df; border-radius: 10px; background: #fff; color: #0f1115; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.12s; }
-  .hm-slot:hover { border-color: #0e7c8c; }
-  .hm-slot[aria-pressed="true"] { background: #0e7c8c; border-color: #0e7c8c; color: #fff; }
-  .hm-book-cta { background: #edebe6; color: #8a8e96; cursor: not-allowed; transition: all 0.15s; }
-  .hm-book-cta[data-ready="1"] { background: #0e7c8c; color: #fff; cursor: pointer; box-shadow: 0 6px 18px rgba(14,124,140,0.25); }
+  /* Лента дат липнет к верху, пока листаешь места приёма: день выбран один на
+     все места, и он должен оставаться на экране и переключаемым — иначе, чтобы
+     сравнить время у третьей клиники с другой датой, приходится возвращаться
+     скроллом наверх. Липнет внутри #booking, поэтому под записью отпускает.
+     Тень — только в прилипшем состоянии: без неё карточки уезжают под ленту
+     без всякого признака, что она поверх. */
+  /* top задан утилитами: на телефоне лента во всю ширину и липнет к самому
+     верху, на десктопе это карточка с отступом. */
+  .hm-rail { position: sticky; z-index: 10; transition: box-shadow 0.15s; }
+  .hm-rail[data-stuck] { box-shadow: 0 10px 24px -12px rgba(15,17,21,0.18); }
+  /* Низкий экран (ландшафт телефона): 190px шапки от 400px высоты — это уже не
+     помощь, а отобранное место. */
+  @media (max-height: 620px) {
+    .hm-rail { position: static; }
+  }
+
+  /* Лента дней. Полоса прокрутки убрана: её место занимают стрелки, а на
+     тач-устройствах её и так нет. scroll-snap — proximity, а не mandatory:
+     mandatory перехватывает короткие свайпы и не даёт остановить ленту между
+     днями. */
+  .hm-day-track { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; padding: 2px 0; }
+  .hm-day-track::-webkit-scrollbar { display: none; }
+  .hm-day { flex: 0 0 auto; width: 62px; height: 74px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1px solid #e2e2df; border-radius: 14px; background: #fff; color: #0f1115; cursor: pointer; transition: border-color 0.12s, background-color 0.12s, color 0.12s; }
+  .hm-day:hover:not([aria-pressed="true"]):not(:disabled) { border-color: #0e7c8c; }
+  .hm-day[aria-pressed="true"] { background-color: #0e7c8c; border-color: #0e7c8c; color: #fff; }
+  .hm-day[aria-pressed="true"] .hm-day-dow { color: rgba(255,255,255,0.8); }
+  .hm-day[aria-pressed="true"] .hm-day-dot { background-color: #fff; }
+  .hm-day:disabled { border-color: #edebe6; color: #b5b8bd; cursor: not-allowed; }
+  .hm-day:disabled .hm-day-dow { color: #b5b8bd; }
+  .hm-day-dow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8e96; }
+  .hm-day-num { font-size: 17px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .hm-day-dot { width: 4px; height: 4px; border-radius: 50%; background-color: #0e7c8c; }
+  /* Точка занимает высоту всегда, иначе цифры в недоступных днях съезжают
+     относительно доступных и ровная линия чисел рвётся. */
+  .hm-day-dot[data-empty] { background-color: transparent; }
+  .hm-day-nav { display: inline-grid; width: 30px; height: 30px; place-items: center; border: 1px solid #e2e2df; border-radius: 50%; background: #fff; color: #0f1115; cursor: pointer; transition: border-color 0.12s, color 0.12s; }
+  .hm-day-nav:hover:not(:disabled) { border-color: #0e7c8c; }
+  .hm-day-nav:disabled { color: #b5b8bd; cursor: not-allowed; }
+  /* На телефоне лента прилипшая, и каждый её пиксель отнимает место у слотов,
+     ради которых пациент здесь. Карточки мельче — их и влезает больше.
+     Прокрутка идёт от края до края экрана: отрицательный margin съедает
+     боковой отступ карточки, а внутренний padding не даёт первому дню
+     прилипнуть к краю — при прокрутке дни уходят под самый край, а не
+     обрываются по границе блока. */
+  @media (max-width: 639px) {
+    .hm-day-track { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+    .hm-day { width: 54px; height: 56px; gap: 2px; }
+    .hm-day-num { font-size: 16px; }
+    .hm-day-dow { font-size: 10px; }
+  }
+  /* Слот теперь и есть кнопка записи: отдельного «Записаться на 11:00» под
+     сеткой нет, клик по времени открывает шит. Поэтому и залит как кнопка —
+     бледный контур не сказал бы, что это последнее действие на странице.
+     Тень на ховере — та же, что была у прежнего CTA в готовом состоянии. */
+  .hm-slot { height: 46px; border: 0; border-radius: 10px; background: #0e7c8c; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: box-shadow 0.12s, transform 0.12s; }
+  .hm-slot:hover { box-shadow: 0 6px 18px rgba(14,124,140,0.25); }
+  .hm-slot:active { transform: translateY(1px); }
   .hm-empty-day { padding: 24px 16px; border-radius: 12px; background: #faf8f5; font-size: 14px; color: #8a8e96; text-align: center; line-height: 1.5; }
   .hm-type-chip { display: flex; flex-direction: column; gap: 2px; border-color: #e2e2df; background: #fff; color: #0f1115; cursor: pointer; transition: border-color 0.12s, background-color 0.12s; }
   .hm-type-chip:hover { border-color: #b5b8bd; }
   .hm-type-chip[aria-selected="true"] { background: #0e7c8c; border-color: #0e7c8c; color: #fff; }
   .hm-type-chip-meta { font-size: 11px; font-weight: 600; color: #8a8e96; }
   .hm-type-chip[aria-selected="true"] .hm-type-chip-meta { color: rgba(255,255,255,0.75); }
+  /* Адрес-ссылка. Что это ссылка, видно без ховера: подчёркивание есть всегда,
+     просто бледное (#b5b8bd — та же серая ступень, что у неактивного текста), а
+     на ховере уходит в цвет текста. Ждать ховера нельзя — на тач-экране его нет,
+     и адрес выглядел бы обычной строкой. Цветом не выделяем: бирюзовый на трёх
+     адресах спорил бы с залитыми чипсами времени, а адрес — это в первую очередь
+     информация. Подчёркиваем span, а не саму ссылку: она flex-контейнер, и линия
+     прошла бы и под пином. Вертикальный padding набирает из 18px строки 26px
+     тач-таргета (WCAG 2.5.8 требует минимум 24). */
+  .hm-address span { text-decoration: underline; text-decoration-color: #b5b8bd; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .hm-address:hover span { text-decoration-color: currentColor; }
   .hm-retry { margin-top: 8px; display: inline-block; border-bottom: 1px solid currentColor; color: #0e7c8c; font-weight: 600; cursor: pointer; background: none; border-width: 0 0 1px; padding: 0; }
   /* Чипы шапки: «Документы проверены» и «N лет стажа», один под другим.
      Геометрия по спеке DESIGN.md §5 Chips: pill, 34px, padding 0 12px. Размер
@@ -518,12 +644,9 @@ const breadcrumbs = {
      капле — вторым подпутём с обратным направлением, nonzero winding её
      выбивает, без fill-rule="evenodd". */
   .hm-pin { fill: var(--color-clinic-teal); }
-  /* Стаж плоской строкой. 14px, чтобы совпадать со строкой специализации; цвет
-     наследуется от мета-колонки (#2a2d33). */
-  .hm-tenure { font-size: 14px; }
   /* Mono-Numeral Rule: стаж — длительность, значит число идёт моно с
      tabular-nums, как времена в слотах и дата-стампах. Графит на полтона темнее
-     слов: число — это факт, «лет стажа» — подпись к нему. */
+     слов: число — это факт, «лет» — подпись к нему. */
   .hm-tenure-num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -542,11 +665,37 @@ const breadcrumbs = {
   }
   .hm-more-link:hover { text-decoration: underline; }
   .hm-more-link:focus-visible { outline: 2px solid #0e7c8c; outline-offset: 2px; border-radius: 3px; }
-  /* Нативный select: у места редко больше одного-двух видов приёма, и системный
-     дропдаун на мобильном удобнее самописного меню. */
-  .hm-type-select { appearance: none; width: 100%; max-width: 420px; height: 46px; padding: 0 40px 0 14px; border: 1px solid #e2e2df; border-radius: 12px; background-color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8e96' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; color: #0f1115; font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color 0.12s; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .hm-type-select:hover { border-color: #b5b8bd; }
-  .hm-type-select:focus-visible { outline: 2px solid #0e7c8c; outline-offset: 1px; }
+  /* Виды приёма списком, а не селектом: их два-три, и дропдаун скрывал бы сам
+     факт выбора — что у места есть ещё «Разбор ЭЭГ», пациент должен был угадать.
+     Радиокнопки нативные и лежат под label: группировка по name, стрелки,
+     «2 из 3» в скринридере — всё даром, состояние держит :checked, не JS. */
+  /* Вид приёма — комбобокс: поле разом и показывает выбранное, и служит строкой
+     поиска, поэтому отдельного поля поиска в списке нет. Нативный select искать
+     не умеет, а типов у места может быть много.
+     Стрелка нарисована фоном, как раньше у селекта. */
+  .hm-combo { position: relative; max-width: 420px; }
+  .hm-combo-input { width: 100%; height: 46px; padding: 0 40px 0 14px; border: 1px solid #e2e2df; border-radius: 12px; background-color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8e96' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; color: #0f1115; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-overflow: ellipsis; transition: border-color 0.12s, box-shadow 0.12s; }
+  .hm-combo-input::placeholder { color: #b5b8bd; font-weight: 500; }
+  /* Поле без поиска нажимают, а не читают: выделять в нём текст незачем, а синяя
+     подсветка от случайного протаскивания выглядела бы поломкой. */
+  .hm-combo-input:read-only { user-select: none; }
+  .hm-combo-input:hover { border-color: #b5b8bd; }
+  .hm-combo-input:focus { outline: none; border-color: #0e7c8c; box-shadow: 0 0 0 3px rgba(14, 124, 140, 0.12); }
+  /* Открытый список — над карточкой, но под лентой дат (у неё z-index 10):
+     прилипшая лента обязана оставаться сверху, иначе список её перекроет. */
+  .hm-combo-pop { position: absolute; z-index: 9; top: calc(100% + 6px); left: 0; right: 0; max-height: 232px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #e2e2df; border-radius: 12px; background-color: #fff; box-shadow: 0 12px 28px -12px rgba(15, 17, 21, 0.22); }
+  .hm-combo-list { margin: 0; padding: 4px; list-style: none; }
+  .hm-combo-opt { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+  /* Подсветка одна и та же для мыши и для стрелок: два разных «где я» в одном
+     списке читаются как два курсора. */
+  .hm-combo-opt:hover, .hm-combo-opt[data-active] { background-color: #faf8f5; }
+  .hm-combo-opt[aria-selected="true"] { background-color: rgba(14, 124, 140, 0.06); }
+  .hm-combo-opt[aria-selected="true"] .hm-type-dur { color: #0e7c8c; }
+  .hm-combo-opt::after { content: ""; width: 16px; height: 16px; flex: 0 0 auto; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e7c8c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4 10-10'/%3E%3C/svg%3E") center / 14px no-repeat; opacity: 0; }
+  .hm-combo-opt[aria-selected="true"]::after { opacity: 1; }
+  .hm-combo-empty { padding: 10px 14px 12px; font-size: 13px; color: #8a8e96; }
+  .hm-type-name { font-size: 14px; font-weight: 600; color: #0f1115; }
+  .hm-type-dur { margin-left: auto; font-size: 13px; font-weight: 500; color: #8a8e96; white-space: nowrap; font-variant-numeric: tabular-nums; }
 </style>
 
 <script>
@@ -555,9 +704,12 @@ const breadcrumbs = {
   // Слоты НЕЛЬЗЯ вшить в статическую страницу: доступность меняется постоянно,
   // а страница прегенерится на сборке. Поэтому календарь — клиентский остров,
   // читающий конфиг из data-атрибутов (define:vars инлайнится и не умеет import).
-  // У каждого места приёма свой блок и своё состояние: запросы уходят
-  // параллельно, поэтому пациент сразу видит, где есть время, и не перебирает
-  // варианты вслепую. Место при этом не выбирается — им нельзя ошибиться.
+  //
+  // Состояний два, и они разного уровня: дата — общая на всю запись (createRail),
+  // время — у каждого места своё (initPlace). Запросы к доступности всё равно
+  // уходят по одному на место, параллельно, но выбирает пациент один день на
+  // всех и сразу видит, где в этот день есть время. Место при этом не
+  // выбирается отдельным шагом — им нельзя ошибиться.
   (() => {
     const section = document.getElementById("booking");
     if (!section) return;
@@ -567,8 +719,12 @@ const breadcrumbs = {
 
     const MONTHS_NOM = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
     const MONTHS_GEN = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+    // Полные формы — только для aria-label дней: «Пт, 25 июл» скринридер
+    // прочитает как «июл», а сокращения в ленте у него контекста лишены.
+    const MONTHS_GEN_FULL = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
     const DOW_SHORT = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
     const WINDOW_DAYS = 14;
+    const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     /** YYYY-MM-DD по ЛОКАЛЬНОЙ дате: toISOString() съехал бы на день в UTC+6. */
     const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -585,40 +741,445 @@ const breadcrumbs = {
       return out;
     };
 
-    function initPlace(root) {
-      const dayGrid = root.querySelector('[data-el="day-grid"]');
-      const slotGrid = root.querySelector('[data-el="slot-grid"]');
-      const slotStatus = root.querySelector('[data-el="slot-status"]');
+    /** Общая лента дат. Владеет выбранным днём и раздаёт его местам; сами места
+        дату не выбирают. Точка на дне — объединение доступности всех мест,
+        поэтому лента ждёт, пока отчитаются все блоки, и только потом ставит
+        первый свободный день: иначе выбор скакал бы по мере ответов. */
+    function createRail(root) {
+      const dayTrack = root.querySelector('[data-el="day-track"]');
+      const dayPrev = root.querySelector('[data-el="day-prev"]');
+      const dayNext = root.querySelector('[data-el="day-next"]');
       const monthLabel = root.querySelector('[data-el="month-label"]');
-      const dayLabel = root.querySelector('[data-el="slot-day-label"]');
-      const countEl = root.querySelector('[data-el="slot-count"]');
-      const cta = root.querySelector('[data-el="cta"]');
-      const typeSelect = root.querySelector('[data-el="type-select"]');
-      const typeStatic = root.querySelector('[data-el="type-static"]');
-      // Место без активных видов приёма рендерится без календаря — вести нечего.
-      if (!dayGrid || !slotGrid || !cta) return;
+      if (!dayTrack) return null;
 
-      /** date → { workPlaceId, workplaceName, times: string[] } */
-      let byDate = new Map();
+      const dates = windowDates();
+      /** placeId → Set<YYYY-MM-DD>; null = место не ответило, это не «занято». */
+      const byPlace = new Map();
+      const listeners = [];
+      let expected = 0;
       let activeDate = "";
-      let pickedTime = "";
+      let syncFrame = 0;
 
-      /** Вид приёма: из селекта, если их несколько, иначе из статичной строки. */
-      function currentType() {
-        const source = typeSelect === null ? typeStatic : typeSelect.selectedOptions[0];
+      const known = () => [...byPlace.values()].filter((set) => set !== null);
+      const freeAt = (iso) => known().filter((set) => set.has(iso)).length;
+      const notify = () => listeners.forEach((fn) => fn());
+
+      /** Выбранный день переставляем на месте, не перерисовывая ленту: перерисовка
+          сбрасывала бы scrollLeft, и лента прыгала бы к началу на каждый тап. */
+      function markActive() {
+        dayTrack.querySelectorAll(".hm-day").forEach((el) => {
+          el.setAttribute("aria-pressed", String(el.dataset.date === activeDate));
+        });
+      }
+
+      /** Заголовок — по видимому куску ленты, а не по всему окну: две недели
+          часто лежат в двух месяцах, и подписать их одним значило бы соврать
+          про половину карточек. Считаем от того, что пациент видит сейчас. */
+      function syncMonthLabel() {
+        if (!monthLabel) return;
+        const cards = [...dayTrack.children];
+        const base = cards[0]?.offsetLeft ?? 0;
+        const from = dayTrack.scrollLeft;
+        const to = from + dayTrack.clientWidth;
+        const shown = cards.filter((el) => {
+          const left = el.offsetLeft - base;
+          return left + el.offsetWidth > from + 1 && left < to - 1;
+        });
+        const lead = shown[0] ?? cards[0];
+        const tail = shown[shown.length - 1] ?? lead;
+        if (lead?.dataset.date === undefined || tail?.dataset.date === undefined) return;
+        const a = new Date(`${lead.dataset.date}T00:00:00`);
+        const b = new Date(`${tail.dataset.date}T00:00:00`);
+        monthLabel.textContent =
+          a.getMonth() === b.getMonth()
+            ? `${MONTHS_NOM[a.getMonth()]} ${a.getFullYear()}`
+            : `${MONTHS_NOM[a.getMonth()]} – ${MONTHS_NOM[b.getMonth()]} ${b.getFullYear()}`;
+      }
+
+      /** Стрелки: гасим на краях, убираем совсем, когда лента влезла целиком. */
+      function syncNav() {
+        const max = dayTrack.scrollWidth - dayTrack.clientWidth;
+        const idle = max <= 1;
+        if (dayPrev) {
+          dayPrev.hidden = idle;
+          dayPrev.disabled = dayTrack.scrollLeft <= 1;
+        }
+        if (dayNext) {
+          dayNext.hidden = idle;
+          dayNext.disabled = dayTrack.scrollLeft >= max - 1;
+        }
+      }
+
+      /** Шаг стрелки — целое число карточек: замирать на половине дня незачем. */
+      function pageStep() {
+        const cards = dayTrack.children;
+        const unit =
+          cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : (cards[0]?.offsetWidth ?? 70);
+        return Math.max(Math.floor(dayTrack.clientWidth / unit), 1) * unit;
+      }
+
+      /** Выбранный день может лежать за краем — подводим ленту к нему. Плавно
+          только когда день сменился по ходу дела: при первой отрисовке анимация
+          поехала бы из ниоткуда. */
+      function revealActive(smooth = false) {
+        const el = dayTrack.querySelector('[aria-pressed="true"]');
+        if (el === null) return;
+        const base = dayTrack.firstElementChild?.offsetLeft ?? 0;
+        const left = Math.max(0, el.offsetLeft - base - (dayTrack.clientWidth - el.offsetWidth) / 2);
+        dayTrack.scrollTo({ left, behavior: smooth && motionOk ? "smooth" : "auto" });
+      }
+
+      function renderDays() {
+        dayTrack.innerHTML = "";
+        dates.forEach((d) => {
+          const iso = isoDate(d);
+          const free = freeAt(iso);
+
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "hm-day";
+          b.disabled = free === 0;
+          b.dataset.date = iso;
+          b.setAttribute("aria-pressed", String(iso === activeDate));
+          // Вне сетки месяца «25» само себя не объясняет — дату даём целиком.
+          b.setAttribute("aria-label", `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]}`);
+
+          const dow = document.createElement("span");
+          dow.className = "hm-day-dow";
+          dow.textContent = DOW_SHORT[d.getDay()];
+          const num = document.createElement("span");
+          num.className = "hm-day-num";
+          num.textContent = String(d.getDate());
+          // Точка есть всегда: без неё числа в занятых днях съезжали бы вниз.
+          const dot = document.createElement("span");
+          dot.className = "hm-day-dot";
+          if (free === 0) dot.dataset.empty = "1";
+          b.append(dow, num, dot);
+
+          if (free > 0) b.addEventListener("click", () => select(iso));
+          dayTrack.appendChild(b);
+        });
+        syncMonthLabel();
+        syncNav();
+      }
+
+      /** reveal — для выбора не из самой ленты («Ближайшее — 31 июля» в карточке
+          места): выбранный день может лежать за краем, и лента должна доехать
+          до него, иначе слоты сменились, а в ленте не видно ничего. */
+      function select(iso, reveal = false) {
+        if (iso === activeDate) return;
+        activeDate = iso;
+        markActive();
+        if (reveal) revealActive(true);
+        notify();
+      }
+
+      /** Место отчитывается своей доступностью: set с датами или null, если
+          запрос упал. Пока не отчитались все — день не выбираем. */
+      function publish(placeId, availableDates) {
+        byPlace.set(placeId, availableDates);
+        const previous = activeDate;
+        if (byPlace.size >= expected && (activeDate === "" || freeAt(activeDate) === 0)) {
+          activeDate = dates.map(isoDate).find((iso) => freeAt(iso) > 0) ?? "";
+        }
+        renderDays();
+        if (activeDate !== previous) {
+          revealActive();
+          notify();
+        }
+      }
+
+      const scrollBehavior = motionOk ? "smooth" : "auto";
+      dayPrev?.addEventListener("click", () => dayTrack.scrollBy({ left: -pageStep(), behavior: scrollBehavior }));
+      dayNext?.addEventListener("click", () => dayTrack.scrollBy({ left: pageStep(), behavior: scrollBehavior }));
+      // Прокрутка тач-свайпом идёт мимо стрелок, а заголовок месяца и края
+      // ленты от неё зависят — досчитываем на кадре, не на каждом событии.
+      dayTrack.addEventListener(
+        "scroll",
+        () => {
+          if (syncFrame !== 0) return;
+          syncFrame = requestAnimationFrame(() => {
+            syncFrame = 0;
+            syncMonthLabel();
+            syncNav();
+          });
+        },
+        { passive: true },
+      );
+      // От ширины ленты зависят и стрелки, и заголовок: в кадр влезает другое
+      // число дней, а значит и другой набор месяцев.
+      new ResizeObserver(() => {
+        syncMonthLabel();
+        syncNav();
+      }).observe(dayTrack);
+
+      // Прилипла лента или нет — по её собственному top относительно того
+      // отступа, который задан в CSS: дублировать значение в JS нельзя, разъедутся.
+      // Позицию проверяем тоже: на низких экранах sticky снят медиазапросом, и
+      // тогда доехать до top — это просто проскроллить мимо, а не прилипнуть.
+      let stuckFrame = 0;
+      const syncStuck = () => {
+        const style = getComputedStyle(root);
+        const offset = Number.parseFloat(style.top);
+        const stuck =
+          style.position === "sticky" &&
+          Number.isFinite(offset) &&
+          root.getBoundingClientRect().top <= offset + 0.5;
+        root.toggleAttribute("data-stuck", stuck);
+      };
+      const queueStuck = () => {
+        if (stuckFrame !== 0) return;
+        stuckFrame = requestAnimationFrame(() => {
+          stuckFrame = 0;
+          syncStuck();
+        });
+      };
+      window.addEventListener("scroll", queueStuck, { passive: true });
+      // Высота вьюпорта решает, липнет лента вообще или нет, а меняется она и
+      // без скролла: поворот экрана, свернувшаяся адресная строка.
+      window.addEventListener("resize", queueStuck, { passive: true });
+      syncStuck();
+
+      return {
+        date: () => activeDate,
+        subscribe: (fn) => listeners.push(fn),
+        select,
+        publish,
+        /** Сколько мест ждём. Заодно рисует ленту заглушкой, чтобы вёрстка не
+            дёргалась, когда придут ответы. */
+        expect: (count) => {
+          expected = count;
+          renderDays();
+        },
+      };
+    }
+
+    /** Выбор вида приёма внутри одного места.
+     *
+     * Комбобокс, а не <select>: системный дропдаун не умеет искать, а типов у
+     * места может быть больше десятка. Поле совмещает две роли — показывает
+     * выбранное и принимает запрос, — поэтому отдельной строки поиска в списке
+     * нет. Выбранное живёт в aria-selected на опции: одно состояние на разметку
+     * и на скрипт, рассинхронизироваться нечему.
+     *
+     * Место с единственным типом рендерится строкой, без выбора: тогда наружу
+     * отдаём её данные, а подписка ничего не делает — менять нечего. */
+    function initTypePicker(root) {
+      const input = root.querySelector('[data-el="type-input"]');
+      const pop = root.querySelector('[data-el="type-pop"]');
+      const empty = root.querySelector('[data-el="type-empty"]');
+
+      // Комбобокса нет — значит услуга одна, и выбирать нечего: её данные лежат
+      // в data-атрибутах карточки, потому что на странице она не показана.
+      if (input === null || pop === null || empty === null) {
         return {
-          id: (typeSelect === null ? source?.dataset.typeId : source?.value) ?? "",
-          name: source?.dataset.typeName ?? "",
-          duration: source?.dataset.duration ?? "",
+          count: 1,
+          current: () => ({
+            id: root.dataset.soleTypeId ?? "",
+            name: root.dataset.soleTypeName ?? "",
+            duration: root.dataset.soleDuration ?? "",
+          }),
+          subscribe: () => {},
         };
       }
 
-      /** Пусто — не тупик: подсказываем то, что в этом блоке реально доступно. */
-      function emptyHint() {
-        if (typeSelect !== null) return "<br>Попробуйте другой вид приёма.";
-        if (blocks.length > 1) return "<br>Посмотрите другое место приёма.";
-        return "";
+      const options = [...pop.querySelectorAll('[role="option"]')];
+      const listeners = [];
+      const label = (option) => `${option.dataset.typeName} · ${option.dataset.duration} мин`;
+      // «ё» на клавиатуре стоит отдельно от остальных букв, и её почти никто не
+      // печатает: без этого запрос «прием» не находил бы «Первичный приём».
+      const fold = (text) => text.toLowerCase().replaceAll("ё", "е");
+      const visible = () => options.filter((option) => !option.hidden);
+      let selected = options.find((option) => option.getAttribute("aria-selected") === "true") ?? options[0];
+      let active = selected;
+
+      function setActive(option) {
+        active = option ?? null;
+        options.forEach((item) => item.toggleAttribute("data-active", item === active));
+        if (active === null) {
+          input.removeAttribute("aria-activedescendant");
+          return;
+        }
+        // Скринридер читает активную опцию по этой ссылке, а не по подсветке.
+        input.setAttribute("aria-activedescendant", active.id);
+        active.scrollIntoView({ block: "nearest" });
       }
+
+      function filter(query) {
+        const needle = fold(query.trim());
+        options.forEach((option) => {
+          // Пустой запрос показывает всё: в закрытом виде в поле лежит название
+          // выбранного типа, и фильтровать список сам по себе он не должен.
+          option.hidden = needle !== "" && !fold(option.dataset.typeName).includes(needle);
+        });
+        const shown = visible();
+        empty.hidden = shown.length > 0;
+        setActive(shown.includes(active) ? active : (shown[0] ?? null));
+      }
+
+      /** Показать список, не трогая поле. */
+      function reveal() {
+        if (!pop.hidden) return;
+        pop.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+      }
+
+      /** Открытие как жест «выбираю заново»: поле чистим под запрос, список
+          показываем целиком. Что выбрано сейчас, видно по галочке в списке, так
+          что название в поле только мешало бы — его пришлось бы стирать руками.
+          Повторный вызов при открытом списке ничего не чистит: набранный запрос
+          на полпути терять нельзя.
+
+          Поле без поиска (readonly, типов меньше TYPE_SEARCH_FROM) чистить
+          нечем и незачем: печатать в него нельзя, и название выбранного —
+          единственное, что оно показывает. */
+      function open() {
+        if (!pop.hidden) return;
+        reveal();
+        if (!input.readOnly) input.value = "";
+        filter("");
+        setActive(selected);
+      }
+
+      function close() {
+        if (pop.hidden) return;
+        pop.hidden = true;
+        input.setAttribute("aria-expanded", "false");
+        input.removeAttribute("aria-activedescendant");
+        // Поле — ещё и показ выбранного, поэтому недобранный запрос («перв») в
+        // нём остаться не может: возвращаем название целиком.
+        input.value = label(selected);
+        options.forEach((option) => {
+          option.hidden = false;
+        });
+        empty.hidden = true;
+      }
+
+      function commit(option) {
+        const changed = option !== selected;
+        selected = option;
+        options.forEach((item) => item.setAttribute("aria-selected", String(item === option)));
+        close();
+        if (changed) listeners.forEach((fn) => fn());
+      }
+
+      input.addEventListener("focus", open);
+      // Состояние списка снимаем в pointerdown: он приходит раньше focus, а тот
+      // список уже открыл — сравнивать в click было бы поздно, и первый же клик
+      // закрывал бы только что открытое.
+      let openBeforeClick = false;
+      input.addEventListener("pointerdown", () => {
+        openBeforeClick = !pop.hidden;
+      });
+      // Ещё и на click: клик по уже сфокусированному полю (а после выбора фокус
+      // остаётся здесь) события focus не даёт, и список бы не открылся.
+      input.addEventListener("click", () => {
+        // Поле без поиска — обычный дропдаун, и повторный клик его закрывает.
+        // С поиском так нельзя: клик по полю там ставит каретку в запрос, и
+        // закрывать список на это — значит отменять начатый набор.
+        if (input.readOnly && openBeforeClick) {
+          close();
+          return;
+        }
+        open();
+      });
+      input.addEventListener("input", () => {
+        // Ввод при закрытом списке — это начало нового запроса. Поле в этот
+        // момент показывает название выбранного (так остаётся после Escape), и
+        // набранное дописалось к нему: оставляем только добавленный хвост. Если
+        // правка была не дописыванием (Backspace), чистим поле совсем.
+        //
+        // Разбираемся здесь, а не в keydown: keydown не приходит при вставке,
+        // подсказке Android-клавиатуры и вводе через IME, а input — всегда.
+        if (pop.hidden) {
+          const shown = label(selected);
+          input.value = input.value.startsWith(shown) ? input.value.slice(shown.length) : "";
+          reveal();
+        }
+        filter(input.value);
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          if (pop.hidden) {
+            open();
+            return;
+          }
+          const shown = visible();
+          if (shown.length === 0) return;
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          const next = (shown.indexOf(active) + step + shown.length) % shown.length;
+          setActive(shown[next]);
+          return;
+        }
+        // Enter при закрытом списке не перехватываем: пусть уходит форме, если
+        // поле однажды окажется внутри неё.
+        if (event.key === "Enter" && !pop.hidden) {
+          event.preventDefault();
+          if (active !== null) commit(active);
+          return;
+        }
+        if (event.key === "Escape" && !pop.hidden) {
+          event.preventDefault();
+          close();
+          return;
+        }
+        // Поле без поиска раскрывается ещё и с Enter или пробела, как нативный
+        // select. В поле с поиском пробел — это пробел в запросе, а Enter при
+        // закрытом списке мы намеренно не перехватываем.
+        if (input.readOnly && pop.hidden && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          open();
+        }
+      });
+
+      // mousedown, а не click: между ними успевает пройти blur, тот закрывает
+      // список — и click прилетает уже в пустоту. preventDefault оставляет фокус
+      // в поле, чтобы после выбора работали стрелки.
+      pop.addEventListener("mousedown", (event) => {
+        const option = event.target.closest('[role="option"]');
+        if (option === null) return;
+        event.preventDefault();
+        commit(option);
+      });
+      // Тап по опции на телефоне: pointer-события там не дают mousedown до click.
+      pop.addEventListener("click", (event) => {
+        const option = event.target.closest('[role="option"]');
+        if (option !== null && !pop.hidden) commit(option);
+      });
+
+      input.addEventListener("blur", close);
+      // Тап мимо поля фокус снимает не всегда (например, по неинтерактивному
+      // фону), а список при этом обязан закрыться.
+      document.addEventListener("pointerdown", (event) => {
+        if (!pop.hidden && !root.contains(event.target)) close();
+      });
+
+      return {
+        count: options.length,
+        current: () => ({
+          id: selected.dataset.typeId ?? "",
+          name: selected.dataset.typeName ?? "",
+          duration: selected.dataset.duration ?? "",
+        }),
+        subscribe: (fn) => listeners.push(fn),
+      };
+    }
+
+    function initPlace(root, rail) {
+      const slotGrid = root.querySelector('[data-el="slot-grid"]');
+      const slotStatus = root.querySelector('[data-el="slot-status"]');
+      const dayLabel = root.querySelector('[data-el="slot-day-label"]');
+      // Место без активных видов приёма рендерится без слотов — вести нечего.
+      if (!slotGrid) return null;
+
+      const typePicker = initTypePicker(root);
+      const placeId = root.dataset.placeId ?? "";
+      /** date → { workPlaceId, workplaceName, times: string[] } */
+      let byDate = new Map();
+      // Запрос упал — пока не переспросим, «свободного времени нет» здесь врать
+      // нельзя: пустой byDate у сбоя и у занятого расписания выглядит одинаково.
+      let failed = false;
 
       function setStatus(text) {
         if (!slotStatus) return;
@@ -631,107 +1192,103 @@ const breadcrumbs = {
         }
       }
 
-      function setCta() {
-        if (pickedTime !== "") {
-          cta.dataset.ready = "1";
-          cta.disabled = false;
-          cta.textContent = `Записаться на ${pickedTime}`;
-        } else {
-          delete cta.dataset.ready;
-          cta.disabled = true;
-          cta.textContent = "Выберите время";
-        }
+      /** Клик по времени и есть запись: отдельной кнопки подтверждения нет,
+          подтверждает шит, который сейчас откроется. Всё, что нужно для брони,
+          уезжает туда через dataset: своего состояния у шита нет. work_place_id
+          берём из ответа слотов, а не из блока — сервер тут авторитетнее вёрстки. */
+      function book(time) {
+        const active = rail.date();
+        const day = byDate.get(active);
+        if (!day || !trigger) return;
+        const type = typePicker.current();
+        trigger.dataset.appointmentTypeId = type.id;
+        trigger.dataset.typeName = type.name;
+        trigger.dataset.durationMin = type.duration;
+        trigger.dataset.workPlaceId = day.workPlaceId;
+        trigger.dataset.workplaceName = day.workplaceName;
+        // Шапка шита обязана назвать то же место, что и запись под ней: у врача
+        // мест несколько, и разойтись здесь — это приехать не в ту клинику.
+        trigger.dataset.doctorClinic = day.workplaceName;
+        trigger.dataset.slotDate = active;
+        trigger.dataset.slotTime = time;
+        // Выбора формата на странице нет — все записи офлайн.
+        trigger.dataset.isOnline = "0";
+        trigger.click();
       }
 
-      function renderCalendar() {
-        const dates = windowDates();
-        const first = dates[0];
-        const last = dates[dates.length - 1];
-        if (monthLabel) {
-          monthLabel.textContent =
-            first.getMonth() === last.getMonth()
-              ? `${MONTHS_NOM[first.getMonth()]} ${first.getFullYear()}`
-              : `${MONTHS_NOM[first.getMonth()]} – ${MONTHS_NOM[last.getMonth()]} ${last.getFullYear()}`;
+      /** Пусто — не тупик. Если у места время есть, но в другой день, зовём
+          туда кнопкой: искать этот день по ленте вручную пациент не должен. */
+      function renderEmpty(active) {
+        if (byDate.size === 0) {
+          const tail = typePicker.count > 1 ? "<br>Попробуйте другую услугу." : "";
+          setStatus(`Здесь нет свободного времени в ближайшие две недели.${tail}`);
+          return;
         }
-
-        dayGrid.innerHTML = "";
-        // Пн = 0: getDay() отдаёт Вс = 0, поэтому сдвигаем.
-        const pad = (first.getDay() + 6) % 7;
-        for (let i = 0; i < pad; i += 1) dayGrid.appendChild(document.createElement("div"));
-
-        dates.forEach((d) => {
-          const iso = isoDate(d);
-          const has = (byDate.get(iso)?.times.length ?? 0) > 0;
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "hm-cal-day relative grid aspect-square place-items-center rounded-[10px] text-[13px] font-semibold";
-          b.textContent = String(d.getDate());
-          b.disabled = !has;
-          b.dataset.date = iso;
-          b.setAttribute("aria-pressed", String(iso === activeDate));
-          if (has) {
-            const dot = document.createElement("span");
-            dot.className = "hm-cal-dot absolute bottom-[5px] h-1 w-1 rounded-full bg-[#0e7c8c]";
-            b.appendChild(dot);
-            b.addEventListener("click", () => {
-              activeDate = iso;
-              pickedTime = "";
-              renderCalendar();
-              renderSlots();
-            });
-          }
-          dayGrid.appendChild(b);
-        });
+        if (active === "") {
+          setStatus(null);
+          return;
+        }
+        const dates = [...byDate.keys()].sort();
+        const near = dates.find((iso) => iso > active) ?? dates[0];
+        const d = new Date(`${near}T00:00:00`);
+        setStatus(
+          `В этот день здесь записи нет. <button type="button" data-el="jump" class="hm-retry">Ближайшее — ${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]}</button>`,
+        );
+        root.querySelector('[data-el="jump"]')?.addEventListener("click", () => rail.select(near, true));
       }
 
+      /** Дату диктует общая лента — своего выбора дня у места нет. */
       function renderSlots() {
-        const day = byDate.get(activeDate);
-        const times = day?.times ?? [];
-        const d = activeDate === "" ? null : new Date(`${activeDate}T00:00:00`);
-        const today = isoDate(new Date());
-        if (dayLabel && d) {
-          dayLabel.textContent =
-            activeDate === today
-              ? `Сегодня, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`
-              : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
-        }
-        if (countEl) countEl.textContent = times.length > 0 ? `${times.length} слотов` : "";
+        const active = rail.date();
+        const times = byDate.get(active)?.times ?? [];
 
+        if (dayLabel) {
+          if (active === "") {
+            dayLabel.textContent = "";
+          } else {
+            const d = new Date(`${active}T00:00:00`);
+            const human =
+              active === isoDate(new Date())
+                ? `сегодня, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`
+                : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+            dayLabel.textContent = ` · ${human}`;
+          }
+        }
         slotGrid.innerHTML = "";
-        setCta();
-        if (times.length === 0) return;
+        // Смена даты в общей ленте перерисовывает все места, в том числе те, чей
+        // запрос упал: сообщение об ошибке трогать нельзя, оно всё ещё в силе.
+        if (failed) return;
+        if (times.length === 0) {
+          renderEmpty(active);
+          return;
+        }
+        setStatus(null);
 
         times.forEach((time) => {
           const b = document.createElement("button");
           b.type = "button";
           b.className = "hm-slot";
           b.textContent = time;
-          b.setAttribute("aria-pressed", "false");
-          b.addEventListener("click", () => {
-            pickedTime = time;
-            slotGrid.querySelectorAll(".hm-slot").forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
-            setCta();
-          });
+          // Голое «09:30» с клавиатуры звучит как подпись, а не как запись —
+          // и кнопки подтверждения, которая объясняла бы это, больше нет.
+          b.setAttribute("aria-label", `Записаться на ${time}`);
+          b.addEventListener("click", () => book(time));
           slotGrid.appendChild(b);
         });
       }
 
-      async function loadSlots() {
+      async function load() {
         byDate = new Map();
-        activeDate = "";
-        pickedTime = "";
-        dayGrid.innerHTML = "";
+        failed = false;
         slotGrid.innerHTML = "";
         if (dayLabel) dayLabel.textContent = "";
-        if (countEl) countEl.textContent = "";
-        setCta();
         setStatus("Смотрим свободное время…");
 
         const dates = windowDates();
         try {
           const availability = await fetchAvailableSlots(
             doctorId,
-            currentType().id,
+            typePicker.current().id,
             isoDate(dates[0]),
             isoDate(dates[dates.length - 1]),
           );
@@ -745,51 +1302,34 @@ const breadcrumbs = {
             });
           });
         } catch {
-          // Сеть, а не отсутствие слотов: показывать «всё занято» здесь было бы ложью.
+          // Сеть, а не отсутствие слотов: показывать «всё занято» здесь было бы
+          // ложью, и в ленту это место уходит как «неизвестно», а не как «пусто».
+          failed = true;
           setStatus('Не удалось загрузить расписание. <button type="button" data-el="retry" class="hm-retry">Повторить</button>');
-          root.querySelector('[data-el="retry"]')?.addEventListener("click", () => void loadSlots());
+          root.querySelector('[data-el="retry"]')?.addEventListener("click", () => void load());
+          rail.publish(placeId, null);
           return;
         }
 
-        const firstFree = [...byDate.keys()].sort()[0];
-        if (firstFree === undefined) {
-          renderCalendar();
-          setStatus(`Свободного времени в ближайшие две недели нет.${emptyHint()}`);
-          return;
-        }
-        activeDate = firstFree;
-        setStatus(null);
-        renderCalendar();
+        rail.publish(placeId, new Set(byDate.keys()));
         renderSlots();
       }
 
-      typeSelect?.addEventListener("change", () => void loadSlots());
+      rail.subscribe(renderSlots);
+      // Смена вида приёма меняет длительность, а с ней и всю сетку времени:
+      // доступность переспрашиваем целиком, а не пересчитываем на клиенте.
+      typePicker.subscribe(() => void load());
 
-      cta.addEventListener("click", () => {
-        const day = byDate.get(activeDate);
-        if (pickedTime === "" || !day || !trigger) return;
-        const type = currentType();
-        // Всё, что нужно для брони, уезжает в шит через dataset: своего состояния
-        // у шита нет, он только подтверждает. work_place_id берём из ответа
-        // слотов, а не из блока: сервер тут авторитетнее вёрстки.
-        trigger.dataset.appointmentTypeId = type.id;
-        trigger.dataset.typeName = type.name;
-        trigger.dataset.durationMin = type.duration;
-        trigger.dataset.workPlaceId = day.workPlaceId;
-        trigger.dataset.workplaceName = day.workplaceName;
-        // Шапка шита обязана назвать то же место, что и запись под ней: у врача
-        // мест несколько, и разойтись здесь — это приехать не в ту клинику.
-        trigger.dataset.doctorClinic = day.workplaceName;
-        trigger.dataset.slotDate = activeDate;
-        trigger.dataset.slotTime = pickedTime;
-        // Выбора формата на странице нет — все записи офлайн.
-        trigger.dataset.isOnline = "0";
-        trigger.click();
-      });
-
-      void loadSlots();
+      return { load };
     }
 
-    blocks.forEach(initPlace);
+    const railEl = section.querySelector('[data-el="day-rail"]');
+    const rail = railEl === null ? null : createRail(railEl);
+    if (rail === null) return;
+    // Сначала подписки, потом счёт, и только потом запросы: лента должна знать,
+    // сколько мест ждать, раньше, чем придёт первый ответ.
+    const places = blocks.map((block) => initPlace(block, rail)).filter((place) => place !== null);
+    rail.expect(places.length);
+    places.forEach((place) => void place.load());
   })();
 </script>
