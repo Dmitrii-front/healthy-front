@@ -32,6 +32,14 @@
     //     still zero Worker invocation
     "run_worker_first": false
   },
+  // Astro sessions. @astrojs/cloudflare injects a `SESSION` KV binding when
+  // astro.config.mjs declares no session driver — but injects it WITHOUT an
+  // `id`, which makes wrangler's auto-provisioning try to CREATE a namespace
+  // named `healthy-front-session` on every deploy. That fails with
+  // "already exists [code: 10014]" once the first deploy has created it.
+  // Declaring the binding here (with the real id) makes the adapter skip its
+  // injection entirely, so nothing gets auto-provisioned.
+  "kv_namespaces": [{ "binding": "SESSION", "id": "0b7cf0d884ff43959cabe679084483b9" }],
   "vars": {
     "PUBLIC_API_URL": "https://api.sdoctorom.health"
   },
