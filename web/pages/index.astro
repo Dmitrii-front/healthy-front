@@ -3,7 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
 import LoginButton from "../components/auth/LoginButton.astro";
 import LoginModal from "../components/auth/LoginModal.astro";
-import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
+import { searchDoctors, formatPriceKgs } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../lib/slug";
 
@@ -111,15 +111,12 @@ const SPECIALTY_GLYPHS: Record<string, string[]> = {
   ],
 };
 
-// Top-10 doctors by review count for the online carousel; first 10 for the
-// in-clinic carousel (mocks only have 12 entries, so both pools overlap).
-const onlineDoctors = [...DOCTOR_MOCKS]
-  .sort((a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0))
-  .slice(0, 10);
-const nearbyDoctors = DOCTOR_MOCKS.slice(0, 10);
+// Весь каталог верифицированных врачей, вшивается в HTML на сборке.
+// Одна лента вместо двух: признака «онлайн / в клинике» в данных нет —
+// consultation_formats у всех прод-врачей null, а у сидов приходит
+// offline/online, чего фронтовая схема не понимает.
+const doctors = await searchDoctors();
 
-// Fake portraits keyed by doctor id, gender-matched to first name.
-// Sourced from randomuser.me (stable mirrored stock photos).
 // Russian plural for the noun "врач" — 1 врач, 2–4 врача, 5+ врачей.
 function pluralizeDoctor(n: number): string {
   const mod100 = n % 100;
@@ -129,32 +126,6 @@ function pluralizeDoctor(n: number): string {
   if (mod10 >= 2 && mod10 <= 4) return "врача";
   return "врачей";
 }
-
-const DOCTOR_PHOTOS: Record<string, string> = {
-  d1: "https://randomuser.me/api/portraits/men/22.jpg",
-  d2: "https://randomuser.me/api/portraits/men/41.jpg",
-  d3: "https://randomuser.me/api/portraits/women/45.jpg",
-  d4: "https://randomuser.me/api/portraits/men/67.jpg",
-  d5: "https://randomuser.me/api/portraits/women/68.jpg",
-  d6: "https://randomuser.me/api/portraits/men/55.jpg",
-  d7: "https://randomuser.me/api/portraits/women/52.jpg",
-  d8: "https://randomuser.me/api/portraits/men/85.jpg",
-  d9: "https://randomuser.me/api/portraits/men/14.jpg",
-  d10: "https://randomuser.me/api/portraits/men/36.jpg",
-  d11: "https://randomuser.me/api/portraits/women/65.jpg",
-  d12: "https://randomuser.me/api/portraits/men/72.jpg",
-};
-
-// Fake female doctor portraits for the live availability avatar stack.
-// Sourced from randomuser.me (stable mirrored stock photos).
-const nearbyAvatars = [
-  "https://randomuser.me/api/portraits/women/44.jpg",
-  "https://randomuser.me/api/portraits/women/68.jpg",
-  "https://randomuser.me/api/portraits/women/12.jpg",
-  "https://randomuser.me/api/portraits/women/79.jpg",
-  "https://randomuser.me/api/portraits/women/33.jpg",
-  "https://randomuser.me/api/portraits/women/90.jpg",
-];
 
 const orgJsonLd = {
   "@context": "https://schema.org",
@@ -318,97 +289,51 @@ const websiteJsonLd = {
       </div>
     </section>
 
-    {/* ── ONLINE DOCTORS RAIL ─────────────── */}
+    {/* ── DOCTORS RAIL ────────────────────── */}
     <section class="mw-section">
       <div class="mw-section-head">
-        <h2>Онлайн-консультации</h2>
+        <h2>Врачи</h2>
         <a href="/search" class="mw-section-link">
           Все врачи
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
         </a>
       </div>
       <div class="mw-rail hide-sb">
-        {onlineDoctors.map((d) => (
-          <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
+        {doctors.map((d) => (
+          <a href={`/doctor/${doctorSlug({ id: d.id, name: d.fullName })}`} class="mw-doctor-card tap">
             <div class="mw-doctor-head">
               <div class="mw-avatar-wrap">
-                <img
-                  class="mw-avatar mw-avatar-img"
-                  src={DOCTOR_PHOTOS[d.id]}
-                  alt={d.name}
-                  loading="lazy"
-                  decoding="async"
-                  width="44"
-                  height="44"
-                />
-                <span class="mw-avatar-online" />
+                {d.avatarUrl ? (
+                  <img
+                    class="mw-avatar mw-avatar-img"
+                    src={d.avatarUrl}
+                    alt={d.shortName}
+                    loading="lazy"
+                    decoding="async"
+                    width="44"
+                    height="44"
+                  />
+                ) : (
+                  <span class="mw-avatar" style={`background-color:${d.avatarColor}`}>
+                    {d.initials}
+                  </span>
+                )}
               </div>
               <div class="mw-doctor-titles">
-                <span class="mw-doctor-name">{d.name.split(" ").slice(0, 2).join(" ")}</span>
-                <span class="mw-doctor-spec">{d.specialty}</span>
+                <span class="mw-doctor-name">{d.shortName}</span>
+                <span class="mw-doctor-spec">{d.specialization}</span>
               </div>
             </div>
-            <div class="mw-doctor-meta">
-              <span class="mw-rating">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                {d.rating?.toFixed(1) ?? "—"}
-              </span>
-              <span class="mw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-              {d.yearsExperience && <span class="mw-doctor-muted">· {d.yearsExperience} лет</span>}
-            </div>
-            <div class="mw-doctor-slot mw-doctor-slot-online">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
-              Видео — через 15 мин
-            </div>
-            <div class="mw-doctor-cta-row">
-              <span class="mw-doctor-price">от <strong>2 200 ₽</strong></span>
-              <span class="mw-book-btn">Записаться</span>
-            </div>
-          </a>
-        ))}
-      </div>
-    </section>
-
-    {/* ── NEARBY DOCTORS RAIL ─────────────── */}
-    <section class="mw-section">
-      <div class="mw-section-head">
-        <h2>По записи в клинику</h2>
-        <a href="/search" class="mw-section-link">
-          Все врачи
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-        </a>
-      </div>
-      <div class="mw-rail hide-sb">
-        {nearbyDoctors.map((d) => (
-          <a href={`/doctor/${doctorSlug(d)}`} class="mw-doctor-card tap">
-            <div class="mw-doctor-head">
-              <img
-                class="mw-avatar mw-avatar-img"
-                src={DOCTOR_PHOTOS[d.id]}
-                alt={d.name}
-                loading="lazy"
-                decoding="async"
-                width="44"
-                height="44"
-              />
-              <div class="mw-doctor-titles">
-                <span class="mw-doctor-name">{d.name.split(" ").slice(0, 2).join(" ")}</span>
-                <span class="mw-doctor-spec">{d.specialty}</span>
+            {d.city && (
+              <div class="mw-doctor-slot">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+                {d.city}
               </div>
-            </div>
-            <div class="mw-doctor-meta">
-              <span class="mw-rating">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                {d.rating?.toFixed(1) ?? "—"}
-              </span>
-              <span class="mw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-            </div>
-            <div class="mw-doctor-slot">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-              {d.clinic}
-            </div>
+            )}
             <div class="mw-doctor-cta-row">
-              <span class="mw-doctor-price">от <strong>3 500 ₽</strong></span>
+              {formatPriceKgs(d.priceFrom)
+                ? <span class="mw-doctor-price">от <strong>{formatPriceKgs(d.priceFrom)}</strong></span>
+                : <span />}
               <span class="mw-book-btn">Записаться</span>
             </div>
           </a>
@@ -516,17 +441,14 @@ const websiteJsonLd = {
           <p>Более 2 000 проверенных специалистов. Онлайн-консультации и приём в клиниках по всему городу.</p>
           <div class="dw-live-stack">
             <div class="dw-avatars">
-              {nearbyDoctors.slice(0, 6).map((d, i) => (
-                <img
-                  class="dw-stack-avatar dw-stack-avatar-img"
-                  src={nearbyAvatars[i]}
-                  alt={d.name}
-                  title={d.name}
-                  loading="lazy"
-                  decoding="async"
-                  width="40"
-                  height="40"
-                />
+              {doctors.slice(0, 6).map((d) => (
+                <span
+                  class="dw-stack-avatar"
+                  style={`background-color:${d.avatarColor}`}
+                  title={d.fullName}
+                >
+                  {d.initials}
+                </span>
               ))}
               <span class="dw-stack-avatar dw-stack-avatar-more">+192</span>
             </div>
@@ -663,69 +585,6 @@ const websiteJsonLd = {
       </div>
     </section>
 
-    {/* ── ONLINE DOCTORS (cream card with aurora) ─ */}
-    {
-      <!-- false && (
-      <section class="dw-section dw-online-section">
-        <div class="dw-online-card">
-          <div class="dw-aurora" aria-hidden="true"><span /></div>
-          <div class="dw-online-head">
-            <div>
-              <span class="dw-tag dw-tag-online">
-                <span class="dw-live-dot" />
-                Онлайн
-              </span>
-              <h2>Онлайн-консультации</h2>
-              <p>Подключение по видео за 5 минут, без очередей · {onlineDoctors.length} {pluralizeDoctor(onlineDoctors.length)}</p>
-            </div>
-            <a href="/search" class="dw-text-link">Все онлайн-врачи →</a>
-          </div>
-          <div class="dw-carousel">
-            <div class="dw-carousel-track">
-              {onlineDoctors.map((d) => (
-                <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor dw-doctor-slide">
-                  <div class="dw-doctor-head">
-                    <div class="dw-doctor-avatar-wrap">
-                      <img
-                        class="dw-doctor-avatar dw-doctor-avatar-img"
-                        src={DOCTOR_PHOTOS[d.id]}
-                        alt={d.name}
-                        loading="lazy"
-                        decoding="async"
-                        width="56"
-                        height="56"
-                      />
-                      <span class="dw-doctor-online-dot" />
-                    </div>
-                    <div class="dw-doctor-head-body">
-                      <span class="dw-doctor-name">{d.name}</span>
-                      <span class="dw-doctor-spec">{d.specialty}</span>
-                    </div>
-                  </div>
-                  <div class="dw-doctor-meta">
-                    <span class="dw-doctor-rating">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                      {d.rating?.toFixed(1) ?? "—"}
-                    </span>
-                    <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-                  </div>
-                  <div class="dw-doctor-slot dw-doctor-slot-online">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"/><path d="m22 8-4 4 4 4z"/></svg>
-                    Видео — через 15 мин
-                  </div>
-                  <div class="dw-doctor-cta-row">
-                    <span class="dw-doctor-price">от <strong>2 200 ₽</strong></span>
-                    <span class="dw-doctor-book">Записаться</span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-    )-->
-    }
-
     {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
     <section class="dw-section dw-offline-section">
       <div class="dw-section-head">
@@ -734,43 +593,46 @@ const websiteJsonLd = {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
             В клинике
           </span>
-          <h2>По записи в клинику</h2>
-          <p>Запись с подтверждением, ближайшие даты приёма · {nearbyDoctors.length} врачей</p>
+          <h2>Врачи</h2>
+          <p>Запись с подтверждением, ближайшие даты приёма · {doctors.length} {pluralizeDoctor(doctors.length)}</p>
         </div>
         <a href="/search" class="dw-text-link">Все врачи →</a>
       </div>
       <div class="dw-carousel">
         <div class="dw-carousel-track">
-          {nearbyDoctors.map((d) => (
-            <a href={`/doctor/${doctorSlug(d)}`} class="dw-doctor dw-doctor-slide">
+          {doctors.map((d) => (
+            <a href={`/doctor/${doctorSlug({ id: d.id, name: d.fullName })}`} class="dw-doctor dw-doctor-slide">
               <div class="dw-doctor-head">
-                <img
-                  class="dw-doctor-avatar dw-doctor-avatar-img"
-                  src={DOCTOR_PHOTOS[d.id]}
-                  alt={d.name}
-                  loading="lazy"
-                  decoding="async"
-                  width="56"
-                  height="56"
-                />
+                {d.avatarUrl ? (
+                  <img
+                    class="dw-doctor-avatar dw-doctor-avatar-img"
+                    src={d.avatarUrl}
+                    alt={d.shortName}
+                    loading="lazy"
+                    decoding="async"
+                    width="56"
+                    height="56"
+                  />
+                ) : (
+                  <span class="dw-doctor-avatar" style={`background-color:${d.avatarColor}`}>
+                    {d.initials}
+                  </span>
+                )}
                 <div class="dw-doctor-head-body">
-                  <span class="dw-doctor-name">{d.name}</span>
-                  <span class="dw-doctor-spec">{d.specialty}</span>
+                  <span class="dw-doctor-name">{d.shortName}</span>
+                  <span class="dw-doctor-spec">{d.specialization}</span>
                 </div>
               </div>
-            <div class="dw-doctor-meta">
-              <span class="dw-doctor-rating">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#E8B96A"><path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/></svg>
-                {d.rating?.toFixed(1) ?? "—"}
-              </span>
-              <span class="dw-doctor-muted">{d.ratingCount ?? 0} отзывов</span>
-            </div>
-            <div class="dw-doctor-slot">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-              {d.clinic}
-            </div>
+            {d.city && (
+              <div class="dw-doctor-slot">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+                {d.city}
+              </div>
+            )}
             <div class="dw-doctor-cta-row">
-              <span class="dw-doctor-price">от <strong>3 500 ₽</strong></span>
+              {formatPriceKgs(d.priceFrom)
+                ? <span class="dw-doctor-price">от <strong>{formatPriceKgs(d.priceFrom)}</strong></span>
+                : <span />}
               <span class="dw-doctor-book">Записаться</span>
             </div>
           </a>

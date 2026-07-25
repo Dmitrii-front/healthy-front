@@ -4,6 +4,7 @@ dist
 *.log
 .vite
 .idea
+.env
 tsconfig.tsbuildinfo
 .claude
 CLAUDE.md

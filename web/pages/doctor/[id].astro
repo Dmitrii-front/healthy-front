@@ -3,31 +3,41 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import JsonLd from "../../components/seo/JsonLd.astro";
 import BookingTrigger from "../../components/booking/BookingTrigger.astro";
 import BookingModal from "../../components/booking/BookingModal.astro";
-import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
+import { searchDoctors, getDoctorProfile, formatPriceKgs } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../../lib/slug";
 import { generateMockSlots } from "../../lib/mock-slots";
 
 export async function getStaticPaths() {
-  return DOCTOR_MOCKS.map((doctor) => ({
-    params: { id: doctorSlug(doctor) },
-    props: { doctor },
-  }));
+  const catalog = await searchDoctors();
+  const paths = await Promise.all(
+    catalog.map(async (item) => {
+      // Поиск не отдаёт ни мест работы, ни стажа, ни образования — за ними
+      // приходится идти в полный профиль на каждого врача.
+      const doctor = await getDoctorProfile(item.id);
+      return doctor === null
+        ? null
+        : {
+            params: { id: doctorSlug({ id: doctor.id, name: doctor.fullName }) },
+            props: { doctor },
+          };
+    }),
+  );
+  // Профиль мог не открыться при живом поиске — такого врача пропускаем,
+  // getDoctorProfile уже написал предупреждение в лог сборки.
+  return paths.filter((path) => path !== null);
 }
 
 const { doctor } = Astro.props;
 
-const specialty = SPECIALTIES.find((s) => s.doctorSpecialty === doctor.specialty);
+const specialty = SPECIALTIES.find((s) => s.doctorSpecialty === doctor.specialization);
+const workplace = doctor.workplaces[0] ?? null;
+const clinicName = workplace?.name ?? null;
 const description = doctor.bio
   ? doctor.bio.slice(0, 155) + (doctor.bio.length > 155 ? "…" : "")
-  : `${doctor.name} — ${doctor.specialty} в клинике «${doctor.clinic}». Запись онлайн.`;
+  : `${doctor.fullName} — ${doctor.specialization}${clinicName ? ` в клинике «${clinicName}»` : ""}. Запись онлайн.`;
 
 // ── Display helpers ────────────────────────────────────────────────
-const FORMAT_LABELS: Record<string, string> = {
-  online: "Онлайн по видео",
-  "in-person": "В клинике",
-  "home-visit": "Выезд на дом",
-};
 const MONTHS_GEN = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const MONTHS_NOM = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const DOW_SHORT = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -40,28 +50,23 @@ function pluralYears(n: number): string {
   return "лет";
 }
 
-const priceLabel =
-  doctor.priceFrom != null ? `${new Intl.NumberFormat("ru-RU").format(doctor.priceFrom)} ₸` : null;
-const formats = (doctor.consultationFormats ?? []).map((f) => FORMAT_LABELS[f] ?? f);
-const treats = doctor.conditionsTreated ?? [];
-const certificates = doctor.certificates ?? [];
-const hasCredentials = Boolean(doctor.education) || certificates.length > 0;
+const priceLabel = formatPriceKgs(doctor.priceFrom);
 
 // "О враче" always renders. When the doctor has no written bio, compose a
 // truthful intro from the fields we do have (no invented medical claims).
 const bioText =
   doctor.bio ??
   [
-    `${doctor.specialty}${doctor.subspecialty ? `, ${doctor.subspecialty.toLowerCase()}` : ""}.`,
-    doctor.yearsExperience != null
+    `${doctor.specialization}${doctor.subspecializations.length > 0 ? `, ${doctor.subspecializations.join(", ").toLowerCase()}` : ""}.`,
+    doctor.yearsExperience !== null
       ? `Опыт работы — ${doctor.yearsExperience} ${pluralYears(doctor.yearsExperience)}.`
       : "",
-    `Принимает в клинике ${doctor.clinic}${doctor.city ? `, ${doctor.city}` : ""}.`,
+    clinicName ? `Принимает в клинике ${clinicName}${doctor.city ? `, ${doctor.city}` : ""}.` : "",
   ]
     .filter(Boolean)
     .join(" ");
 const mapQuery = encodeURIComponent(
-  [doctor.clinic, doctor.address, doctor.city].filter(Boolean).join(", "),
+  [clinicName, workplace?.address, doctor.city].filter(Boolean).join(", "),
 );
 
 // ── Inline booking calendar data (reuses the same mock slots as the modal) ──
@@ -90,35 +95,30 @@ const padStart = days[0] ? days[0].dow : 0;
 const physicianJsonLd: Record<string, unknown> = {
   "@context": "https://schema.org",
   "@type": "Physician",
-  name: doctor.name,
-  medicalSpecialty: doctor.specialty,
-  worksFor: {
-    "@type": "MedicalOrganization",
-    name: doctor.clinic,
-    ...(doctor.address ? { address: doctor.address } : {}),
-  },
+  name: doctor.fullName,
+  medicalSpecialty: doctor.specialization,
+  // Место работы попадает в разметку, только если врач его завёл: выдумывать
+  // организацию ради заполненного поля нельзя — это structured data для поисковика.
+  ...(workplace
+    ? {
+        worksFor: {
+          "@type": "MedicalOrganization",
+          name: workplace.name,
+          address: workplace.address,
+        },
+      }
+    : {}),
   ...(doctor.education ? { alumniOf: doctor.education } : {}),
-  ...(doctor.languages ? { knowsLanguage: doctor.languages } : {}),
-  ...(doctor.rating
+  ...(doctor.languages.length > 0 ? { knowsLanguage: doctor.languages } : {}),
+  ...(doctor.rating !== null
     ? {
         aggregateRating: {
           "@type": "AggregateRating",
           ratingValue: doctor.rating,
-          reviewCount: doctor.ratingCount ?? 0,
+          reviewCount: doctor.reviewsCount,
           bestRating: 5,
           worstRating: 1,
         },
-      }
-    : {}),
-  ...(doctor.reviews && doctor.reviews.length
-    ? {
-        review: doctor.reviews.map((r) => ({
-          "@type": "Review",
-          author: { "@type": "Person", name: r.author },
-          datePublished: r.date,
-          reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
-          reviewBody: r.text,
-        })),
       }
     : {}),
 };
@@ -137,14 +137,14 @@ const breadcrumbs = {
             name: specialty.label,
             item: `https://sdoctorom.health/search?specialty=${encodeURIComponent(specialty.doctorSpecialty)}`,
           },
-          { "@type": "ListItem", position: 4, name: doctor.name },
+          { "@type": "ListItem", position: 4, name: doctor.fullName },
         ]
-      : [{ "@type": "ListItem", position: 3, name: doctor.name }]),
+      : [{ "@type": "ListItem", position: 3, name: doctor.fullName }]),
   ],
 };
 ---
 
-<BaseLayout title={`${doctor.name} — ${doctor.specialty} | Healthy`} description={description}>
+<BaseLayout title={`${doctor.fullName} — ${doctor.specialization} | Healthy`} description={description}>
   <div class="min-h-dvh bg-[#faf8f5]">
     <main class="mx-auto max-w-[960px] px-4 pb-16 pt-5 sm:px-8">
       {/* Breadcrumbs */}
@@ -162,16 +162,16 @@ const breadcrumbs = {
             <span class="mx-1.5">›</span>
           </>
         )}
-        <span class="text-[#2a2d33]">{doctor.name}</span>
+        <span class="text-[#2a2d33]">{doctor.fullName}</span>
       </nav>
 
       <div class="flex flex-col gap-6">
         {/* ── Hero ─────────────────────────────────────────── */}
         <section class="grid grid-cols-1 gap-7 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:grid-cols-[140px_1fr] sm:p-7">
-          {doctor.photoUrl ? (
+          {doctor.avatarUrl ? (
             <img
-              src={doctor.photoUrl}
-              alt={doctor.name}
+              src={doctor.avatarUrl}
+              alt={doctor.fullName}
               width="140"
               height="140"
               class="h-[140px] w-[140px] rounded-[20px] object-cover"
@@ -179,7 +179,7 @@ const breadcrumbs = {
           ) : (
             <span
               class="flex h-[140px] w-[140px] items-center justify-center rounded-[20px] text-[40px] font-semibold tracking-[0.01em] text-[#0f1115]"
-              style={`background-color: ${doctor.color}`}
+              style={`background-color: ${doctor.avatarColor}`}
             >
               {doctor.initials}
             </span>
@@ -195,10 +195,10 @@ const breadcrumbs = {
 
             <div>
               <h1 class="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#0f1115] text-pretty">
-                {doctor.name}
+                {doctor.fullName}
               </h1>
               <p class="mt-1.5 text-[14px] font-medium text-[#2a2d33]">
-                {doctor.specialty}{doctor.subspecialty ? `, ${doctor.subspecialty.toLowerCase()}` : ""}
+                {doctor.specialization}{doctor.subspecializations.length > 0 ? `, ${doctor.subspecializations.join(", ").toLowerCase()}` : ""}
               </p>
             </div>
 
@@ -209,10 +209,10 @@ const breadcrumbs = {
               {doctor.rating != null && (
                 <span>
                   <strong class="font-semibold text-[#0f1115]">★ {doctor.rating.toFixed(1)}</strong>
-                  {doctor.ratingCount ? <span class="text-[#8a8e96]"> · {doctor.ratingCount} отзывов</span> : null}
+                  {doctor.reviewsCount ? <span class="text-[#8a8e96]"> · {doctor.reviewsCount} отзывов</span> : null}
                 </span>
               )}
-              <span class="text-[#2a2d33]">{doctor.clinic}</span>
+              {clinicName && <span class="text-[#2a2d33]">{clinicName}</span>}
             </div>
           </div>
         </section>
@@ -308,15 +308,17 @@ const breadcrumbs = {
           <span class="sr-only">
             <BookingTrigger
               doctorId={doctor.id}
-              doctorName={doctor.name}
-              doctorSpecialty={doctor.specialty}
-              doctorClinic={doctor.clinic}
+              doctorName={doctor.fullName}
+              doctorSpecialty={doctor.specialization}
+              doctorClinic={clinicName ?? ""}
               label="Записаться"
             />
           </span>
         </section>
 
         {/* ── Where / map ──────────────────────────────────── */}
+        {/* Врач мог не завести рабочее место — тогда «Где принимает» показывать нечем. */}
+        {workplace && (
         <section class="grid grid-cols-1 overflow-hidden rounded-[24px] border border-[#edebe6] bg-white md:grid-cols-[1.2fr_1fr]">
           <div class="relative min-h-[260px] bg-[#eaf2f4]">
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" class="absolute inset-0" aria-hidden="true">
@@ -338,24 +340,23 @@ const breadcrumbs = {
             <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
               <div class="flex items-center gap-2 whitespace-nowrap rounded-[14px] bg-[#0e7c8c] px-3.5 py-2.5 text-[12px] font-bold text-white shadow-[0_12px_28px_rgba(10,31,37,0.25)]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V7l7-4 7 4v14" /></svg>
-                {doctor.clinic}
+                {clinicName ?? ""}
               </div>
             </div>
-            {(doctor.city || doctor.distance) && (
+            {doctor.city && (
               <div class="absolute left-4 top-4 inline-flex items-center gap-2 rounded-[10px] bg-white/95 px-3 py-2 text-[12px] font-semibold text-[#0f1115] backdrop-blur-sm">
                 <span class="h-2.5 w-2.5 rounded-full bg-[#e8b96a]"></span>
-                {[doctor.city, doctor.distance].filter(Boolean).join(" · ")}
+                {doctor.city}
               </div>
             )}
           </div>
 
           <div class="flex flex-col gap-3.5 p-7">
             <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Где принимает</h2>
-            <div class="text-[16px] font-bold text-[#0f1115]">{doctor.clinic}</div>
+            <div class="text-[16px] font-bold text-[#0f1115]">{clinicName ?? ""}</div>
             <div class="text-[13px] leading-relaxed text-[#2a2d33]">
-              {doctor.address && <>{doctor.address}<br /></>}
-              {doctor.clinicHours && <>{doctor.clinicHours}<br /></>}
-              {doctor.phone && <span class="tabular-nums">{doctor.phone}</span>}
+              {workplace?.address && <>{workplace.address}<br /></>}
+              {workplace?.description && <>{workplace.description}</>}
             </div>
             <a
               href={`https://2gis.kz/search/${mapQuery}`}
@@ -368,61 +369,28 @@ const breadcrumbs = {
             </a>
           </div>
         </section>
-
-        {/* ── О враче ──────────────────────────────────────── */}
-        {(
-          <section class="flex flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
-            <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">О враче</h2>
-            <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{bioText}</p>
-
-            {treats.length > 0 && (
-              <div>
-                <div class="mb-2.5 text-[13px] font-bold text-[#0f1115]">Лечит и помогает разобраться</div>
-                <div class="flex flex-wrap gap-2">
-                  {treats.map((t) => (
-                    <span class="rounded-full border border-[#edebe6] bg-[#faf8f5] px-[13px] py-[7px] text-[12px] font-medium text-[#2a2d33]">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(doctor.languages?.length || formats.length > 0) && (
-              <div class="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[13px] text-[#2a2d33]">
-                {doctor.languages && doctor.languages.length > 0 && (
-                  <span class="inline-flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M2 12h20" /><path d="M12 2a14 14 0 0 1 0 20" /><path d="M12 2a14 14 0 0 0 0 20" /></svg>
-                    {doctor.languages.join(", ")}
-                  </span>
-                )}
-                {formats.length > 0 && (
-                  <span class="inline-flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h6l3-9 4 18 3-9h4" /></svg>
-                    {formats.join(" · ")}
-                  </span>
-                )}
-              </div>
-            )}
-          </section>
         )}
 
+        {/* ── О враче ──────────────────────────────────────── */}
+        <section class="flex flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+          <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">О враче</h2>
+          <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{bioText}</p>
+
+          {doctor.languages.length > 0 && (
+            <div class="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[13px] text-[#2a2d33]">
+              <span class="inline-flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8e96" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M2 12h20" /><path d="M12 2a14 14 0 0 1 0 20" /><path d="M12 2a14 14 0 0 0 0 20" /></svg>
+                {doctor.languages.join(", ")}
+              </span>
+            </div>
+          )}
+        </section>
+
         {/* ── Образование ──────────────────────────────────── */}
-        {hasCredentials && (
+        {doctor.education && (
           <section class="flex flex-col gap-5 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
             <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">Образование</h2>
-            {doctor.education && <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{doctor.education}</p>}
-            {certificates.length > 0 && (
-              <div class="border-t border-[#edebe6] pt-5">
-                <div class="mb-3 text-[11px] font-bold uppercase tracking-[0.06em] text-[#8a8e96]">Сертификаты и членство</div>
-                <ul class="flex flex-col gap-2">
-                  {certificates.map((c) => (
-                    <li class="flex items-start gap-2.5 text-[14px] leading-[1.5] text-[#2a2d33]">
-                      <svg class="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0e7c8c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
-                      {c}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{doctor.education}</p>
           </section>
         )}
       </div>
