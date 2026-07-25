@@ -21,15 +21,15 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^13.6.1",
-    "@astrojs/mdx": "^6.0.2",
-    "@astrojs/react": "^5.0.7",
+    "@astrojs/cloudflare": "^14.1.4",
+    "@astrojs/mdx": "^7.0.3",
+    "@astrojs/react": "^6.0.1",
     "@astrojs/sitemap": "^3.7.3",
     "@hookform/resolvers": "latest",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-query-devtools": "^5.101.0",
     "@tanstack/react-router": "latest",
-    "astro": "^6.4.4",
+    "astro": "^7.1.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.77.0",
@@ -54,7 +54,7 @@
     "steiger": "^0.5.12",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "vite": "^7.3.5",
+    "vite": "^8.0.13",
     "wrangler": "^4.97.0"
   },
   "engines": {

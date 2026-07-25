@@ -11,4 +11,4 @@ onlyBuiltDependencies:
   - workerd
 
 overrides:
-  vite: ^7.3.3
+  vite: ^8.0.13
