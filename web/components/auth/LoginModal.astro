@@ -92,7 +92,7 @@ const { returnTo = "/app/" } = Astro.props;
               <svg class="hm-meter-icon hm-meter-icon--on" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M2.5 6.25L5 8.5L9.5 3.75" />
               </svg>
-              <span>Заглавная</span>
+              <span>Заглавная латинская</span>
             </li>
             <li class="hm-meter-rule" data-rule="digit">
               <svg class="hm-meter-icon hm-meter-icon--off" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
@@ -112,10 +112,12 @@ const { returnTo = "/app/" } = Astro.props;
 
         <label class="hm-agree" data-el="agree-row" hidden>
           <input type="checkbox" data-el="agree" />
+          {/* {" "} обязательны: компилятор срезает пробелы на переносах строк,
+              и текст слипается со ссылками. */}
           <span>
-            Я принимаю
-            <a href="#" target="_blank" rel="noopener">Условия использования</a>
-            и
+            Я принимаю{" "}
+            <a href="#" target="_blank" rel="noopener">Условия использования</a>{" "}
+            и{" "}
             <a href="#" target="_blank" rel="noopener">Политику конфиденциальности</a>,
             включая согласие на обработку персональных данных.
           </span>
@@ -590,7 +592,7 @@ const { returnTo = "/app/" } = Astro.props;
       const value = passwordInput?.value ?? "";
       const rules: Record<string, boolean> = {
         length: value.length >= 8,
-        upper: /[A-ZА-Я]/.test(value),
+        upper: /[A-Z]/.test(value),
         digit: /[0-9]/.test(value),
       };
       meterSegs.forEach((seg) => {

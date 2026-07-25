@@ -97,11 +97,16 @@ export const EmailSchema = v.pipe(
   v.email('Введите корректный email'),
 )
 
-/** Mirrors the NestJS rule: ≥ 8 chars, ≥ 1 uppercase, ≥ 1 digit. */
+/**
+ * Mirrors the NestJS rule: ≥ 8 chars, ≥ 1 uppercase, ≥ 1 digit. Заглавная —
+ * именно латинская: бэкенд проверяет `(?=.*[A-Z])`, и кириллическая «П» его
+ * не устраивает. Раньше здесь стояло `[A-ZА-Я]`, из-за чего индикатор пароля
+ * зеленел, а регистрация падала с 400.
+ */
 export const PasswordSchema = v.pipe(
   v.string(),
   v.minLength(8, 'Минимум 8 символов'),
-  v.regex(/[A-ZА-Я]/, 'Должна быть хотя бы одна заглавная буква'),
+  v.regex(/[A-Z]/, 'Нужна заглавная латинская буква'),
   v.regex(/[0-9]/, 'Должна быть хотя бы одна цифра'),
 )
 
@@ -156,15 +161,29 @@ function isVerificationRequiredBody(body: unknown): body is VerificationRequired
   )
 }
 
+/**
+ * Shape the NestJS global filter actually emits (see HttpExceptionFilter):
+ * `{ errorCode, status: "Error", payload: { code, message } }`. It carries no
+ * email, so callers that hit a verification gate pass the address the user
+ * just typed. Kept alongside `isVerificationRequiredBody` — that one matches
+ * the richer `{code, email}` contract we'd rather the backend move to.
+ */
+function backendErrorCode(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null
+  if (!('errorCode' in body)) return null
+  return typeof body.errorCode === 'string' ? body.errorCode : null
+}
+
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
   const result = v.safeParse(LoginSchema, { email, password })
   if (!result.success) {
     throw new Error(result.issues[0]?.message ?? 'Проверьте данные')
   }
-  const response = await apiFetch<BackendAuthResponse>('/auth/login', {
-    email: result.output.email,
-    password: result.output.password,
-  })
+  const response = await apiFetch<BackendAuthResponse>(
+    '/auth/login',
+    { email: result.output.email, password: result.output.password },
+    result.output.email,
+  )
   writeAuth({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
@@ -193,10 +212,11 @@ export async function registerWithEmail(email: string, password: string): Promis
   if (!result.success) {
     throw new Error(result.issues[0]?.message ?? 'Проверьте данные')
   }
-  const response = await apiFetch<RegisterBackendResponse>('/auth/register', {
-    email: result.output.email,
-    password: result.output.password,
-  })
+  const response = await apiFetch<RegisterBackendResponse>(
+    '/auth/register',
+    { email: result.output.email, password: result.output.password },
+    result.output.email,
+  )
   // Empty body OR explicit VERIFICATION_REQUIRED OR a tokenless body —
   // all mean "account created, email confirmation pending". Use the
   // email the backend echoed when available, otherwise fall back to the
@@ -230,7 +250,7 @@ export async function resendVerification(email: string): Promise<{ email: string
   if (!result.success) {
     throw new Error(result.issues[0]?.message ?? 'Введите корректный email')
   }
-  await apiFetch<{ message?: string }>('/auth/resend-verification', {
+  await apiFetch<{ message?: string }>('/auth/resend-email-verification', {
     email: result.output.email,
   })
   return { email: result.output.email }
@@ -243,7 +263,7 @@ interface ApiErrorBody {
   statusCode?: number
 }
 
-async function apiFetch<T>(path: string, body: unknown): Promise<T> {
+async function apiFetch<T>(path: string, body: unknown, submittedEmail?: string): Promise<T> {
   let response: Response
   try {
     response = await fetch(new URL(path, API_URL), {
@@ -277,12 +297,21 @@ async function apiFetch<T>(path: string, body: unknown): Promise<T> {
   }
 
   const errBody: unknown = await response.json().catch(() => null)
-  // 403 + structured verification-required body → throw the typed error so
-  // the modal can switch to the verify-pending pane instead of showing
-  // "Ошибка 403" in red. Backend contract: { code: "EMAIL_NOT_VERIFIED", email }
-  if (response.status === 403 && isVerificationRequiredBody(errBody)) {
-    throw new EmailNotVerifiedError(errBody.email)
+  // 403 + verification gate → throw the typed error so the modal can switch to
+  // the verify-pending pane instead of showing "Ошибка 403" in red. Two shapes
+  // are accepted: the richer `{code, email}` contract, and what the backend
+  // sends today — `{errorCode: "EMAIL_NOT_VERIFIED"}` with no email, hence the
+  // fallback to the address the user just submitted.
+  if (response.status === 403) {
+    if (isVerificationRequiredBody(errBody)) {
+      throw new EmailNotVerifiedError(errBody.email)
+    }
+    const code = backendErrorCode(errBody)
+    if ((code === 'EMAIL_NOT_VERIFIED' || code === 'VERIFICATION_REQUIRED') && submittedEmail) {
+      throw new EmailNotVerifiedError(submittedEmail)
+    }
   }
+
   throw new Error(formatBackendError(response.status, toApiErrorBody(errBody)))
 }
 
