@@ -163,12 +163,22 @@
       },
       { passive: true },
     );
-    header.addEventListener("touchend", () => {
-      const shouldClose = touchDy > 90;
+    const endSwipe = (): number => {
+      const travelled = touchDy;
       modal.style.transform = "";
       touchStartY = null;
-      if (shouldClose) modal.close();
+      touchDy = 0;
+      return travelled;
+    };
+    header.addEventListener("touchend", () => {
+      if (endSwipe() > 90) modal.close();
     });
+    // Жест может не закончиться, а быть отменённым: системный свайп от края,
+    // входящий звонок, шторка уведомлений. touchend тогда не приходит вовсе, и
+    // без этой строки инлайновый transform остаётся на диалоге навсегда —
+    // close() инлайновые стили не трогает, а анимация открытия лишь маскирует
+    // смещение на своё время и возвращает шит уехавшим вниз.
+    header.addEventListener("touchcancel", endSwipe);
 
     modal.querySelector('[data-action="hm-map-zoom-in"]')?.addEventListener("click", () => {
       if (map) stepZoom(map, 1);
@@ -199,6 +209,21 @@
     // открытие заново тянет тайлы уже загруженного города и моргает белым.
     let map: YandexMap | null = null;
     let marker: YandexMapMarker | null = null;
+    // Между кликом и готовым YMap лежит загрузка стокилобайтного скрипта, и за
+    // это время шит успевают закрыть и открыть на другом месте. Без флага второй
+    // вызов снова увидел бы map === null и построил ВТОРУЮ карту в том же холсте:
+    // лишний пин, второй поток тайлов и первая карта, на которую не осталось
+    // ссылки — ни перевезти, ни убрать. Точку держим отдельно: пока идёт сборка,
+    // побеждает последний клик, а не тот, что её запустил.
+    let building = false;
+    let wanted: LngLat | null = null;
+
+    /** Перевозит уже построенную карту на текущую точку. */
+    function flyToWanted() {
+      if (map === null || wanted === null) return;
+      map.setLocation({ center: wanted, zoom: ZOOM });
+      marker?.update({ coordinates: wanted });
+    }
 
     /**
      * Показывает подпись поверх холста. Ссылка наружу поднимается только при
@@ -212,22 +237,28 @@
     }
 
     async function renderMap(center: LngLat) {
+      wanted = center;
       // Уже построена — просто перелетаем. Без анимации: шит только что открылся,
       // и «полёт» от прошлой клиники к текущей читался бы как промах.
-      if (map) {
-        map.setLocation({ center, zoom: ZOOM });
-        marker?.update({ coordinates: center });
+      if (map !== null) {
+        flyToWanted();
         return;
       }
+      // Сборка уже идёт — она сама возьмёт точку, актуальную на момент создания.
+      if (building) return;
 
+      building = true;
       showState("Загружаем карту…");
       try {
         const ymaps3 = await loadYandexMaps();
         const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker } = ymaps3;
 
+        // Пока грузился скрипт, пациент мог открыть другое место: строим по
+        // последней запрошенной точке, а не по той, с которой всё началось.
+        const start = wanted ?? center;
         state.hidden = true;
         const instance = new YMap(canvas, {
-          location: { center, zoom: ZOOM },
+          location: { center: start, zoom: ZOOM },
           // Без 'vector' карта сперва отдаёт растровые тайлы, и стоковая
           // серо-зелёная подложка успевает моргнуть до прихода нашего стиля.
           mode: "vector",
@@ -253,20 +284,24 @@
           <path d="M15 37C15 37 27 23.6 27 14.4C27 7 21.6 1 15 1C8.4 1 3 7 3 14.4C3 23.6 15 37 15 37Z" fill="#0e7c8c" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
           <circle cx="15" cy="14" r="4.6" fill="#fff"/>
         </svg>`;
-        const created = new YMapMarker({ coordinates: center }, pin);
+        const created = new YMapMarker({ coordinates: start }, pin);
         instance.addChild(created);
 
         map = instance;
         marker = created;
         zoomBox.hidden = false;
+        // Клик мог прийти и после того, как точка ушла в конструктор.
+        flyToWanted();
       } catch {
         // Нет ключа, заблокирован Referer, оффлайн — пациенту одинаково нужен
         // работающий выход наружу, а он всегда есть в ссылке под холстом.
         //
         // Флага «больше не пробовать» нет намеренно: loadYandexMaps сбрасывает
-        // свой промис на ошибке, и разовый сетевой сбой не должен запирать карту
+        // свой промис на ЛЮБОЙ ошибке, и разовый сбой не должен запирать карту
         // до перезагрузки страницы. Повтор стоит одного запроса за открытие.
         showState("Карта не загрузилась.", true);
+      } finally {
+        building = false;
       }
     }
 

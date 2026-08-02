@@ -177,6 +177,19 @@ export async function loadYandexMaps(): Promise<Ymaps3> {
   if (loading) return loading
 
   loading = new Promise<Ymaps3>((resolve, reject) => {
+    // Ключ с чужим доменом в ограничениях, оффлайн, блокировщик — во всех
+    // случаях наверх уходит одна ошибка, а вызывающая сторона показывает запасной
+    // путь. Промис при этом сбрасываем: следующий клик имеет право попробовать
+    // снова, иначе разовый сбой убивал бы карту до перезагрузки страницы.
+    //
+    // Сброс идёт через общий fail(), а не только в onerror: отказ приходит по
+    // трём разным дорогам (сеть, скрипт без глобала, отклонённый ready), и
+    // закэшированный отклонённый промис на любой из них запирал бы карту
+    // навсегда — вопреки этому же обещанию.
+    const fail = (error: Error) => {
+      loading = null
+      reject(error)
+    }
     const script = document.createElement('script')
     script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(
       env.YANDEX_MAPS_KEY,
@@ -185,19 +198,20 @@ export async function loadYandexMaps(): Promise<Ymaps3> {
     script.onload = () => {
       const api = window.ymaps3
       if (!api) {
-        reject(new Error('Яндекс Карты: скрипт загрузился, но глобальный ymaps3 не появился'))
+        fail(new Error('Яндекс Карты: скрипт загрузился, но глобальный ymaps3 не появился'))
         return
       }
-      api.ready.then(() => resolve(api), reject)
+      api.ready.then(
+        () => resolve(api),
+        (error: unknown) =>
+          fail(
+            error instanceof Error ? error : new Error('Яндекс Карты: JS API не инициализировался'),
+          ),
+      )
     }
-    // Ключ с чужим доменом в ограничениях, оффлайн, блокировщик — во всех
-    // случаях наверх уходит одна ошибка, а вызывающая сторона показывает запасной
-    // путь. Промис при этом сбрасываем: следующий клик имеет право попробовать
-    // снова, иначе разовый сетевой сбой убивал бы карту до перезагрузки страницы.
     script.onerror = () => {
-      loading = null
       script.remove()
-      reject(new Error('Яндекс Карты: не удалось загрузить JS API'))
+      fail(new Error('Яндекс Карты: не удалось загрузить JS API'))
     }
     document.head.appendChild(script)
   })
