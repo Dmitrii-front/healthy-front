@@ -1,0 +1,93 @@
+---
+// Подвал сайта. Про две версии и проп variant — см. комментарий в SiteHeader.astro.
+//
+// Ссылки на «#» оставлены как были: страниц «О нас», «Контакты», «Помощь» и
+// «Политика» ещё нет. Их надо либо завести, либо убрать из подвала — заглушка
+// в юридическом блоке медицинского сервиса хуже, чем её отсутствие.
+import "../../styles/site-chrome.css";
+
+interface Props {
+  variant: "mobile" | "desktop";
+}
+
+const { variant } = Astro.props;
+
+// Цифры разъезжались: index обещал 2 800+ специалистов и 50 000+ записей,
+// search — 1 200+ и 12 000+. Здесь одна строка на весь сайт; какая из двух
+// правда, знает продукт, но противоречить сама себе она больше не может.
+const TAGLINE = "Сервис записи к врачу: 2 800+ специалистов, 50 000+ записей в месяц.";
+---
+
+{
+  variant === "mobile" ? (
+    <footer class="mw-footer">
+      <a href="/" class="mw-logo" style="margin-bottom:16px" aria-label="Healthy — на главную">
+        <span class="mw-logo-mark" aria-hidden="true">
+          H
+        </span>
+        <span class="mw-logo-text">Healthy</span>
+      </a>
+      <div class="mw-footer-cols">
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Пациентам</div>
+          <a href="/search">Найти врача</a>
+        </div>
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Компания</div>
+          <a href="#">О нас</a>
+          <a href="#">Контакты</a>
+        </div>
+        <div class="mw-footer-col">
+          <div class="mw-footer-title">Поддержка</div>
+          <a href="#">Помощь</a>
+          <a href="#">Политика</a>
+        </div>
+      </div>
+      {/* Номера лицензии здесь нет намеренно: регистрационных данных по KG
+          пока не существует, а выдуманные — хуже молчания. */}
+      <div class="mw-footer-fine">
+        <div>© 2026 Healthy. Сервис записи к врачам.</div>
+        <div>Бишкек</div>
+      </div>
+    </footer>
+  ) : (
+    <footer class="dw-footer">
+      <div class="dw-footer-inner">
+        <div class="dw-footer-grid">
+          <div class="dw-footer-brand">
+            <a href="/" class="mw-logo" aria-label="Healthy — на главную">
+              <span class="mw-logo-mark" aria-hidden="true">
+                H
+              </span>
+              <span class="mw-logo-text">Healthy</span>
+            </a>
+            <p>{TAGLINE}</p>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Пациентам</div>
+            <a href="/search">Найти врача</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Компания</div>
+            <a href="#">О нас</a>
+            <a href="#">Контакты</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Поддержка</div>
+            <a href="#">Помощь</a>
+            <a href="#">Политика</a>
+          </div>
+          <div class="dw-footer-col">
+            <div class="dw-footer-title">Регионы</div>
+            <a href="#">Бишкек</a>
+          </div>
+        </div>
+        {/* См. комментарий про лицензию в мобильной версии выше. */}
+        <div class="dw-footer-bottom">
+          <span>© 2026 Healthy. Все права защищены.</span>
+          <span>Бишкек</span>
+        </div>
+      </div>
+    </footer>
+  )
+}

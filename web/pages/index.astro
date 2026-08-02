@@ -1,8 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
-import LoginButton from "../components/auth/LoginButton.astro";
 import LoginModal from "../components/auth/LoginModal.astro";
+import SiteHeader from "../components/layout/SiteHeader.astro";
+import SiteFooter from "../components/layout/SiteFooter.astro";
 import { searchDoctors, formatPriceKgs } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../lib/slug";
@@ -133,10 +134,9 @@ const orgJsonLd = {
   name: "Healthy",
   url: "https://sdoctorom.health",
   description:
-    "Сервис записи к проверенным врачам в Бишкеке и Алматы. Кардиологи, терапевты, педиатры и другие специалисты.",
+    "Сервис записи к проверенным врачам в Бишкеке. Кардиологи, терапевты, педиатры и другие специалисты.",
   areaServed: [
     { "@type": "City", name: "Бишкек" },
-    { "@type": "City", name: "Алматы" },
   ],
   medicalSpecialty: SPECIALTIES.map((s) => s.doctorSpecialty),
 };
@@ -156,19 +156,12 @@ const websiteJsonLd = {
 ---
 
 <BaseLayout
-  title="Healthy — запись к врачу в Бишкеке и Алматы"
-  description="Запись к проверенным врачам онлайн. Кардиологи, терапевты, педиатры, дерматологи, неврологи и другие специалисты в Бишкеке и Алматы."
+  title="Healthy — запись к врачу в Бишкеке"
+  description="Запись к проверенным врачам онлайн. Кардиологи, терапевты, педиатры, дерматологи, неврологи и другие специалисты в Бишкеке."
 >
   <div class="mw-shell">
     {/* ── TOP BAR ─────────────────────────── */}
-    <header class="mw-topbar" id="mw-topbar">
-      <div class="mw-logo">
-        <span class="mw-logo-mark">H</span>
-        <span class="mw-logo-text">Healthy</span>
-      </div>
-      <div class="mw-spacer" />
-      <div class="mw-cta-slot"><LoginButton /></div>
-    </header>
+    <SiteHeader variant="mobile" />
 
     {/* ── HERO CAROUSEL (pure CSS auto-rotate) ─ */}
     <section class="mw-hero-wrap">
@@ -342,34 +335,7 @@ const websiteJsonLd = {
     </section>
 
     {/* ── FOOTER ──────────────────────────── */}
-    <footer class="mw-footer">
-      <div class="mw-logo" style="margin-bottom:16px">
-        <span class="mw-logo-mark">H</span>
-        <span class="mw-logo-text">Healthy</span>
-      </div>
-      <div class="mw-footer-cols">
-        <div class="mw-footer-col">
-          <div class="mw-footer-title">Пациентам</div>
-          <a href="/search">Найти врача</a>
-        </div>
-        <div class="mw-footer-col">
-          <div class="mw-footer-title">Компания</div>
-          <a href="#">О нас</a>
-          <a href="#">Контакты</a>
-        </div>
-        <div class="mw-footer-col">
-          <div class="mw-footer-title">Поддержка</div>
-          <a href="#">Помощь</a>
-          <a href="#">Политика</a>
-        </div>
-      </div>
-      {/* No fake licence — KG/KZ registration data goes here once it exists. */}
-      <div class="mw-footer-fine">
-        <div>© 2026 Healthy. Сервис записи к врачам.</div>
-        <div>Бишкек · Алматы</div>
-        <div>Информация на сайте не является публичной офертой.</div>
-      </div>
-    </footer>
+    <SiteFooter variant="mobile" />
   </div>
 
   {/* ════════════════════════════════════════════════════════════ */}
@@ -377,23 +343,7 @@ const websiteJsonLd = {
   {/* ════════════════════════════════════════════════════════════ */}
   <div class="dw-page">
     {/* ── HEADER ─────────────────────────────────── */}
-    <header class="dw-header">
-      <div class="dw-header-inner">
-        <div class="dw-header-left">
-          <a href="/" class="mw-logo dw-logo">
-            <span class="mw-logo-mark">H</span>
-            <span class="mw-logo-text">Healthy</span>
-          </a>
-          {/* Only ship nav items with real destinations. Add the rest as routes land. */}
-          <nav class="dw-nav">
-            <a href="/search">Найти врача</a>
-          </nav>
-        </div>
-        <div class="dw-header-right">
-          <div class="dw-auth-slot"><LoginButton /></div>
-        </div>
-      </div>
-    </header>
+    <SiteHeader variant="desktop" />
 
     {/* ── HERO CAROUSEL (pure CSS auto-rotate) ─── */}
     <section class="dw-hero-section">
@@ -642,43 +592,7 @@ const websiteJsonLd = {
     </section>
 
     {/* ── DESKTOP FOOTER ────────────────────── */}
-    <footer class="dw-footer">
-      <div class="dw-footer-inner">
-        <div class="dw-footer-grid">
-          <div class="dw-footer-brand">
-            <div class="mw-logo dw-logo-light">
-              <span class="mw-logo-mark">H</span>
-              <span class="mw-logo-text" style="color:#fff">Healthy</span>
-            </div>
-            <p>Сервис записи к врачу: 2 800+ специалистов, 50 000+ записей в месяц.</p>
-          </div>
-          <div class="dw-footer-col">
-            <div class="dw-footer-title">Пациентам</div>
-            <a href="/search">Найти врача</a>
-          </div>
-          <div class="dw-footer-col">
-            <div class="dw-footer-title">Компания</div>
-            <a href="#">О нас</a>
-            <a href="#">Контакты</a>
-          </div>
-          <div class="dw-footer-col">
-            <div class="dw-footer-title">Поддержка</div>
-            <a href="#">Помощь</a>
-            <a href="#">Политика</a>
-          </div>
-          <div class="dw-footer-col">
-            <div class="dw-footer-title">Регионы</div>
-            <a href="#">Бишкек</a>
-            <a href="#">Алматы</a>
-          </div>
-        </div>
-        {/* No fake licence — KG/KZ registration data goes here once it exists. */}
-        <div class="dw-footer-bottom">
-          <span>© 2026 Healthy. Все права защищены.</span>
-          <span>Бишкек · Алматы</span>
-        </div>
-      </div>
-    </footer>
+    <SiteFooter variant="desktop" />
   </div>
 
   <JsonLd data={orgJsonLd} />
@@ -715,37 +629,6 @@ const websiteJsonLd = {
     .mw-shell { min-height: 100dvh; background: var(--n-cream); }
 
     /* ── Top bar ───────────────────────── */
-    .mw-topbar {
-      position: sticky; top: 0; z-index: 30;
-      padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
-      background: rgba(252,251,248,0);
-      display: flex; align-items: center; gap: 10px;
-      transition: background .18s ease, border-color .18s ease;
-      border-bottom: 1px solid transparent;
-    }
-    .mw-topbar.is-scrolled {
-      background: rgba(252,251,248,0.86);
-      backdrop-filter: saturate(160%) blur(18px);
-      -webkit-backdrop-filter: saturate(160%) blur(18px);
-      border-bottom-color: var(--n-line);
-    }
-    .mw-logo { display: inline-flex; align-items: center; gap: 10px; }
-    .mw-logo-mark {
-      width: 36px; height: 36px; border-radius: 8px;
-      background: var(--teal); color: #fff;
-      display: grid; place-items: center; font-weight: 700; font-size: 18px;
-    }
-    .mw-logo-text { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
-    .mw-city-pill {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 6px 10px 6px 8px; border-radius: 999px;
-      border: 1px solid var(--n-line); background: #fff;
-      font-size: 13px; font-weight: 600; color: var(--n-ink); margin-left: 4px;
-      cursor: pointer; font-family: inherit;
-    }
-    .mw-spacer { flex: 1; }
-    .mw-cta-slot { display: inline-flex; }
-    .mw-cta-slot a { padding: 8px 14px !important; height: auto !important; font-size: 13px !important; }
 
     /* ── Hero ──────────────────────────── */
     .mw-hero-wrap { padding: 8px 16px 16px; }
@@ -1013,32 +896,6 @@ const websiteJsonLd = {
     }
 
     /* ── Footer ─────────────────────────── */
-    .mw-footer {
-      margin-top: 12px;
-      padding: 28px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
-      background: #0A1F25;
-      color: rgba(255,255,255,0.7);
-    }
-    .mw-footer .mw-logo-text { color: #fff; }
-    .mw-footer-cols {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      row-gap: 24px; column-gap: 24px; margin-bottom: 24px;
-    }
-    .mw-footer-col { display: flex; flex-direction: column; gap: 10px; }
-    .mw-footer-title {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-      text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 2px;
-    }
-    .mw-footer-col a {
-      font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.78);
-      text-decoration: none; transition: color .15s;
-    }
-    .mw-footer-col a:hover { color: #fff; }
-    .mw-footer-fine {
-      font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.55);
-      border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;
-      display: flex; flex-direction: column; gap: 4px;
-    }
 
     /* ════════════════════════════════════════════════════════════ */
     /*  DESKTOP LAYOUT (>= 1024px)                                  */
@@ -1057,35 +914,6 @@ const websiteJsonLd = {
       }
 
       /* ── Header ─────────────────────────────── */
-      .dw-header {
-        position: sticky; top: 0; z-index: 30;
-        background: rgba(250,248,245,0.95);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        border-bottom: 1px solid var(--n-line);
-      }
-      .dw-header-inner {
-        max-width: 1440px; margin: 0 auto;
-        padding: 20px 64px;
-        display: flex; align-items: center; justify-content: space-between;
-      }
-      .dw-header-left { display: flex; align-items: center; gap: 40px; }
-      .dw-logo { text-decoration: none; }
-      .dw-nav { display: flex; gap: 28px; }
-      .dw-nav a {
-        font-size: 14px; font-weight: 500; color: #2A2D33;
-        text-decoration: none; transition: color .15s;
-      }
-      .dw-nav a:hover { color: var(--teal); }
-      .dw-header-right { display: flex; align-items: center; gap: 16px; }
-      .dw-city {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-size: 13px; color: var(--n-muted); text-decoration: none;
-      }
-      .dw-auth-slot a {
-        height: 38px !important; padding: 0 18px !important;
-        font-size: 13px !important;
-      }
 
       /* ── Hero ──────────────────────────────── */
       .dw-hero-section {
@@ -1605,33 +1433,6 @@ const websiteJsonLd = {
       .dw-app-art { position: relative; z-index: 1; }
 
       /* ── Desktop footer ─────────────────────── */
-      .dw-footer {
-        background: #0A1F25; color: rgba(255,255,255,0.7);
-        padding: 64px 0 32px;
-      }
-      .dw-footer-inner { max-width: 1440px; margin: 0 auto; padding: 0 64px; }
-      .dw-footer-grid {
-        display: grid; grid-template-columns: 1.5fr repeat(4, 1fr);
-        gap: 48px;
-      }
-      .dw-footer-brand p {
-        font-size: 13px; line-height: 1.6; margin: 16px 0 0; max-width: 280px;
-      }
-      .dw-footer-col { display: flex; flex-direction: column; gap: 10px; }
-      .dw-footer-title {
-        color: #fff; font-size: 13px; font-weight: 600; margin-bottom: 6px;
-      }
-      .dw-footer-col a {
-        font-size: 13px; color: rgba(255,255,255,0.7);
-        text-decoration: none; transition: color .15s;
-      }
-      .dw-footer-col a:hover { color: #fff; }
-      .dw-footer-bottom {
-        border-top: 1px solid rgba(255,255,255,0.1);
-        margin-top: 48px; padding-top: 24px;
-        display: flex; justify-content: space-between;
-        font-size: 12px;
-      }
     }
 
     @media (max-width: 767.98px) {
@@ -1640,13 +1441,11 @@ const websiteJsonLd = {
 
     /* ── Tablet & narrow desktop (768–1023) ─────────────────── */
     @media (min-width: 768px) and (max-width: 1023.98px) {
-      .dw-header-inner,
       .dw-hero-section,
       .dw-search-hero,
       .dw-section,
       .dw-online-section,
-      .dw-offline-section,
-      .dw-footer-inner {
+      .dw-offline-section {
         padding-left: clamp(20px, 4vw, 40px);
         padding-right: clamp(20px, 4vw, 40px);
       }
@@ -1654,12 +1453,8 @@ const websiteJsonLd = {
       .dw-search-hero { padding-top: 36px; padding-bottom: 36px; }
       .dw-online-section,
       .dw-offline-section { padding-top: 24px; padding-bottom: 24px; }
-      .dw-footer { padding: 48px 0 24px; }
 
       /* Header — tighter nav, hide some links to avoid overflow */
-      .dw-header-left { gap: 24px; }
-      .dw-nav { gap: 20px; }
-      .dw-nav a:nth-child(n+3) { display: none; }
 
       /* Hero — shorter min-height, smaller title, art is decorative */
       .dw-banner {
@@ -1692,25 +1487,16 @@ const websiteJsonLd = {
       .dw-online-head h2 { font-size: 26px; }
 
       /* Footer — collapse to 2 columns; brand spans full row */
-      .dw-footer-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 32px 24px;
-      }
-      .dw-footer-brand { grid-column: 1 / -1; }
-      .dw-footer-bottom { flex-direction: column; gap: 6px; }
     }
   </style>
 
   <script>
     // ── Sticky bg blur on scroll ─────────────────────────
+    // The top bar moved into <SiteHeader> and brought its own handler along.
     (() => {
-      const topbar = document.getElementById("mw-topbar");
       const stickySearch = document.getElementById("mw-sticky-search");
-      const onScroll = () => {
-        const y = window.scrollY;
-        topbar?.classList.toggle("is-scrolled", y > 8);
-        stickySearch?.classList.toggle("is-scrolled", y > 240);
-      };
+      if (!stickySearch) return;
+      const onScroll = () => stickySearch.classList.toggle("is-scrolled", window.scrollY > 240);
       window.addEventListener("scroll", onScroll, { passive: true });
       onScroll();
     })();

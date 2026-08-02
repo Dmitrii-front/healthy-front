@@ -1,0 +1,89 @@
+---
+// Шапка сайта. Мобильная и десктопная версии — это два разных дерева, а не одно
+// адаптивное: index.astro и search.astro так и построены (.mw-shell и .dw-page
+// живут рядом и переключаются на 768px), и шапка обязана вставать внутрь каждого
+// из них. Отсюда проп variant вместо одного блока с медиазапросами.
+//
+// Страница врача построена иначе — одним адаптивным деревом, — поэтому там
+// рендерятся обе версии подряд, а прячет лишнюю site-chrome.css. Прятаться
+// блоки умеют сами, без .mw-shell / .dw-page.
+//
+// Кнопке «Войти» нужен <LoginModal /> на той же странице, иначе клик ничего не
+// откроет: сама кнопка — только триггер.
+import LoginButton from "../auth/LoginButton.astro";
+import "../../styles/site-chrome.css";
+
+interface Props {
+  variant: "mobile" | "desktop";
+}
+
+const { variant } = Astro.props;
+
+// Активный пункт берём из адреса, а не из пропа: иначе каждая страница обязана
+// помнить, как она называется в чужом меню, и рано или поздно забудет.
+const path = Astro.url.pathname;
+const isHome = path === "/";
+const isSearch = path.startsWith("/search");
+---
+
+{
+  variant === "mobile" ? (
+    <header class="mw-topbar" id="mw-topbar">
+      <a href="/" class="mw-logo" aria-label="Healthy — на главную">
+        <span class="mw-logo-mark" aria-hidden="true">
+          H
+        </span>
+        <span class="mw-logo-text">Healthy</span>
+      </a>
+      <div class="mw-spacer" />
+      <div class="mw-cta-slot">
+        <LoginButton />
+      </div>
+    </header>
+  ) : (
+    <header class="dw-header">
+      <div class="dw-header-inner">
+        <div class="dw-header-left">
+          <a href="/" class="mw-logo dw-logo" aria-label="Healthy — на главную">
+            <span class="mw-logo-mark" aria-hidden="true">
+              H
+            </span>
+            <span class="mw-logo-text">Healthy</span>
+          </a>
+          {/* Только пункты с реальными адресами. «Лаборатории» и «Аптеки»
+              появятся здесь вместе с маршрутами, а не раньше. */}
+          <nav class="dw-nav">
+            <a href="/" data-active={isHome ? "true" : undefined} aria-current={isHome ? "page" : undefined}>
+              Главная
+            </a>
+            <a
+              href="/search"
+              data-active={isSearch ? "true" : undefined}
+              aria-current={isSearch ? "page" : undefined}
+            >
+              Найти врача
+            </a>
+          </nav>
+        </div>
+        <div class="dw-header-right">
+          <div class="dw-auth-slot">
+            <LoginButton />
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+<script>
+  // Подложка у шапки появляется только после начала прокрутки. Скрипт общий на
+  // обе версии компонента: Astro вставляет его на страницу один раз, а без
+  // мобильной шапки он молча выходит.
+  (() => {
+    const topbar = document.getElementById("mw-topbar");
+    if (!topbar) return;
+    const onScroll = () => topbar.classList.toggle("is-scrolled", window.scrollY > 8);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
