@@ -25,23 +25,38 @@ interface Props {
     description: string | null;
     coordinates: { lat: number; lng: number } | null;
     types: PlaceType[];
-    soleType: PlaceType | null;
-    firstType: PlaceType | null;
-    searchable: boolean;
     mapUrl: string;
     opensInApp: boolean;
   };
 }
 
 const { place } = Astro.props;
+
+// Поиск в списке видов приёма включаем только когда их много. Поле с вводом на
+// телефоне поднимает клавиатуру от одного тапа, и при двух-трёх вариантах она
+// закрывает половину экрана ради выбора, который делается одним касанием. Ниже
+// порога поле остаётся readonly и работает как обычный дропдаун: клавиатуры нет,
+// стрелки и Enter — есть.
+const TYPE_SEARCH_FROM = 6;
+
+// Всё это — функции от types, и считаются здесь, а не на странице: комбобокс,
+// которым они управляют, живёт только в этом файле.
+//
+// Единственную услугу на странице не показываем — выбирать нечего. Но её id и
+// длительность нужны запросу слотов, и они уезжают в data-атрибуты карточки.
+const soleType = place.types.length === 1 ? (place.types[0] ?? null) : null;
+// Начальное значение поля выбора: до первого клика выбран первый тип, и именно
+// за его слотами уходит первый запрос.
+const firstType = place.types[0] ?? null;
+const searchable = place.types.length >= TYPE_SEARCH_FROM;
 ---
 
 <article
   data-el="place-block"
   data-place-id={place.id}
-  data-sole-type-id={place.soleType?.id}
-  data-sole-type-name={place.soleType?.name}
-  data-sole-duration={place.soleType ? String(place.soleType.durationMin) : undefined}
+  data-sole-type-id={soleType?.id}
+  data-sole-type-name={soleType?.name}
+  data-sole-duration={soleType ? String(soleType.durationMin) : undefined}
   class="grid grid-cols-1 gap-6 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7 md:grid-cols-[minmax(0,280px)_1fr] md:gap-8"
 >
   {/* Слева — куда ехать и с каким видом приёма, справа — время.
@@ -141,12 +156,12 @@ const { place } = Astro.props;
             aria-expanded="false"
             aria-controls={`type-listbox-${place.id}`}
             aria-labelledby={`type-label-${place.id}`}
-            aria-autocomplete={place.searchable ? "list" : "none"}
+            aria-autocomplete={searchable ? "list" : "none"}
             autocomplete="off"
             spellcheck="false"
-            readonly={!place.searchable}
-            placeholder={place.searchable ? "Введите название" : undefined}
-            value={place.firstType ? `${place.firstType.name} · ${place.firstType.durationMin} мин` : ""}
+            readonly={!searchable}
+            placeholder={searchable ? "Введите название" : undefined}
+            value={firstType ? `${firstType.name} · ${firstType.durationMin} мин` : ""}
           />
           <div class="hm-combo-pop" data-el="type-pop" hidden>
             <ul class="hm-combo-list" id={`type-listbox-${place.id}`} role="listbox">
