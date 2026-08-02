@@ -13,10 +13,23 @@ const {
   title = "Healthy — запись к врачу онлайн",
   description = "Запись к проверенным врачам в Бишкеке. Кардиологи, терапевты, педиатры и другие специалисты.",
   canonical,
-  ogImage = "/og-default.jpg",
+  ogImage = "/og-default.png",
 } = Astro.props;
 
 const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site).toString();
+
+// og:image has to be absolute. Telegram, WhatsApp, VK and Facebook do not
+// resolve a relative path against the page URL — they drop the image and fall
+// back to a bare text card. Every share of this site goes through one of those
+// four, so this is the difference between having a preview and not.
+//
+// new URL() leaves an already-absolute value untouched, so the prop takes both
+// a site-root path and a full URL (a per-doctor card, once those exist).
+const ogImageUrl = new URL(ogImage, Astro.site).toString();
+
+// Describes the card, not the page: alt text on og:image is read by screen
+// readers in the clients that render previews inline.
+const ogImageAlt = "Healthy — запись к проверенным врачам Бишкека онлайн";
 ---
 
 <!doctype html>
@@ -35,16 +48,28 @@ const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site).toStri
     <meta name="robots" content="noindex, nofollow" />
 
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Healthy" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
-    <meta property="og:image" content={ogImage} />
+    <meta property="og:image" content={ogImageUrl} />
+    {/* Declared so the scraper can lay out the card without downloading and
+        measuring the image first — without these, Facebook and Telegram often
+        show the first share with no picture at all and only fix it once their
+        crawler catches up. The numbers are the card's real size, so any
+        override of ogImage has to be 1200x630 too; that is the ratio
+        twitter:card=summary_large_image expects anyway. */}
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content={ogImageAlt} />
     <meta property="og:locale" content="ru_RU" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
