@@ -73,28 +73,53 @@ interface AppointmentTypeDto {
   work_place_id: string
 }
 
+/** Свежий срез профиля, от которого зависит блок записи на странице врача. */
+export interface BookingProfile {
+  /**
+   * id мест приёма, которые бэкенд отдаёт ПРЯМО СЕЙЧАС.
+   *
+   * Карточки мест верстаются на сборке, поэтому удалённое место продолжает
+   * висеть на странице с названием и адресом до следующей пересборки. Виды
+   * приёма его не выдают: у удалённого места их просто нет, и оно выглядит как
+   * место с временно закрытой записью — то есть страница зовёт пациента по
+   * адресу, где врач больше не принимает. Этот список — единственный способ
+   * отличить «записи нет» от «места нет».
+   */
+  workplaceIds: string[]
+  types: AppointmentType[]
+}
+
 /**
- * Виды приёма врача — на клиенте, а не в статике страницы.
+ * Часть профиля врача, которую страница берёт на клиенте, а не из статики.
  *
- * Раньше они приезжали из getStaticPaths и запекались в HTML. От них зависит не
- * список услуг, а сам факт «запись открыта»: врач, открывший онлайн-запись
- * после сборки, до следующей показывался как «пока не открыл» — то есть
- * страница отговаривала записываться ровно тогда, когда записаться было можно.
- * В индексе им делать нечего (названия услуг типовые), а меняются они куда чаще
- * профиля, поэтому место им здесь.
+ * Виды приёма раньше приезжали из getStaticPaths и запекались в HTML. От них
+ * зависит не список услуг, а сам факт «запись открыта»: врач, открывший
+ * онлайн-запись после сборки, до следующей показывался как «пока не открыл» —
+ * то есть страница отговаривала записываться ровно тогда, когда записаться было
+ * можно. В индексе им делать нечего (названия услуг типовые), а меняются они
+ * куда чаще профиля.
+ *
+ * Места приходят тем же ответом и раньше просто выбрасывались. Отдельного
+ * запроса за ними не нужно — эндпоинт профиля отдаёт и то, и другое, поэтому
+ * сверка удалённых мест не стоит странице ни одного лишнего похода в сеть.
  *
  * Отдельного эндпоинта под типы нет — они приезжают внутри профиля врача.
  */
-export async function fetchAppointmentTypes(doctorId: string): Promise<AppointmentType[]> {
-  const profile = await apiRequest<{ appointment_types?: AppointmentTypeDto[] }>(
-    `/doctor-profile/${doctorId}`,
-  )
-  return (profile?.appointment_types ?? []).map((type) => ({
-    id: type.id,
-    name: type.name,
-    durationMin: type.duration_min,
-    workPlaceId: type.work_place_id,
-  }))
+export async function fetchBookingProfile(doctorId: string): Promise<BookingProfile> {
+  const profile = await apiRequest<{
+    workplaces?: { id: string }[]
+    appointment_types?: AppointmentTypeDto[]
+  }>(`/doctor-profile/${doctorId}`)
+
+  return {
+    workplaceIds: (profile?.workplaces ?? []).map((place) => place.id),
+    types: (profile?.appointment_types ?? []).map((type) => ({
+      id: type.id,
+      name: type.name,
+      durationMin: type.duration_min,
+      workPlaceId: type.work_place_id,
+    })),
+  }
 }
 
 /**

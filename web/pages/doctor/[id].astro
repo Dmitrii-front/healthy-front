@@ -281,12 +281,16 @@ const breadcrumbs = {
                   здесь не кликабельны, а бирюзовый пин теперь стоит у адреса-ссылки
                   ниже — покрасить одинаково значило бы обещать нажатие там, где его
                   нет. */}
-              {workplaceNames.map((name) => (
-                <span class="flex items-start gap-1.5">
+              {/* data-place-id — чтобы островок мог снять отсюда место, которое
+                  врач удалил после сборки. Убрать карточку внизу и оставить
+                  клинику в шапке значило бы противоречить самим себе на одном
+                  экране. */}
+              {doctor.workplaces.map((place) => (
+                <span class="flex items-start gap-1.5" data-el="header-place" data-place-id={place.id}>
                   <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin hm-pin--static mt-[3px] shrink-0">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
                     </svg>
-                  <span>{name}</span>
+                  <span>{place.name}</span>
                 </span>
               ))}
             </div>
@@ -377,6 +381,21 @@ const breadcrumbs = {
               <p class="hm-empty-day">
                 Врач пока не открыл запись онлайн.<br />
                 Свяжитесь с клиникой, чтобы договориться о приёме.
+              </p>
+            </div>
+          )}
+          {/* Все места, которые попали в эту сборку, врач с тех пор удалил.
+              Показывать пустоту без объяснения нельзя, а звать «обновите
+              страницу» — врать: статика та же до следующей пересборки. */}
+          {hasPlaces && (
+            <div
+              data-el="places-stale"
+              class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+              hidden
+            >
+              <p class="hm-empty-day">
+                Врач сменил места приёма.<br />
+                Актуальный список появится здесь в ближайшее время.
               </p>
             </div>
           )}
@@ -755,7 +774,7 @@ const breadcrumbs = {
   import {
     BOOKING_WINDOW_DAYS,
     BOOKING_WINDOW_LABEL,
-    fetchAppointmentTypes,
+    fetchBookingProfile,
     fetchAvailableSlots,
     onBookingCreated,
   } from "../../lib/booking";
@@ -1554,31 +1573,72 @@ const breadcrumbs = {
     });
 
     void (async () => {
-      let types;
+      let profile;
       try {
-        types = await fetchAppointmentTypes(doctorId);
+        profile = await fetchBookingProfile(doctorId);
       } catch {
         // Сеть, а не закрытая запись. Сказать здесь «врач не открыл запись» —
         // это ровно то враньё, ради которого услуги и уехали из статики.
+        // Ничего не снимаем: статика — единственное, что у нас есть, и она хотя
+        // бы непротиворечива.
         blocks.forEach((block) =>
           closePlace(block, "Не удалось загрузить услуги врача. Обновите страницу."),
         );
         return;
       }
 
+      // ── Сверка мест ──────────────────────────────────────────────────
+      // Карточки мест запечены на сборке, поэтому удалённое место висит на
+      // странице с названием и адресом до следующей пересборки. Виды приёма его
+      // не выдают: у удалённого их нет, и оно выглядит как место с временно
+      // закрытой записью — то есть страница зовёт пациента туда, где врач
+      // больше не принимает. Здесь мы это снимаем в первую же загрузку.
+      //
+      // Пустой список НЕ означает «мест не осталось» и снимать по нему нельзя.
+      // В схеме ответа workplaces идёт с .default([]) именно потому, что поля
+      // может не быть в ответе вовсе — пока правка бэкенда не задеплоена. Снеся
+      // по такому ответу все карточки, мы бы превратили расхождение версий в
+      // пустую страницу врача. Нужно положительное свидетельство: хотя бы одно
+      // место пришло, значит поле обслуживается и отсутствию можно верить.
+      const live = new Set(profile.workplaceIds);
+      let present = blocks;
+      if (live.size > 0) {
+        present = blocks.filter((block) => live.has(block.dataset.placeId));
+        blocks
+          .filter((block) => !present.includes(block))
+          .forEach((block) => {
+            block.hidden = true;
+            // Шапка перечисляет те же места отдельным списком — оставить там
+            // клинику, карточку которой мы только что убрали, значило бы
+            // противоречить себе на одном экране.
+            section.ownerDocument
+              .querySelectorAll(`[data-el="header-place"][data-place-id="${block.dataset.placeId}"]`)
+              .forEach((entry) => {
+                entry.hidden = true;
+              });
+          });
+      }
+
+      // Устарели все до единого: показывать пустую секцию молча нельзя.
+      if (present.length === 0) {
+        const staleNotice = section.querySelector('[data-el="places-stale"]');
+        if (staleNotice !== null) staleNotice.hidden = false;
+        return;
+      }
+
       /** placeId → услуги этого места. Вид приёма принадлежит work_place и
           задаёт длительность слота, поэтому группировка именно по месту. */
       const byPlace = new Map();
-      types.forEach((type) => {
+      profile.types.forEach((type) => {
         const list = byPlace.get(type.workPlaceId);
         if (list === undefined) byPlace.set(type.workPlaceId, [type]);
         else list.push(type);
       });
 
-      const bookable = blocks.filter(
+      const bookable = present.filter(
         (block) => (byPlace.get(block.dataset.placeId) ?? []).length > 0,
       );
-      blocks
+      present
         .filter((block) => !bookable.includes(block))
         .forEach((block) => closePlace(block, "Онлайн-запись в это место пока недоступна."));
 
