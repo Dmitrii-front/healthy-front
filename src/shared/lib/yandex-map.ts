@@ -11,7 +11,14 @@
  * описана ровно та часть API, которой мы пользуемся.
  */
 
-import { env } from '@/shared/config'
+/**
+ * Ключ JS API. Читаем напрямую из import.meta.env, а не через `@/shared/config`:
+ * тот тянет zod и его top-level parse в островной бандл страницы врача ради
+ * одной строки — замер сборкой даёт 19.2 кБ gzip против 1.0 кБ. Vite подставляет
+ * литерал на сборке. Пустая строка — легальное состояние: интерактивной карты не
+ * будет, адрес откроется в Яндекс Картах.
+ */
+const YANDEX_MAPS_KEY = import.meta.env.PUBLIC_YANDEX_MAPS_KEY ?? ''
 
 /** JS API 3.0 принимает координаты как [долгота, широта] — обратно к Leaflet. */
 export type LngLat = [lng: number, lat: number]
@@ -157,7 +164,7 @@ export const YANDEX_MAP_STYLE: MapCustomizationRule[] = [
 
 /** Без ключа карту не поднять — API отдаёт 403 и рисует пустой холст. */
 export function hasYandexMapsKey(): boolean {
-  return env.YANDEX_MAPS_KEY !== ''
+  return YANDEX_MAPS_KEY !== ''
 }
 
 let loading: Promise<Ymaps3> | null = null
@@ -192,7 +199,7 @@ export async function loadYandexMaps(): Promise<Ymaps3> {
     }
     const script = document.createElement('script')
     script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(
-      env.YANDEX_MAPS_KEY,
+      YANDEX_MAPS_KEY,
     )}&lang=ru_RU`
     script.async = true
     script.onload = () => {
