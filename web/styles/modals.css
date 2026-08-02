@@ -872,3 +872,259 @@
     transform: none;
   }
 }
+
+/* ── Полноэкранная карта места приёма (MapModal.astro) ───────────────────
+   Карта занимает весь экран. В шите высотой 420px по ней нельзя было
+   осмотреться — она читалась как картинка в рамке, то есть ровно как
+   статическое превью строкой выше, и интерактив не окупался. Во весь экран
+   появляется то, ради чего он вообще нужен: подвинуть и глянуть окрестности.
+
+   Селектор с двумя классами намеренно: базовый .hm-dialog задаёт ширину,
+   радиусы и нижний лист на телефоне, и всё это надо перебить в обеих
+   раскладках, а не полагаться на порядок правил в файле. */
+.hm-dialog.hm-map-dialog {
+  width: 100%;
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  /* Скролла у диалога быть не должно: высоту делят шапка и холст, а холст
+     тянется сам. С overflow-y: auto из базового класса карта уезжала бы. */
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.hm-map-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.hm-map-header {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  /* Чёлка/вырез: без этого заголовок на iPhone уезжает под статус-бар. */
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+}
+
+.hm-map-heading {
+  min-width: 0;
+}
+
+/* Закрытие полноэкранной карты. 44px тач-таргета по WCAG — но без заливки,
+   обводки и тени: они нужны кнопке, лежащей ПОВЕРХ карты, чтобы отделиться от
+   пёстрой подложки, а эта лежит на сплошной белой шапке. Там весь этот
+   материал делал третичный контрол весомее названия клиники рядом и тянул
+   взгляд на себя. Выходов из карты четыре (этот крестик, свайп по шапке, Esc и
+   системная «назад») — крестик здесь конвенция, за которой рефлекторно тянется
+   рука, а не единственный выход, и весить он должен наименьше. Подложка
+   появляется только под пальцем. */
+.hm-map-close.hm-icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -4px -4px 0 0;
+  color: #5f636a;
+}
+.hm-map-close.hm-icon-btn:hover {
+  background: #f4f1ec;
+  color: #0f1115;
+  border-color: transparent;
+}
+.hm-map-close.hm-icon-btn:active {
+  background: #edebe6;
+  transform: scale(0.94);
+}
+
+.hm-map-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #0f1115;
+}
+
+/* #5f636a, а не приглушённый #8a8e96 со страницы: тот даёт на белом 3.29:1
+   при требуемых WCAG AA 4.5:1. Здесь это строка, которой пациент сверяет
+   адрес, — экономить на её читаемости нельзя. Токен не новый: им уже покрашены
+   .hm-icon-btn и .hm-modal-subtitle. */
+.hm-map-address {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5f636a;
+}
+
+/* Холст забирает всю высоту, оставшуюся от шапки. min-height: 0 обязателен:
+   без него flex-ребёнок не даёт себя сжать и карта уезжает за нижний край. */
+.hm-map-canvas {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 0;
+  background: #f4f1ec;
+  border-top: 1px solid #edebe6;
+  /* Безопасная зона под домашний индикатор — забота нижней панели, пока она
+     есть; второй отступ здесь дал бы двойной зазор. */
+}
+
+/* Полосы нет (у места нет видов приёма) — безопасную зону берёт на себя холст:
+   иначе нижний край карты вместе с копирайтом Яндекса, который по условиям
+   использования обязан оставаться читаемым, уезжал бы под домашний индикатор. */
+.hm-map-canvas:has(~ .hm-map-cta > .hm-map-cta-btn[hidden]) {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Подпись «Загружаем…» / ошибки — оверлей на весь холст, а не элемент потока.
+   YMap добавляет свой контейнер соседним ребёнком того же grid, и в потоке эти
+   двое встают друг под другом: подпись уезжает под шапку вместо центра. Вырывая
+   её из потока, получаем центрирование независимо от того, есть карта или нет. */
+.hm-map-state {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  text-align: center;
+  background: #f4f1ec;
+}
+
+/* Тот же расчёт, что и у адреса: на холсте #f4f1ec прежний #8a8e96 давал
+   всего 2.92:1 — хуже, чем на белом, а это текст про ошибку. */
+.hm-map-state-text {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #5f636a;
+}
+
+/* ── Зум ────────────────────────────────────────────────────────────────
+   Свои кнопки, а не контрол Яндекса: готового YMapZoomControl в JS API 3.0
+   нет. Правый край, вертикально по центру — под большой палец при одноручном
+   хвате и подальше от копирайтов внизу, которые перекрывать нельзя. */
+.hm-map-zoom {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: grid;
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  background: #fff;
+  box-shadow:
+    0 2px 8px rgba(15, 17, 21, 0.1),
+    0 0 0 1px #e2e2df;
+}
+.hm-map-zoom[hidden] {
+  display: none;
+}
+
+.hm-map-zoom-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: #0f1115;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
+}
+.hm-map-zoom-btn + .hm-map-zoom-btn {
+  border-top: 1px solid #edebe6;
+}
+.hm-map-zoom-btn:hover {
+  background: #f4f1ec;
+}
+.hm-map-zoom-btn:active {
+  background: #edebe6;
+}
+.hm-map-zoom-btn:focus-visible {
+  outline: 2px solid #0e7c8c;
+  outline-offset: -2px;
+}
+
+/* ── Полоса действия ────────────────────────────────────────────────────
+   Единственное место на экране, где карта предлагает что-то дальше. Прижата
+   к низу, чтобы попадать под большой палец, и отделена линией — иначе кнопка
+   висела бы прямо на карте и читалась как её часть. */
+.hm-map-cta {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #edebe6;
+  background: #fff;
+}
+
+/* Кнопка записи спрятана — прячем и саму полосу: пустая панель с рамкой сверху
+   отъедала бы у карты строку экрана и обещала действие, которого нет. Выходов
+   из карты и без неё хватает: крестик, свайп по шапке, Esc и системная «назад»
+   (открытие кладёт запись в историю — на Android это кнопка, на iOS свайп от
+   левого края, оба в зоне большого пальца). */
+.hm-map-cta:not(:has(> .hm-map-cta-btn:not([hidden]))) {
+  display: none;
+}
+
+/* На телефоне кнопка записи забирает строку. На широком экране растянутая
+   заливка читается как баннер, а не как кнопка, — ограничиваем. */
+.hm-map-cta-btn {
+  flex: 1 1 auto;
+  max-width: 380px;
+}
+.hm-map-cta-btn[hidden] {
+  display: none;
+}
+
+/* Пин: элемент маркера ставится левым верхним углом в точку, поэтому сдвигаем
+   его на половину ширины и всю высоту — остриём в координату. */
+.hm-map-pin {
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 3px 5px rgba(15, 17, 21, 0.28));
+  pointer-events: none;
+}
+
+/* Выход наружу — только в состоянии отказа, поэтому это не строка футера, а
+   кнопка рядом с текстом ошибки. */
+.hm-map-external {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 1px solid #edebe6;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0e7c8c;
+  text-decoration: none;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease;
+}
+/* Обязательно: inline-flex перебивает display:none, которым браузер прячет
+   элемент по атрибуту hidden, и ссылка торчала бы поверх рабочей карты. */
+.hm-map-external[hidden] {
+  display: none;
+}
+.hm-map-external:hover {
+  background: rgba(14, 124, 140, 0.05);
+  border-color: #b5b8bd;
+}
+.hm-map-external:focus-visible {
+  outline: 2px solid #0e7c8c;
+  outline-offset: 2px;
+}

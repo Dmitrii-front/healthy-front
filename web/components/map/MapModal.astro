@@ -1,0 +1,308 @@
+---
+// Один шит карты на страницу. Триггеры — любые элементы с
+// data-action="hm-map-open", несущие data-lat/data-lng/data-name/data-address.
+// Наполняется от клика, как и шит записи: своего состояния у него нет.
+//
+// Раньше адрес уводил в 2ГИС новой вкладкой — пациент терял страницу врача с
+// выбранными временем и услугой, а возвращался кнопкой «назад» на перезагрузку.
+// Карта внутри шита оставляет запись нетронутой за спиной.
+---
+
+<dialog id="hm-map-modal" class="hm-dialog hm-map-dialog" aria-label="Место приёма на карте">
+  <div class="hm-map-body">
+    <div class="hm-map-header">
+      <div class="hm-map-heading">
+        <h2 class="hm-map-title" data-el="map-title"></h2>
+        <p class="hm-map-address" data-el="map-address"></p>
+      </div>
+      {/* Крупнее и заметнее, чем в остальных модалках, намеренно: карта
+          раскрыта на весь экран, подложки для клика «мимо» нет, и это
+          единственный видимый выход. 44px — минимальный тач-таргет по WCAG. */}
+      <button type="button" class="hm-icon-btn hm-map-close" data-action="hm-map-close" aria-label="Закрыть карту">
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M3 3L11 11M11 3L3 11" />
+        </svg>
+      </button>
+    </div>
+
+    {/* Холст карты. Пустой до первого открытия — API грузится по требованию. */}
+    <div class="hm-map-canvas" data-el="map-canvas">
+      {/* Постоянной ссылки «Открыть в Яндекс Картах» под холстом нет намеренно:
+          на загруженной карте Яндекс рисует собственную кнопку перехода, и
+          вторая такая же строкой ниже — дубль, отъедающий высоту на телефоне.
+          Но когда карта НЕ загрузилась, кнопки Яндекса тоже нет, и уходить
+          пациенту некуда — поэтому ссылка живёт внутри состояния отказа и
+          всплывает вместе с текстом ошибки. */}
+      {/* Зум своими кнопками: готового контрола в JS API 3.0 нет (см.
+          stepZoom в shared/lib/yandex-map). Заодно они берут наши токены,
+          а не жёлто-серую обвязку Яндекса. Скрыты, пока карта не построена —
+          нажимать было бы не на что. */}
+      <div class="hm-map-zoom" data-el="map-zoom" hidden>
+        <button type="button" class="hm-map-zoom-btn" data-action="hm-map-zoom-in" aria-label="Приблизить">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+        <button type="button" class="hm-map-zoom-btn" data-action="hm-map-zoom-out" aria-label="Отдалить">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M5 12h14" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="hm-map-state" data-el="map-state">
+        <p class="hm-map-state-text" data-el="map-state-text">Загружаем карту…</p>
+        <a
+          class="hm-map-external"
+          data-el="map-external"
+          target="_blank"
+          rel="noopener noreferrer"
+          hidden
+        >
+          Открыть в Яндекс Картах
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M7 17L17 7M17 7H8M17 7v9" />
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    {/* Полоса действия — только запись. «Записаться» закрывает карту и уводит
+        к сетке времени ЭТОГО места, а не к общей: мест у врача до трёх, и
+        вернуться надо туда, куда он только что смотрел. «Сюда» в подписи не
+        нужно — над кнопкой и так стоят название места и его адрес, и другого
+        места на этом экране нет.
+
+        Дублирующей «Закрыть» здесь нет: из карты и так четыре выхода (крестик,
+        свайп по шапке, Esc и системная «назад»), а вторая кнопка рядом отбирала
+        внимание у единственного действия, ради которого карту и открывают.
+
+        Кнопка прячется, если у места нет видов приёма: обещать запись там, где
+        её нет, хуже, чем не обещать ничего. Полоса при этом уходит целиком —
+        см. .hm-map-cta в modals.css. */}
+    <div class="hm-map-cta" data-el="map-cta">
+      <button type="button" class="hm-btn hm-btn-primary hm-map-cta-btn" data-el="map-book" data-action="hm-map-book" hidden>
+        Записаться
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import { openModal, bindModalDismiss } from "../../lib/modal";
+  import { loadYandexMaps, hasYandexMapsKey, stepZoom, YANDEX_MAP_STYLE } from "@/shared/lib";
+  import type { LngLat, YandexMap, YandexMapMarker } from "@/shared/lib";
+
+  const ZOOM = 17;
+
+  const modal = document.getElementById("hm-map-modal") as HTMLDialogElement | null;
+  const triggers = [...document.querySelectorAll<HTMLElement>('[data-action="hm-map-open"]')];
+
+  // Ни шита, ни триггеров — страница без мест приёма. Молча выходим.
+  if (modal && triggers.length > 0) {
+    const canvas = modal.querySelector<HTMLElement>('[data-el="map-canvas"]')!;
+    const state = modal.querySelector<HTMLElement>('[data-el="map-state"]')!;
+    const stateText = modal.querySelector<HTMLElement>('[data-el="map-state-text"]')!;
+    const titleEl = modal.querySelector<HTMLElement>('[data-el="map-title"]')!;
+    const addressEl = modal.querySelector<HTMLElement>('[data-el="map-address"]')!;
+    const externalEl = modal.querySelector<HTMLAnchorElement>('[data-el="map-external"]')!;
+    const zoomBox = modal.querySelector<HTMLElement>('[data-el="map-zoom"]')!;
+    const bookBtn = modal.querySelector<HTMLButtonElement>('[data-el="map-book"]')!;
+    const header = modal.querySelector<HTMLElement>(".hm-map-header")!;
+
+    // Место, по которому карта открыта сейчас: за ним возвращает кнопка записи.
+    let activePlaceId: string | null = null;
+
+    bindModalDismiss(modal);
+    // Сейчас под data-action ровно один крестик, но обход через querySelectorAll
+    // оставлен намеренно: вторая кнопка закрытия уже жила здесь однажды, и с
+    // querySelector она молча не работала бы — обработчик достался бы первой.
+    for (const btn of modal.querySelectorAll('[data-action="hm-map-close"]')) {
+      btn.addEventListener("click", () => modal.close());
+    }
+
+    // ── Кнопка «назад» закрывает карту, а не уводит со страницы врача ──
+    // Полноэкранный оверлей выглядит как отдельная страница, и рука сама
+    // тянется к системному «назад» — особенно на Android, где это главный
+    // жест закрытия вообще. Без записи в истории этот жест выбрасывает
+    // пациента со страницы врача вместе с выбранным временем.
+    const isMapHistoryState = (s: unknown): boolean =>
+      typeof s === "object" && s !== null && "hmMap" in s;
+
+    window.addEventListener("popstate", () => {
+      if (modal.open) modal.close();
+    });
+    modal.addEventListener("close", () => {
+      // Закрыли не через «назад» (крестик, Esc, свайп, CTA) — наша запись
+      // ещё в истории, снимаем её сами, иначе следующий «назад» холостой.
+      if (isMapHistoryState(window.history.state)) window.history.back();
+    });
+
+    // ── Свайп вниз по ШАПКЕ закрывает карту ──
+    // Строго по шапке, не по карте: на самой карте тот же жест — панорамирование,
+    // и закрытие по нему на полпути читается как «сайт сломался». По этой же
+    // причине здесь нет полноценного bottom-sheet: у него жест закрытия и жест
+    // карты один и тот же.
+    let touchStartY: number | null = null;
+    let touchDy = 0;
+    header.addEventListener(
+      "touchstart",
+      (e) => {
+        touchStartY = e.touches[0]?.clientY ?? null;
+        touchDy = 0;
+      },
+      { passive: true },
+    );
+    header.addEventListener(
+      "touchmove",
+      (e) => {
+        if (touchStartY === null) return;
+        touchDy = Math.max(0, (e.touches[0]?.clientY ?? touchStartY) - touchStartY);
+        // Диалог следует за пальцем — без этого жест «немой» и его не откроют.
+        modal.style.transform = touchDy > 0 ? `translateY(${touchDy}px)` : "";
+      },
+      { passive: true },
+    );
+    header.addEventListener("touchend", () => {
+      const shouldClose = touchDy > 90;
+      modal.style.transform = "";
+      touchStartY = null;
+      if (shouldClose) modal.close();
+    });
+
+    modal.querySelector('[data-action="hm-map-zoom-in"]')?.addEventListener("click", () => {
+      if (map) stepZoom(map, 1);
+    });
+    modal.querySelector('[data-action="hm-map-zoom-out"]')?.addEventListener("click", () => {
+      if (map) stepZoom(map, -1);
+    });
+
+    // Запись: закрываем карту и прокручиваем к карточке того же места.
+    // Забронировать прямо отсюда нельзя — время и услугу пациент ещё не выбрал,
+    // и кнопка, открывающая шит записи с пустым выбором, соврала бы.
+    modal.querySelector('[data-action="hm-map-book"]')?.addEventListener("click", () => {
+      const target = activePlaceId
+        ? document.querySelector<HTMLElement>(
+            `[data-el="place-block"][data-place-id="${CSS.escape(activePlaceId)}"]`,
+          )
+        : null;
+      modal.close();
+      if (!target) return;
+      // Ждём кадр: закрытие <dialog> возвращает фокус и снимает блокировку
+      // прокрутки, и скролл, запущенный в тот же тик, до места не доезжает.
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+
+    // Карту строим один раз и потом только перевозим: пересоздание на каждое
+    // открытие заново тянет тайлы уже загруженного города и моргает белым.
+    let map: YandexMap | null = null;
+    let marker: YandexMapMarker | null = null;
+
+    /**
+     * Показывает подпись поверх холста. Ссылка наружу поднимается только при
+     * отказе: пока карта грузится, она ещё может приехать, и предлагать уйти
+     * рано, а когда приехала — у Яндекса есть своя кнопка перехода.
+     */
+    function showState(text: string, withLink = false) {
+      stateText.textContent = text;
+      externalEl.hidden = !withLink;
+      state.hidden = false;
+    }
+
+    async function renderMap(center: LngLat) {
+      // Уже построена — просто перелетаем. Без анимации: шит только что открылся,
+      // и «полёт» от прошлой клиники к текущей читался бы как промах.
+      if (map) {
+        map.setLocation({ center, zoom: ZOOM });
+        marker?.update({ coordinates: center });
+        return;
+      }
+
+      showState("Загружаем карту…");
+      try {
+        const ymaps3 = await loadYandexMaps();
+        const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker } = ymaps3;
+
+        state.hidden = true;
+        const instance = new YMap(canvas, {
+          location: { center, zoom: ZOOM },
+          // Без 'vector' карта сперва отдаёт растровые тайлы, и стоковая
+          // серо-зелёная подложка успевает моргнуть до прихода нашего стиля.
+          mode: "vector",
+          theme: "light",
+          // Своя кнопка «Открыть в Картах» по умолчанию садится снизу слева и
+          // на 375px наезжает на собственный копирайт Яндекса — замеряли:
+          // кнопка x 20–176, копирайт x 29–226. Перекрывать копирайт нельзя
+          // (п. 4.1.3.1), поэтому уводим кнопку наверх. Скрыть её было бы
+          // нарушением, сдвинуть — штатный проп API.
+          distributionPosition: "top left",
+        });
+        instance.addChild(
+          new YMapDefaultSchemeLayer({
+            // render-3d off: объёмные дома спорят с плоской вёрсткой страницы.
+            customization: { style: YANDEX_MAP_STYLE, "render-3d": "off" },
+          }),
+        );
+        instance.addChild(new YMapDefaultFeaturesLayer({}));
+
+        const pin = document.createElement("div");
+        pin.className = "hm-map-pin";
+        pin.innerHTML = `<svg width="30" height="38" viewBox="0 0 30 38" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M15 37C15 37 27 23.6 27 14.4C27 7 21.6 1 15 1C8.4 1 3 7 3 14.4C3 23.6 15 37 15 37Z" fill="#0e7c8c" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="15" cy="14" r="4.6" fill="#fff"/>
+        </svg>`;
+        const created = new YMapMarker({ coordinates: center }, pin);
+        instance.addChild(created);
+
+        map = instance;
+        marker = created;
+        zoomBox.hidden = false;
+      } catch {
+        // Нет ключа, заблокирован Referer, оффлайн — пациенту одинаково нужен
+        // работающий выход наружу, а он всегда есть в ссылке под холстом.
+        //
+        // Флага «больше не пробовать» нет намеренно: loadYandexMaps сбрасывает
+        // свой промис на ошибке, и разовый сетевой сбой не должен запирать карту
+        // до перезагрузки страницы. Повтор стоит одного запроса за открытие.
+        showState("Карта не загрузилась.", true);
+      }
+    }
+
+    for (const trigger of triggers) {
+      trigger.addEventListener("click", (event) => {
+        const lat = Number(trigger.dataset.lat);
+        const lng = Number(trigger.dataset.lng);
+        const href = trigger.getAttribute("href");
+
+        // Координат нет или они битые — не перехватываем клик: пусть ссылка
+        // отработает штатно и уведёт в Яндекс Карты поиском по адресу.
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        // Ключа нет — карту не поднять, и шит показал бы пустой прямоугольник.
+        if (!hasYandexMapsKey()) return;
+        // Осознанный «открыть в новой вкладке» пациента не отбираем.
+        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+
+        event.preventDefault();
+
+        titleEl.textContent = trigger.dataset.name ?? "";
+        addressEl.textContent = trigger.dataset.address ?? "";
+        if (href) externalEl.href = href;
+
+        // Кнопка записи — только когда у места действительно есть виды приёма
+        // и есть куда вернуться на странице.
+        activePlaceId = trigger.dataset.placeId ?? null;
+        bookBtn.hidden = trigger.dataset.bookable !== "1" || activePlaceId === null;
+
+        openModal(modal);
+        // Запись в историю — чтобы «назад» закрыл карту, а не страницу врача.
+        window.history.pushState({ hmMap: true }, "");
+        // Ждём кадр: YMap читает размеры холста при создании, а до первого
+        // layout после showModal() у диалога они нулевые — карта родилась бы
+        // размером 0×0 и осталась такой.
+        requestAnimationFrame(() => void renderMap([lng, lat]));
+      });
+    }
+  }
+</script>
