@@ -267,30 +267,20 @@ const breadcrumbs = {
               ))}
             </div>
 
-            {/* Стаж, цена и языки — здесь, а не в «О враче»: это то, по чему
-                пациент отсеивает врача, и смотрит он на это сразу. Обёртку
-                рендерим только при непустом содержимом, иначе останется голая
-                линия.
+            {/* Цена, стаж и языки — здесь, а не в «О враче»: это то, по чему
+                пациент отсеивает врача, и смотрит он на это сразу. Цена первой:
+                по ней отказываются чаще всего, а стаж и языки уже уточняют
+                выбор. Обёртку рендерим только при непустом содержимом, иначе
+                останется голая линия.
 
                 Стаж переехал сюда из мета-колонки над ней: там он был
                 единственной строкой без иконки — между пилюлей верификации и
                 местами с пинами — и проваливался. Здесь он однотипен цене:
-                подпись капсом, значение числом. Колонки auto auto 1fr — стажу и
-                цене хватает своей ширины, остаток забирают языки, которым его
+                подпись капсом, значение числом. Колонки auto auto 1fr — цене и
+                стажу хватает своей ширины, остаток забирают языки, которым его
                 и не хватало. */}
-            {(doctor.yearsExperience != null || priceLabel || doctor.languages.length > 0) && (
+            {(priceLabel || doctor.yearsExperience != null || doctor.languages.length > 0) && (
               <dl class="mt-1 grid grid-cols-1 gap-y-4 border-t border-[#edebe6] pt-4 sm:grid-cols-[auto_auto_1fr] sm:gap-x-9">
-                {doctor.yearsExperience != null && (
-                  <div>
-                    <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
-                      Стаж
-                    </dt>
-                    <dd class="mt-1.5 whitespace-nowrap text-[15px] text-[#2a2d33]">
-                      <span class="hm-tenure-num">{doctor.yearsExperience}</span> {pluralYears(doctor.yearsExperience)}
-                    </dd>
-                  </div>
-                )}
-
                 {priceLabel && (
                   <div>
                     <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
@@ -298,6 +288,17 @@ const breadcrumbs = {
                     </dt>
                     <dd class="mt-1.5 text-[15px] text-[#2a2d33]">
                       от <span class="font-bold text-[#0f1115]">{priceLabel}</span>
+                    </dd>
+                  </div>
+                )}
+
+                {doctor.yearsExperience != null && (
+                  <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
+                      Стаж
+                    </dt>
+                    <dd class="mt-1.5 whitespace-nowrap text-[15px] text-[#2a2d33]">
+                      <span class="hm-tenure-num">{doctor.yearsExperience}</span> {pluralYears(doctor.yearsExperience)}
                     </dd>
                   </div>
                 )}
