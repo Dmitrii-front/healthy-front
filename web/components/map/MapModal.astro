@@ -12,7 +12,11 @@
   <div class="hm-map-body">
     <div class="hm-map-header">
       <div class="hm-map-heading">
-        <h2 class="hm-map-title" data-el="map-title"></h2>
+        {/* <p>, а не <h2>: шит статичен в разметке страницы и его заголовки
+            попадали в её структуру. Здесь этот к тому же пуст до открытия —
+            имя места вписывает скрипт, — то есть в HTML уезжал голый <h2>.
+            Имя диалога задаёт aria-label на <dialog>, от тега оно не зависит. */}
+        <p class="hm-map-title" data-el="map-title"></p>
         <p class="hm-map-address" data-el="map-address"></p>
       </div>
       {/* Крупнее и заметнее, чем в остальных модалках, намеренно: карта

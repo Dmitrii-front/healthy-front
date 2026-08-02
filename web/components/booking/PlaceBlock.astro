@@ -11,12 +11,6 @@
 // Разметка переехала дословно; сетка времени по-прежнему пустая — её наполняет
 // островок на странице, он же читает data-атрибуты.
 
-interface PlaceType {
-  id: string;
-  name: string;
-  durationMin: number;
-}
-
 interface Props {
   place: {
     id: string;
@@ -24,7 +18,6 @@ interface Props {
     address: string | null;
     description: string | null;
     coordinates: { lat: number; lng: number } | null;
-    types: PlaceType[];
     mapUrl: string;
     opensInApp: boolean;
   };
@@ -32,31 +25,17 @@ interface Props {
 
 const { place } = Astro.props;
 
-// Поиск в списке видов приёма включаем только когда их много. Поле с вводом на
-// телефоне поднимает клавиатуру от одного тапа, и при двух-трёх вариантах она
-// закрывает половину экрана ради выбора, который делается одним касанием. Ниже
-// порога поле остаётся readonly и работает как обычный дропдаун: клавиатуры нет,
-// стрелки и Enter — есть.
-const TYPE_SEARCH_FROM = 6;
-
-// Всё это — функции от types, и считаются здесь, а не на странице: комбобокс,
-// которым они управляют, живёт только в этом файле.
-//
-// Единственную услугу на странице не показываем — выбирать нечего. Но её id и
-// длительность нужны запросу слотов, и они уезжают в data-атрибуты карточки.
-const soleType = place.types.length === 1 ? (place.types[0] ?? null) : null;
-// Начальное значение поля выбора: до первого клика выбран первый тип, и именно
-// за его слотами уходит первый запрос.
-const firstType = place.types[0] ?? null;
-const searchable = place.types.length >= TYPE_SEARCH_FROM;
+// Видов приёма здесь больше нет — их приносит островок страницы (см.
+// fetchAppointmentTypes в lib/booking.ts). Отсюда и пустые оболочки ниже:
+// комбобокс со списком, который наполнит скрипт, и сетка времени. Разметка
+// стоит на месте всегда, чтобы карточка не перестраивалась под ответом; всё,
+// что зависит от количества услуг — readonly у поля, порог поиска, показ самой
+// секции, — считает тот же островок.
 ---
 
 <article
   data-el="place-block"
   data-place-id={place.id}
-  data-sole-type-id={soleType?.id}
-  data-sole-type-name={soleType?.name}
-  data-sole-duration={soleType ? String(soleType.durationMin) : undefined}
   class="grid grid-cols-1 gap-6 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7 md:grid-cols-[minmax(0,280px)_1fr] md:gap-8"
 >
   {/* Слева — куда ехать и с каким видом приёма, справа — время.
@@ -97,7 +76,9 @@ const searchable = place.types.length >= TYPE_SEARCH_FROM;
       data-lng={place.coordinates ? String(place.coordinates.lng) : undefined}
       data-name={place.name}
       data-address={place.address}
-      data-bookable={place.types.length > 0 ? "1" : undefined}
+      {/* data-bookable ставит островок: кнопку записи в шите карты можно
+          показывать только тем местам, у которых виды приёма реально есть, а
+          знает об этом теперь клиент. */}
       {...(place.opensInApp ? { "aria-haspopup": "dialog" } : {})}
       {/* Метка начинается ровно теми словами, что видны на экране: иначе
           голосовое управление «нажми показать на карте» не попадает в
@@ -135,56 +116,40 @@ const searchable = place.types.length >= TYPE_SEARCH_FROM;
       <p class="mt-2 text-[13px] leading-relaxed text-[#5f636a]">{place.description}</p>
     )}
 
-    {/* Единственная услуга — не выбор, а факт: показывать её вместе с
-        подписью значит занимать блок сообщением «вариант один». Её
-        название и длительность всё равно нужны для запроса слотов, но
-        живут в data-атрибутах карточки, а не в вёрстке. */}
-    {place.types.length > 1 && (
-      <div class="mt-4 border-t border-[#edebe6] pt-4">
-        <div
-          id={`type-label-${place.id}`}
-          class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]"
-        >
-          Услуги
-        </div>
-        <div class="hm-combo" data-el="type-combo">
-          <input
-            type="text"
-            class="hm-combo-input"
-            data-el="type-input"
-            role="combobox"
-            aria-expanded="false"
-            aria-controls={`type-listbox-${place.id}`}
-            aria-labelledby={`type-label-${place.id}`}
-            aria-autocomplete={searchable ? "list" : "none"}
-            autocomplete="off"
-            spellcheck="false"
-            readonly={!searchable}
-            placeholder={searchable ? "Введите название" : undefined}
-            value={firstType ? `${firstType.name} · ${firstType.durationMin} мин` : ""}
-          />
-          <div class="hm-combo-pop" data-el="type-pop" hidden>
-            <ul class="hm-combo-list" id={`type-listbox-${place.id}`} role="listbox">
-              {place.types.map((type, index) => (
-                <li
-                  class="hm-combo-opt"
-                  id={`type-opt-${place.id}-${index}`}
-                  role="option"
-                  aria-selected={index === 0 ? "true" : "false"}
-                  data-type-id={type.id}
-                  data-type-name={type.name}
-                  data-duration={String(type.durationMin)}
-                >
-                  <span class="hm-type-name">{type.name}</span>
-                  <span class="hm-type-dur">{type.durationMin} мин</span>
-                </li>
-              ))}
-            </ul>
-            <p class="hm-combo-empty" data-el="type-empty" hidden>Ничего не найдено</p>
-          </div>
+    {/* Оболочка комбобокса. Скрыта до ответа и остаётся скрытой, если услуга у
+        места одна: единственная услуга — не выбор, а факт, и показывать её
+        вместе с подписью значит занимать блок сообщением «вариант один». Её
+        id и длительность нужны запросу слотов, но живут в памяти островка.
+        readonly и aria-autocomplete проставлены по-строгому: пока список пуст,
+        печатать в поле нечего, а порог поиска островок включит сам. */}
+    <div class="mt-4 border-t border-[#edebe6] pt-4" data-el="type-section" hidden>
+      <div
+        id={`type-label-${place.id}`}
+        class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]"
+      >
+        Услуги
+      </div>
+      <div class="hm-combo" data-el="type-combo">
+        <input
+          type="text"
+          class="hm-combo-input"
+          data-el="type-input"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls={`type-listbox-${place.id}`}
+          aria-labelledby={`type-label-${place.id}`}
+          aria-autocomplete="none"
+          autocomplete="off"
+          spellcheck="false"
+          readonly
+          value=""
+        />
+        <div class="hm-combo-pop" data-el="type-pop" hidden>
+          <ul class="hm-combo-list" id={`type-listbox-${place.id}`} data-el="type-list" role="listbox"></ul>
+          <p class="hm-combo-empty" data-el="type-empty" hidden>Ничего не найдено</p>
         </div>
       </div>
-    )}
+    </div>
   </div>
 
   {/* Дату дублируем у каждой сетки намеренно: лента остаётся выше,
@@ -195,18 +160,22 @@ const searchable = place.types.length >= TYPE_SEARCH_FROM;
       уверен, на какой день записывается, в момент клика по слоту.
       Цвет ink, не тил — тил на этой странице язык действия.
       flex-wrap + whitespace-nowrap: не влезла — падает на свою
-      строку целиком, а не ломается посреди даты. */}
-  {place.types.length === 0 ? (
-    <p class="hm-empty-day">Онлайн-запись в это место пока недоступна.</p>
-  ) : (
-    <div class="min-w-0">
-      <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-[#edebe6] pb-3">
-        <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
-        <div class="whitespace-nowrap text-[13px] font-bold text-[#0f1115]" data-el="slot-day-label"></div>
-      </div>
+      строку целиком, а не ломается посреди даты.
 
-      <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
-      <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
+      Есть ли у места запись вообще, выясняется теперь в рантайме, поэтому
+      колонка рендерится всегда. Шапку «Свободное время» островок снимает у мест
+      без услуг: подпись над сообщением «записи нет» обещала бы сетку, которой
+      не будет. */}
+  <div class="min-w-0">
+    <div
+      data-el="slot-head"
+      class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-[#edebe6] pb-3"
+    >
+      <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Свободное время</div>
+      <div class="whitespace-nowrap text-[13px] font-bold text-[#0f1115]" data-el="slot-day-label"></div>
     </div>
-  )}
+
+    <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
+    <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
+  </div>
 </article>

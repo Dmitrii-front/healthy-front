@@ -24,7 +24,10 @@ const { returnTo = "/app/" } = Astro.props;
     <!-- AUTH PANE (login / register) -->
     <div class="hm-pane" data-pane-el="auth">
       <div class="hm-modal-header">
-        <h2 class="hm-modal-title" data-el="title">С возвращением</h2>
+        {/* <p>, а не <h2>, у всех пяти заголовков шита: он статичен в разметке
+            каждой страницы, и его панели добавляли в аутлайн документа сразу
+            четыре чужих заголовка. Имя диалога задаёт aria-label на <dialog>. */}
+        <p class="hm-modal-title" data-el="title">С возвращением</p>
         <button type="button" class="hm-icon-btn" data-action="hm-login-close" aria-label="Закрыть">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
             <path d="M3 3L11 11M11 3L3 11" />
@@ -134,7 +137,7 @@ const { returnTo = "/app/" } = Astro.props;
     <!-- FORGOT-PASSWORD PANE -->
     <div class="hm-pane" data-pane-el="forgot" hidden>
       <div class="hm-modal-header">
-        <h2 class="hm-modal-title">Восстановление пароля</h2>
+        <p class="hm-modal-title">Восстановление пароля</p>
         <button type="button" class="hm-icon-btn" data-action="hm-login-close" aria-label="Закрыть">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
             <path d="M3 3L11 11M11 3L3 11" />
@@ -183,7 +186,7 @@ const { returnTo = "/app/" } = Astro.props;
             <path d="M5 12.5L9.5 17L19 7.5" />
           </svg>
         </div>
-        <h3 class="hm-success-title" data-el="success-title">С возвращением</h3>
+        <p class="hm-success-title" data-el="success-title">С возвращением</p>
         <p class="hm-success-text">Вы вошли в аккаунт. Открываем личный кабинет…</p>
         <a class="hm-btn hm-btn-primary hm-btn-block-spacing" data-el="success-link" href={returnTo}>
           В личный кабинет →
@@ -208,7 +211,7 @@ const { returnTo = "/app/" } = Astro.props;
             <path d="M3.5 6.5L12 13L20.5 6.5" />
           </svg>
         </div>
-        <h3 class="hm-success-title">Проверьте почту</h3>
+        <p class="hm-success-title">Проверьте почту</p>
         <p class="hm-success-text">
           Отправили ссылку на <strong data-el="sent-email">—</strong>.<br />
           Действительна 30 минут.
@@ -241,7 +244,7 @@ const { returnTo = "/app/" } = Astro.props;
             <path d="M3.5 6.5L12 13L20.5 6.5" />
           </svg>
         </div>
-        <h3 class="hm-success-title">Подтвердите email</h3>
+        <p class="hm-success-title">Подтвердите email</p>
         <p class="hm-success-text">
           На <strong data-el="verify-email">—</strong> отправили ссылку для подтверждения.<br />
           Проверьте вашу почту чтобы завершить регистрацию.

@@ -30,7 +30,11 @@
         </button>
       </div>
 
-      <h2 class="hm-modal-title" data-el="doctor-name">Имя врача</h2>
+      {/* <p>, а не <h2>: шит лежит в статической разметке каждой страницы, и его
+          заголовки вставали в структуру документа рядом с «О себе» — на странице
+          врача аутлайн читался как «ФИО → О себе → Имя врача → Запись создана».
+          Имя диалога задаёт aria-label на <dialog>, тег на него не влияет. */}
+      <p class="hm-modal-title" data-el="doctor-name">Имя врача</p>
       <p class="hm-modal-subtitle" data-el="doctor-meta">Специальность · Клиника</p>
 
       {/* Сводка записи — видна на всех шагах, кроме успеха */}
@@ -155,7 +159,7 @@
               <path d="M5 12.5L9.5 17L19 7.5" />
             </svg>
           </div>
-          <h3 class="hm-success-title">Запись создана</h3>
+          <p class="hm-success-title">Запись создана</p>
           <p class="hm-success-text">
             <span data-el="success-doctor"></span><br />
             <span data-el="success-when"></span><br />

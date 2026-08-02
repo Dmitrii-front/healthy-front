@@ -57,6 +57,46 @@ export const BOOKING_WINDOW_DAYS = 90
  */
 export const BOOKING_WINDOW_LABEL = 'три месяца'
 
+/* ─── Виды приёма ────────────────────────────────────────────────────── */
+
+export interface AppointmentType {
+  id: string
+  name: string
+  durationMin: number
+  workPlaceId: string
+}
+
+interface AppointmentTypeDto {
+  id: string
+  name: string
+  duration_min: number
+  work_place_id: string
+}
+
+/**
+ * Виды приёма врача — на клиенте, а не в статике страницы.
+ *
+ * Раньше они приезжали из getStaticPaths и запекались в HTML. От них зависит не
+ * список услуг, а сам факт «запись открыта»: врач, открывший онлайн-запись
+ * после сборки, до следующей показывался как «пока не открыл» — то есть
+ * страница отговаривала записываться ровно тогда, когда записаться было можно.
+ * В индексе им делать нечего (названия услуг типовые), а меняются они куда чаще
+ * профиля, поэтому место им здесь.
+ *
+ * Отдельного эндпоинта под типы нет — они приезжают внутри профиля врача.
+ */
+export async function fetchAppointmentTypes(doctorId: string): Promise<AppointmentType[]> {
+  const profile = await apiRequest<{ appointment_types?: AppointmentTypeDto[] }>(
+    `/doctor-profile/${doctorId}`,
+  )
+  return (profile?.appointment_types ?? []).map((type) => ({
+    id: type.id,
+    name: type.name,
+    durationMin: type.duration_min,
+    workPlaceId: type.work_place_id,
+  }))
+}
+
 /**
  * Свободное время врача по конкретному виду приёма. Публичный эндпоинт,
  * токен не нужен.

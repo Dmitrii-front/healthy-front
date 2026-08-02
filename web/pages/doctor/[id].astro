@@ -106,12 +106,10 @@ const bioPreview = bioTruncated
 // сразу. Так видно, где есть время, без перебора, и нельзя записаться не в ту
 // клинику. Вид приёма живёт внутри места, потому что appointment_type
 // принадлежит work_place и задаёт длительность слота.
-const typesByPlace = new Map<string, typeof doctor.appointmentTypes>();
-for (const type of doctor.appointmentTypes) {
-  const list = typesByPlace.get(type.workPlaceId);
-  if (list === undefined) typesByPlace.set(type.workPlaceId, [type]);
-  else list.push(type);
-}
+// Сами виды приёма сюда больше не приезжают — их забирает островок уже в
+// браузере. В статике они делали страницу лгущей: bookingOpen считался на
+// сборке, и врач, открывший онлайн-запись после неё, до следующей сборки был
+// подписан «пока не открыл».
 
 // Шит с картой поднимется, только если есть и ключ, и координаты. Ключ известен
 // на сборке, поэтому «уйдём наружу» — не рантайм-сюрприз, а посчитанный статикой
@@ -121,11 +119,9 @@ for (const type of doctor.appointmentTypes) {
 const mapsReady = hasYandexMapsKey();
 
 const placeBlocks = doctor.workplaces.map((place) => {
-  const types = typesByPlace.get(place.id) ?? [];
   const address = place.address ?? "";
   return {
     ...place,
-    types,
     // Запасной путь, а не основной: по клику адрес открывает карту прямо в шите
     // (MapModal.astro), и уводит наружу только когда карту не поднять — нет
     // ключа, нет координат, отключён JS. Город дописываем в запрос, только если
@@ -140,17 +136,20 @@ const placeBlocks = doctor.workplaces.map((place) => {
   };
 });
 
-// Ни одного места — врач не заполнил профиль. Места есть, а видов приёма ни в
-// одном нет — не открыл онлайн-запись. Оба случая показываем текстом: пустая
-// сетка календаря соврала бы, что всё занято.
-const bookingOpen = placeBlocks.some((place) => place.types.length > 0);
+// Ни одного места — врач не заполнил профиль. Это статический факт: места живут
+// в профиле рядом с адресами и в индекс попадают. А вот «места есть, а записи ни
+// в одном нет» знает только рантайм — сообщение под этот случай лежит в разметке
+// скрытым и поднимается островком.
+const hasPlaces = placeBlocks.length > 0;
 
 // Лента дат липкая, и отпускает её дно собственного контейнера. Чтобы она
 // останавливалась над последним местом, а не висела над ним до конца секции,
 // последняя карточка выносится из этого контейнера наружу.
-// Записи нет — нет и ленты: делить список не на что.
-const stickyPlaces = bookingOpen ? placeBlocks.slice(0, -1) : placeBlocks;
-const trailingPlaces = bookingOpen ? placeBlocks.slice(-1) : [];
+// Делим безусловно: раньше делёж включался только при открытой записи, но она
+// на сборке уже неизвестна. Когда ленты в итоге нет, делёж ни на что не влияет —
+// липнуть нечему.
+const stickyPlaces = placeBlocks.slice(0, -1);
+const trailingPlaces = placeBlocks.slice(-1);
 
 // Выбора формата на странице нет: все записи уходят как офлайн (is_online:
 // false). Бэкенд к тому же отдаёт словарь непоследовательно — "offline"/"online"
@@ -178,17 +177,13 @@ const physicianJsonLd: Record<string, unknown> = {
     : {}),
   ...(doctor.education ? { alumniOf: doctor.education } : {}),
   ...(doctor.languages.length > 0 ? { knowsLanguage: doctor.languages } : {}),
-  ...(doctor.rating !== null
-    ? {
-        aggregateRating: {
-          "@type": "AggregateRating",
-          ratingValue: doctor.rating,
-          reviewCount: doctor.reviewsCount,
-          bestRating: 5,
-          worstRating: 1,
-        },
-      }
-    : {}),
+  // aggregateRating намеренно НЕ размечаем. Правило Google на structured data:
+  // рейтинг обязан быть виден пользователю на той же странице. Ни оценки, ни
+  // числа отзывов на карточке сейчас нет — врач показан без единого отзыва, —
+  // так что разметка описывала бы то, чего на странице не существует. Это не
+  // «звёзд не будет в выдаче», а основание для ручной санкции на разметку.
+  // Вернуть можно ровно вместе с видимым блоком отзывов, и тогда же добавить
+  // Review/itemReviewed: rating и reviewsCount в doctor уже есть.
 };
 
 const breadcrumbs = {
@@ -373,8 +368,12 @@ const breadcrumbs = {
               </p>
             </div>
           )}
-          {placeBlocks.length > 0 && !bookingOpen && (
-            <div class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7">
+          {hasPlaces && (
+            <div
+              data-el="booking-closed"
+              class="rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+              hidden
+            >
               <p class="hm-empty-day">
                 Врач пока не открыл запись онлайн.<br />
                 Свяжитесь с клиникой, чтобы договориться о приёме.
@@ -393,11 +392,12 @@ const breadcrumbs = {
                 один и тот же выбор трижды и сравнивать места по памяти. Точка на
                 дне значит «свободно хотя бы где-то» — в каком именно месте,
                 видно уже по карточкам ниже. */}
-            {bookingOpen && (
+            {hasPlaces && (
               <div
                 data-el="day-rail"
                 data-sole-place={placeBlocks.length === 1 ? "" : undefined}
                 class="hm-rail -mx-4 border-y border-[#edebe6] bg-white px-4 py-2.5 sm:mx-0 sm:rounded-[24px] sm:border sm:px-7 sm:py-5"
+                hidden
               >
                 <div class="mb-1.5 flex items-end justify-between gap-3 sm:mb-3">
                   <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Дата записи</div>
@@ -427,7 +427,7 @@ const breadcrumbs = {
           {/* Скрытый триггер: CTA любого блока открывает через него общий шит.
               doctorClinic заполняем только при единственном месте — назвать
               первое из нескольких было бы ложью, CTA подставит своё. */}
-          {bookingOpen && (
+          {hasPlaces && (
             <span class="sr-only">
               <BookingTrigger
                 doctorId={doctor.id}
@@ -755,13 +755,16 @@ const breadcrumbs = {
   import {
     BOOKING_WINDOW_DAYS,
     BOOKING_WINDOW_LABEL,
+    fetchAppointmentTypes,
     fetchAvailableSlots,
     onBookingCreated,
   } from "../../lib/booking";
 
-  // Слоты НЕЛЬЗЯ вшить в статическую страницу: доступность меняется постоянно,
-  // а страница прегенерится на сборке. Поэтому календарь — клиентский остров,
-  // читающий конфиг из data-атрибутов (define:vars инлайнится и не умеет import).
+  // Ни слоты, ни виды приёма НЕЛЬЗЯ вшить в статическую страницу: доступность
+  // меняется постоянно, а услуги решают, открыта ли запись вообще — и врач,
+  // открывший её после сборки, до следующей выглядел бы закрытым. Поэтому вся
+  // запись — клиентский остров, читающий конфиг из data-атрибутов (define:vars
+  // инлайнится и не умеет import).
   //
   // Состояний два, и они разного уровня: дата — общая на всю запись (createRail),
   // время — у каждого места своё (initPlace). Запросы к доступности всё равно
@@ -1094,26 +1097,67 @@ const breadcrumbs = {
      *
      * Место с единственным типом рендерится строкой, без выбора: тогда наружу
      * отдаём её данные, а подписка ничего не делает — менять нечего. */
-    function initTypePicker(root) {
-      const input = root.querySelector('[data-el="type-input"]');
-      const pop = root.querySelector('[data-el="type-pop"]');
-      const empty = root.querySelector('[data-el="type-empty"]');
-
-      // Комбобокса нет — значит услуга одна, и выбирать нечего: её данные лежат
-      // в data-атрибутах карточки, потому что на странице она не показана.
-      if (input === null || pop === null || empty === null) {
+    function initTypePicker(root, types) {
+      // Услуга одна — выбирать нечего, комбобокс не поднимаем совсем. Её id и
+      // длительность всё равно нужны запросу слотов; раньше они лежали в
+      // data-атрибутах карточки, потому что приходили со сборки, теперь живут
+      // здесь же, в замыкании.
+      if (types.length === 1) {
+        const sole = types[0];
         return {
           count: 1,
           current: () => ({
-            id: root.dataset.soleTypeId ?? "",
-            name: root.dataset.soleTypeName ?? "",
-            duration: root.dataset.soleDuration ?? "",
+            id: sole.id,
+            name: sole.name,
+            duration: String(sole.durationMin),
           }),
           subscribe: () => {},
         };
       }
 
-      const options = [...pop.querySelectorAll('[role="option"]')];
+      const typeSection = root.querySelector('[data-el="type-section"]');
+      const input = root.querySelector('[data-el="type-input"]');
+      const pop = root.querySelector('[data-el="type-pop"]');
+      const empty = root.querySelector('[data-el="type-empty"]');
+      const list = root.querySelector('[data-el="type-list"]');
+      if (input === null || pop === null || empty === null || list === null) return null;
+
+      // Список строим из ответа: из разметки приезжает пустая оболочка.
+      types.forEach((type, index) => {
+        const option = document.createElement("li");
+        option.className = "hm-combo-opt";
+        option.id = `type-opt-${root.dataset.placeId}-${index}`;
+        option.setAttribute("role", "option");
+        option.setAttribute("aria-selected", String(index === 0));
+        option.dataset.typeId = type.id;
+        option.dataset.typeName = type.name;
+        option.dataset.duration = String(type.durationMin);
+        const name = document.createElement("span");
+        name.className = "hm-type-name";
+        name.textContent = type.name;
+        const duration = document.createElement("span");
+        duration.className = "hm-type-dur";
+        duration.textContent = `${type.durationMin} мин`;
+        option.append(name, duration);
+        list.appendChild(option);
+      });
+
+      // Поиск включаем только когда услуг много. Поле с вводом на телефоне
+      // поднимает клавиатуру от одного тапа, и при двух-трёх вариантах она
+      // закрывает половину экрана ради выбора, который делается одним касанием.
+      // Ниже порога поле остаётся readonly и работает как обычный дропдаун:
+      // клавиатуры нет, стрелки и Enter — есть.
+      const TYPE_SEARCH_FROM = 6;
+      const searchable = types.length >= TYPE_SEARCH_FROM;
+      input.readOnly = !searchable;
+      input.setAttribute("aria-autocomplete", searchable ? "list" : "none");
+      if (searchable) input.placeholder = "Введите название";
+      // До первого клика выбран первый тип, и именно за его слотами уходит
+      // первый запрос.
+      input.value = `${types[0].name} · ${types[0].durationMin} мин`;
+      if (typeSection !== null) typeSection.hidden = false;
+
+      const options = [...list.querySelectorAll('[role="option"]')];
       const listeners = [];
       const label = (option) => `${option.dataset.typeName} · ${option.dataset.duration} мин`;
       // «ё» на клавиатуре стоит отдельно от остальных букв, и её почти никто не
@@ -1296,14 +1340,16 @@ const breadcrumbs = {
       };
     }
 
-    function initPlace(root, rail) {
+    function initPlace(root, rail, types) {
       const slotGrid = root.querySelector('[data-el="slot-grid"]');
       const slotStatus = root.querySelector('[data-el="slot-status"]');
       const dayLabel = root.querySelector('[data-el="slot-day-label"]');
-      // Место без активных видов приёма рендерится без слотов — вести нечего.
       if (!slotGrid) return null;
 
-      const typePicker = initTypePicker(root);
+      // null — комбобокс не собрался (оболочки нет в разметке). Место без услуг
+      // сюда не доходит: их отсеивают до вызова.
+      const typePicker = initTypePicker(root, types);
+      if (typePicker === null) return null;
       const placeId = root.dataset.placeId ?? "";
       /** date → { workPlaceId, workplaceName, times: string[] } */
       let byDate = new Map();
@@ -1480,23 +1526,95 @@ const breadcrumbs = {
       return { load };
     }
 
-    const railEl = section.querySelector('[data-el="day-rail"]');
-    const rail = railEl === null ? null : createRail(railEl);
-    if (rail === null) return;
-    // Сначала подписки, потом счёт, и только потом запросы: лента должна знать,
-    // сколько мест ждать, раньше, чем придёт первый ответ.
-    const places = blocks.map((block) => initPlace(block, rail)).filter((place) => place !== null);
-    rail.expect(places.length);
-    places.forEach((place) => void place.load());
+    /** Место, куда записаться нельзя: сетки не будет, поэтому снимаем и её
+        шапку — подпись «Свободное время» над сообщением «записи нет» обещала бы
+        то, чего под ней не появится. */
+    function closePlace(root, text) {
+      const head = root.querySelector('[data-el="slot-head"]');
+      if (head !== null) head.hidden = true;
+      const status = root.querySelector('[data-el="slot-status"]');
+      if (status === null) return;
+      status.hidden = false;
+      status.textContent = text;
+    }
 
-    // Бронь прошла — доступность на странице устарела, и устарела у ВСЕХ мест
-    // сразу, а не только у того, куда записались: пересечение бэкенд считает по
-    // врачу (slotOverlapQuery фильтрует по doctor_id и дате, work_place_id в
-    // условии нет), так что занятый час в одной клинике закрывает тот же час и
-    // в остальных. Переспрашиваем целиком: свой ответ у каждого места свой.
-    onBookingCreated((detail) => {
-      if (detail.doctorId !== doctorId) return;
-      places.forEach((place) => void place.load());
+    const railEl = section.querySelector('[data-el="day-rail"]');
+    // Мест нет вовсе — ленты в разметке тоже нет, а объясняющий текст уже стоит
+    // на странице статикой: места приходят из профиля и не текут.
+    if (railEl === null) return;
+    const closedNotice = section.querySelector('[data-el="booking-closed"]');
+
+    // Пока едут услуги, карточки не должны стоять пустыми: между разбором HTML и
+    // ответом проходит целый круг до бэкенда.
+    blocks.forEach((block) => {
+      const status = block.querySelector('[data-el="slot-status"]');
+      if (status === null) return;
+      status.hidden = false;
+      status.textContent = "Смотрим свободное время…";
     });
+
+    void (async () => {
+      let types;
+      try {
+        types = await fetchAppointmentTypes(doctorId);
+      } catch {
+        // Сеть, а не закрытая запись. Сказать здесь «врач не открыл запись» —
+        // это ровно то враньё, ради которого услуги и уехали из статики.
+        blocks.forEach((block) =>
+          closePlace(block, "Не удалось загрузить услуги врача. Обновите страницу."),
+        );
+        return;
+      }
+
+      /** placeId → услуги этого места. Вид приёма принадлежит work_place и
+          задаёт длительность слота, поэтому группировка именно по месту. */
+      const byPlace = new Map();
+      types.forEach((type) => {
+        const list = byPlace.get(type.workPlaceId);
+        if (list === undefined) byPlace.set(type.workPlaceId, [type]);
+        else list.push(type);
+      });
+
+      const bookable = blocks.filter(
+        (block) => (byPlace.get(block.dataset.placeId) ?? []).length > 0,
+      );
+      blocks
+        .filter((block) => !bookable.includes(block))
+        .forEach((block) => closePlace(block, "Онлайн-запись в это место пока недоступна."));
+
+      // Мест несколько, а записи нет ни в одном — тот самый случай, который
+      // раньше считался на сборке и потому устаревал.
+      if (bookable.length === 0) {
+        if (closedNotice !== null) closedNotice.hidden = false;
+        return;
+      }
+
+      railEl.hidden = false;
+      const rail = createRail(railEl);
+      if (rail === null) return;
+      // Сначала подписки, потом счёт, и только потом запросы: лента должна знать,
+      // сколько мест ждать, раньше, чем придёт первый ответ.
+      const places = bookable
+        .map((block) => {
+          // Кнопку записи в шите карты показываем только у мест, куда записаться
+          // действительно можно; до ответа этого знать было нельзя.
+          const addr = block.querySelector('[data-action="hm-map-open"]');
+          if (addr !== null) addr.dataset.bookable = "1";
+          return initPlace(block, rail, byPlace.get(block.dataset.placeId) ?? []);
+        })
+        .filter((place) => place !== null);
+      rail.expect(places.length);
+      places.forEach((place) => void place.load());
+
+      // Бронь прошла — доступность на странице устарела, и устарела у ВСЕХ мест
+      // сразу, а не только у того, куда записались: пересечение бэкенд считает по
+      // врачу (slotOverlapQuery фильтрует по doctor_id и дате, work_place_id в
+      // условии нет), так что занятый час в одной клинике закрывает тот же час и
+      // в остальных. Переспрашиваем целиком: свой ответ у каждого места свой.
+      onBookingCreated((detail) => {
+        if (detail.doctorId !== doctorId) return;
+        places.forEach((place) => void place.load());
+      });
+    })();
   })();
 </script>
