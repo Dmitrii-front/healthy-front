@@ -176,6 +176,7 @@
   import { openModal, closeModal, lockModal, bindModalDismiss } from "../../lib/modal";
   import { EmailNotVerifiedError, loginWithEmail, registerWithEmail, isAuthed } from "../../lib/auth";
   import {
+    announceBookingCreated,
     bookingErrorMessage,
     createAppointment,
     createPatientProfile,
@@ -449,6 +450,11 @@
           is_online: isOnline,
           appointmentTypeId,
         });
+        // Сетка времени под шитом нарисована ответом available-slots, который
+        // пришёл ДО этой брони, — только что занятый час на ней всё ещё живой.
+        // Объявляем сразу, не по закрытию: пациент ещё читает «Запись создана»,
+        // и перезапрос успевает пройти за backdrop-ом.
+        announceBookingCreated({ doctorId });
         if (successDoctor) successDoctor.textContent = doctorName;
         if (successWhen) successWhen.textContent = `${whenLabel()} · ${whatLabel()}`;
         if (successWhere) successWhere.textContent = workplaceName;

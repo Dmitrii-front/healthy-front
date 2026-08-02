@@ -3,6 +3,12 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import JsonLd from "../../components/seo/JsonLd.astro";
 import BookingTrigger from "../../components/booking/BookingTrigger.astro";
 import BookingModal from "../../components/booking/BookingModal.astro";
+import PlaceBlock from "../../components/booking/PlaceBlock.astro";
+import MapModal from "../../components/map/MapModal.astro";
+import LoginModal from "../../components/auth/LoginModal.astro";
+import SiteHeader from "../../components/layout/SiteHeader.astro";
+import SiteFooter from "../../components/layout/SiteFooter.astro";
+import { yandexMapsUrl, hasYandexMapsKey } from "@/shared/lib";
 import { searchDoctors, getDoctorProfile, formatPriceKgs } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../../lib/slug";
@@ -53,12 +59,22 @@ function pluralYears(n: number): string {
 
 const priceLabel = formatPriceKgs(doctor.priceFrom);
 
+// Узкие специализации идут через запятую после основной, поэтому с заглавной
+// буквы им начинаться незачем. Строчной делаем ТОЛЬКО первую букву, а не всю
+// строку: сплошной toLowerCase() ломал аббревиатуры — «функциональные
+// расстройства ЖКТ» превращались в «жкт» прямо в подзаголовке страницы.
+const subspecialties = doctor.subspecializations
+  .map((item) => item.charAt(0).toLowerCase() + item.slice(1))
+  .join(", ");
+const specialtyLine =
+  subspecialties === "" ? doctor.specialization : `${doctor.specialization}, ${subspecialties}`;
+
 // "О враче" always renders. When the doctor has no written bio, compose a
 // truthful intro from the fields we do have (no invented medical claims).
 const bioText =
   doctor.bio ??
   [
-    `${doctor.specialization}${doctor.subspecializations.length > 0 ? `, ${doctor.subspecializations.join(", ").toLowerCase()}` : ""}.`,
+    `${specialtyLine}.`,
     doctor.yearsExperience !== null
       ? `Опыт работы — ${doctor.yearsExperience} ${pluralYears(doctor.yearsExperience)}.`
       : "",
@@ -104,6 +120,13 @@ for (const type of doctor.appointmentTypes) {
 // стрелки и Enter — есть.
 const TYPE_SEARCH_FROM = 6;
 
+// Шит с картой поднимется, только если есть и ключ, и координаты. Ключ известен
+// на сборке, поэтому «уйдём наружу» — не рантайм-сюрприз, а посчитанный статикой
+// факт. От него зависят aria-label и aria-haspopup, но НЕ внешний вид строки:
+// координаты у мест заполнены вразнобой, и разная подпись у соседних карточек
+// читалась бы как баг, а не как разные режимы.
+const mapsReady = hasYandexMapsKey();
+
 const placeBlocks = doctor.workplaces.map((place) => {
   const types = typesByPlace.get(place.id) ?? [];
   const address = place.address ?? "";
@@ -118,14 +141,17 @@ const placeBlocks = doctor.workplaces.map((place) => {
     // именно за его слотами уходит первый запрос.
     firstType: types[0] ?? null,
     searchable: types.length >= TYPE_SEARCH_FROM,
-    // 2ГИС Кыргызстана, не Казахстана: клиники каталога — Бишкек и Ош, и на .kz
-    // тот же запрос искал бы улицу в чужой стране. Город дописываем только если
-    // его нет в адресе, иначе в запрос уезжает «…, Бишкек, Бишкек».
-    mapUrl: `https://2gis.kg/search/${encodeURIComponent(
+    // Запасной путь, а не основной: по клику адрес открывает карту прямо в шите
+    // (MapModal.astro), и уводит наружу только когда карту не поднять — нет
+    // ключа, нет координат, отключён JS. Город дописываем в запрос, только если
+    // его нет в адресе, иначе уезжает «…, Бишкек, Бишкек».
+    mapUrl: yandexMapsUrl(
       [place.name, address, address.includes(doctor.city) ? "" : doctor.city]
         .filter(Boolean)
         .join(", "),
-    )}`,
+      place.coordinates,
+    ),
+    opensInApp: mapsReady && place.coordinates !== null,
   };
 });
 
@@ -133,6 +159,13 @@ const placeBlocks = doctor.workplaces.map((place) => {
 // одном нет — не открыл онлайн-запись. Оба случая показываем текстом: пустая
 // сетка календаря соврала бы, что всё занято.
 const bookingOpen = placeBlocks.some((place) => place.types.length > 0);
+
+// Лента дат липкая, и отпускает её дно собственного контейнера. Чтобы она
+// останавливалась над последним местом, а не висела над ним до конца секции,
+// последняя карточка выносится из этого контейнера наружу.
+// Записи нет — нет и ленты: делить список не на что.
+const stickyPlaces = bookingOpen ? placeBlocks.slice(0, -1) : placeBlocks;
+const trailingPlaces = bookingOpen ? placeBlocks.slice(-1) : [];
 
 // Выбора формата на странице нет: все записи уходят как офлайн (is_online:
 // false). Бэкенд к тому же отдаёт словарь непоследовательно — "offline"/"online"
@@ -195,8 +228,13 @@ const breadcrumbs = {
 ---
 
 <BaseLayout title={`${doctor.fullName} — ${doctor.specialization} | Healthy`} description={description}>
-  <div class="min-h-dvh bg-[#faf8f5]">
-    <main class="mx-auto max-w-[960px] px-4 pb-16 pt-5 sm:px-8">
+  {/* Страница построена одним адаптивным деревом, а не парой .mw-shell/.dw-page,
+      как главная и поиск, — поэтому обе версии обвязки стоят подряд, а лишнюю
+      прячет site-chrome.css. Порядок в DOM: шапка, контент, подвал. */}
+  <div class="hm-page min-h-dvh bg-[#faf8f5]">
+    <SiteHeader variant="mobile" />
+    <SiteHeader variant="desktop" />
+    <main class="mx-auto max-w-[960px] px-4 pb-10 pt-5 sm:px-8">
       {/* Breadcrumbs */}
       <nav class="mb-5 text-[12.5px] text-[#8a8e96]">
         <a href="/" class="hover:text-[#2a2d33]">Главная</a>
@@ -224,12 +262,16 @@ const breadcrumbs = {
               alt={doctor.fullName}
               width="140"
               height="140"
-              class="h-[140px] w-[140px] rounded-[20px] object-cover"
+              decoding="async"
+              class="h-[104px] w-[104px] rounded-[20px] object-cover sm:h-[140px] sm:w-[140px]"
             />
           ) : (
+            /* aria-hidden: инициалы — это отсутствующее фото, а не содержание.
+               Полное имя стоит следующим элементом, и без этого скринридер
+               читает «П А Петров Александр Иванович». */
             <span
-              class="flex h-[140px] w-[140px] items-center justify-center rounded-[20px] text-[40px] font-semibold tracking-[0.01em] text-[#0f1115]"
-              style={`background-color: ${doctor.avatarColor}`}
+              class="hm-avatar flex h-[104px] w-[104px] items-center justify-center rounded-[20px] text-[32px] sm:h-[140px] sm:w-[140px] sm:text-[38px]"
+              aria-hidden="true"
             >
               {doctor.initials}
             </span>
@@ -241,7 +283,7 @@ const breadcrumbs = {
                 {doctor.fullName}
               </h1>
               <p class="mt-1.5 text-[14px] font-medium text-[#2a2d33]">
-                {doctor.specialization}{doctor.subspecializations.length > 0 ? `, ${doctor.subspecializations.join(", ").toLowerCase()}` : ""}
+                {specialtyLine}
               </p>
             </div>
 
@@ -255,11 +297,13 @@ const breadcrumbs = {
                 Документы проверены
               </span>
               {/* Места в столбик: перечисление через запятую сливалось в абзац,
-                  по которому не видно, сколько их вообще. Пин на каждой строке —
-                  тот же, что у адресов ниже: без него это просто текст. */}
+                  по которому не видно, сколько их вообще. Пин приглушённый: строки
+                  здесь не кликабельны, а бирюзовый пин теперь стоит у адреса-ссылки
+                  ниже — покрасить одинаково значило бы обещать нажатие там, где его
+                  нет. */}
               {workplaceNames.map((name) => (
                 <span class="flex items-start gap-1.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin mt-[3px] shrink-0">
+                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin hm-pin--static mt-[3px] shrink-0">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
                     </svg>
                   <span>{name}</span>
@@ -353,151 +397,47 @@ const breadcrumbs = {
             </div>
           )}
 
-          {/* Дата — одна на всю запись. У мест расписание разное, но выбирает
-              пациент день, а не место: три отдельные ленты заставляли делать
-              один и тот же выбор трижды и сравнивать места по памяти. Точка на
-              дне значит «свободно хотя бы где-то» — в каком именно месте,
-              видно уже по карточкам ниже. */}
-          {bookingOpen && (
-            <div
-              data-el="day-rail"
-              class="hm-rail -mx-4 border-y border-[#edebe6] bg-white px-4 py-2.5 top-0 sm:mx-0 sm:rounded-[24px] sm:border sm:px-7 sm:py-5 sm:top-3"
-            >
-              <div class="mb-1.5 flex items-end justify-between gap-3 sm:mb-3">
-                <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Дата записи</div>
-                <div class="flex shrink-0 items-center gap-2">
-                  <div class="text-[12px] font-bold text-[#0f1115] capitalize sm:text-[13px]" data-el="month-label"></div>
-                  {/* Стрелки — только на мышке: на тач-экране их заменяет свайп,
-                      а 30px высоты они забирают у самой ленты. */}
-                  <div class="hidden items-center gap-1 sm:flex">
-                    <button type="button" data-el="day-prev" class="hm-day-nav" aria-label="Предыдущие дни" hidden>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-                    </button>
-                    <button type="button" data-el="day-next" class="hm-day-nav" aria-label="Следующие дни" hidden>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="hm-day-track" data-el="day-track" role="group" aria-label="Дата записи"></div>
-            </div>
-          )}
-
-          {placeBlocks.map((place) => (
-            <article
-              data-el="place-block"
-              data-place-id={place.id}
-              data-sole-type-id={place.soleType?.id}
-              data-sole-type-name={place.soleType?.name}
-              data-sole-duration={place.soleType ? String(place.soleType.durationMin) : undefined}
-              class="grid grid-cols-1 gap-6 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7 md:grid-cols-[minmax(0,280px)_1fr] md:gap-8"
-            >
-              {/* Слева — куда ехать и с каким видом приёма, справа — время.
-                  Вертикально «адрес → тип → сетка времени» растягивало каждую
-                  карточку на экран, а мест у врача до трёх. */}
-              <div class="min-w-0">
-                <h3 class="text-[16px] font-bold tracking-[-0.015em] text-[#0f1115]">{place.name}</h3>
-                {/* Ссылкой стал сам адрес: отдельная кнопка «На карте» повторяла
-                    строчкой ниже то, что уже написано в адресе. Подчёркивание
-                    только на ховере — цветом адрес не выделяем, он читается как
-                    текст, а не как действие. Имя для скринридера дописываем:
-                    в видимом тексте не сказано, что ссылка ведёт на карту. */}
-                <a
-                  href={place.mapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`${place.address} — на карте`}
-                  class="hm-address mt-0.5 flex w-fit items-start gap-1.5 py-1 text-[13px] text-[#2a2d33]"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" class="hm-pin mt-[3px] shrink-0">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
-                    </svg>
-                  <span>{place.address}</span>
-                </a>
-                {place.description && (
-                  <p class="mt-1.5 text-[13px] leading-relaxed text-[#8a8e96]">{place.description}</p>
-                )}
-
-                {/* Карта — только настоящая, отрендеренная бэкендом. Пин ставит сам
-                    врач: не поставил — карты нет, декоративную подсовывать нельзя. */}
-                {place.mapImageUrl && (
-                  <img
-                    src={place.mapImageUrl}
-                    alt={`Расположение: ${place.name}`}
-                    loading="lazy"
-                    class="mt-4 h-[150px] w-full rounded-[14px] border border-[#edebe6] object-cover"
-                  />
-                )}
-
-                {/* Единственная услуга — не выбор, а факт: показывать её вместе с
-                    подписью значит занимать блок сообщением «вариант один». Её
-                    название и длительность всё равно нужны для запроса слотов, но
-                    живут в data-атрибутах карточки, а не в вёрстке. */}
-                {place.types.length > 1 && (
-                  <div class="mt-4 border-t border-[#edebe6] pt-4">
-                    <div
-                      id={`type-label-${place.id}`}
-                      class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]"
-                    >
-                      Услуги
-                    </div>
-                    <div class="hm-combo" data-el="type-combo">
-                      <input
-                        type="text"
-                        class="hm-combo-input"
-                        data-el="type-input"
-                        role="combobox"
-                        aria-expanded="false"
-                        aria-controls={`type-listbox-${place.id}`}
-                        aria-labelledby={`type-label-${place.id}`}
-                        aria-autocomplete={place.searchable ? "list" : "none"}
-                        autocomplete="off"
-                        spellcheck="false"
-                        readonly={!place.searchable}
-                        placeholder={place.searchable ? "Введите название" : undefined}
-                        value={place.firstType ? `${place.firstType.name} · ${place.firstType.durationMin} мин` : ""}
-                      />
-                      <div class="hm-combo-pop" data-el="type-pop" hidden>
-                        <ul class="hm-combo-list" id={`type-listbox-${place.id}`} role="listbox">
-                          {place.types.map((type, index) => (
-                            <li
-                              class="hm-combo-opt"
-                              id={`type-opt-${place.id}-${index}`}
-                              role="option"
-                              aria-selected={index === 0 ? "true" : "false"}
-                              data-type-id={type.id}
-                              data-type-name={type.name}
-                              data-duration={String(type.durationMin)}
-                            >
-                              <span class="hm-type-name">{type.name}</span>
-                              <span class="hm-type-dur">{type.durationMin} мин</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <p class="hm-combo-empty" data-el="type-empty" hidden>Ничего не найдено</p>
-                      </div>
+          {/* Последняя карточка стоит СНАРУЖИ .hm-rail-scope намеренно: sticky
+              отпускает элемент на дне своего контейнера, поэтому лента липнет,
+              пока листаешь места, и останавливается ровно над последним. Дальше
+              сравнивать не с чем — держать над финальной карточкой полосу,
+              которая на телефоне отъедает верх экрана, незачем. */}
+          <div class="hm-rail-scope flex flex-col gap-4">
+            {/* Дата — одна на всю запись. У мест расписание разное, но выбирает
+                пациент день, а не место: три отдельные ленты заставляли делать
+                один и тот же выбор трижды и сравнивать места по памяти. Точка на
+                дне значит «свободно хотя бы где-то» — в каком именно месте,
+                видно уже по карточкам ниже. */}
+            {bookingOpen && (
+              <div
+                data-el="day-rail"
+                data-sole-place={placeBlocks.length === 1 ? "" : undefined}
+                class="hm-rail -mx-4 border-y border-[#edebe6] bg-white px-4 py-2.5 sm:mx-0 sm:rounded-[24px] sm:border sm:px-7 sm:py-5"
+              >
+                <div class="mb-1.5 flex items-end justify-between gap-3 sm:mb-3">
+                  <div class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">Дата записи</div>
+                  <div class="flex shrink-0 items-center gap-2">
+                    {/* Без capitalize: MONTHS_NOM и так с заглавной, а полную дату
+                        этот класс превратил бы в «Пн, 3 Августа 2026». */}
+                    <div class="text-[12px] font-bold text-[#0f1115] sm:text-[13px]" data-el="month-label"></div>
+                    {/* Стрелки — только на мышке: на тач-экране их заменяет свайп,
+                        а 30px высоты они забирают у самой ленты. */}
+                    <div class="hidden items-center gap-1 sm:flex">
+                      <button type="button" data-el="day-prev" class="hm-day-nav" aria-label="Предыдущие дни" hidden>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+                      </button>
+                      <button type="button" data-el="day-next" class="hm-day-nav" aria-label="Следующие дни" hidden>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* Дату в eyebrow дублируем намеренно: лента остаётся выше, и у
-                  третьей карточки на телефоне её уже не видно — время без дня
-                  читается вслепую. */}
-              {place.types.length === 0 ? (
-                <p class="hm-empty-day">Онлайн-запись в это место пока недоступна.</p>
-              ) : (
-                <div class="min-w-0">
-                  <div class="border-b border-[#edebe6] pb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
-                    Свободное время<span data-el="slot-day-label"></span>
-                  </div>
-
-                  <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(78px,1fr))] gap-2" data-el="slot-grid"></div>
-                  <p class="hm-empty-day mt-4" data-el="slot-status" hidden></p>
                 </div>
-              )}
-            </article>
-          ))}
+                <div class="hm-day-track" data-el="day-track" role="group" aria-label="Дата записи"></div>
+              </div>
+            )}
+            {stickyPlaces.map((place) => <PlaceBlock place={place} />)}
+          </div>
+          {trailingPlaces.map((place) => <PlaceBlock place={place} />)}
 
           {/* Скрытый триггер: CTA любого блока открывает через него общий шит.
               doctorClinic заполняем только при единственном месте — назвать
@@ -523,7 +463,7 @@ const breadcrumbs = {
                запись у всех предварительная. ──────────────────────────── */}
         <section
           id="about"
-          class="flex scroll-mt-5 flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
+          class="hm-anchor flex flex-col gap-4 rounded-[24px] border border-[#edebe6] bg-white p-6 sm:p-7"
         >
           <h2 class="text-[18px] font-bold tracking-[-0.015em] text-[#0f1115]">О себе</h2>
           <p class="text-[14px] leading-[1.7] text-[#2a2d33] text-pretty">{bioText}</p>
@@ -539,14 +479,57 @@ const breadcrumbs = {
         </section>
       </div>
     </main>
+    <SiteFooter variant="mobile" />
+    <SiteFooter variant="desktop" />
   </div>
 
   <JsonLd data={physicianJsonLd} />
   <JsonLd data={breadcrumbs} />
   <BookingModal />
+  <MapModal />
+  {/* Кнопка «Войти» в шапке — только триггер, шит живёт здесь. */}
+  <LoginModal />
 </BaseLayout>
 
 <style is:global>
+  /* Обвязка равняется по колонке этой страницы, а не по общей сетке 1440px:
+     контент здесь — max-w-[960px] с полем 32px, и при чужих значениях логотип
+     ушёл бы к краю экрана, а хлебные крошки под ним остались бы по центру.
+     Планшетное поле тоже фиксируем: clamp(20px, 4vw, 40px) из site-chrome.css
+     на 768px даёт 30.7px и разъезжается с sm:px-8 на полтора пикселя. */
+  .hm-page {
+    --site-max: 960px;
+    --site-gutter: 32px;
+    --site-gutter-md: 32px;
+  }
+
+  /* Заглушка на месте фото врача.
+     Был случайный пастельный квадрат (шесть оттенков по хэшу id) с почти
+     чёрными инициалами в 40px — то есть самый громкий элемент шапки отвечал за
+     то, чего у нас нет: он перекрикивал имя, набранное 26-м кеглем. И он был
+     единственным тёплым пятном на бирюзово-нейтральной странице.
+     Случайный оттенок остался в списках, где он помогает различать карточки.
+     На профиле врач один, различать его не с кем, поэтому здесь один спокойный
+     брендовый блок: он читается как «фото не загружено», а не как элемент
+     оформления. */
+  .hm-avatar {
+    background-image: linear-gradient(155deg, #dceef1, #eef6f8);
+    color: #0a6573;
+    font-weight: 700;
+    /* Инициалы — это пара крупных литер, а не текст: на дефолтном трекинге
+       между ними видна дыра. */
+    letter-spacing: -0.03em;
+    /* Кромка, а не тень: блок лежит внутри белой карточки с рамкой, поднимать
+       его над ней незачем — нужна граница, а не высота. */
+    box-shadow: inset 0 0 0 1px rgba(14, 124, 140, 0.12);
+  }
+
+  /* Цель якоря «Подробнее о враче» → #about. Отступ считаем от шапки: было
+     scroll-mt-5, и с липкой шапкой заголовок «О себе» вставал прямо под неё. */
+  .hm-anchor {
+    scroll-margin-top: calc(var(--site-header-h) + 20px);
+  }
+
   /* Плавность для единственной якорной ссылки на странице — «Подробнее о
      враче» → #about. Уважаем prefers-reduced-motion: для кого-то плавный
      автоскролл — это тошнота, а не украшение. */
@@ -559,10 +542,23 @@ const breadcrumbs = {
      скроллом наверх. Липнет внутри #booking, поэтому под записью отпускает.
      Тень — только в прилипшем состоянии: без неё карточки уезжают под ленту
      без всякого признака, что она поверх. */
-  /* top задан утилитами: на телефоне лента во всю ширину и липнет к самому
-     верху, на десктопе это карточка с отступом. */
-  .hm-rail { position: sticky; z-index: 10; transition: box-shadow 0.15s; }
+  /* Липнет не к нулю, а под шапку сайта — та тоже липкая и выше по z-index,
+     так что при top: 0 лента просто уезжала бы под неё. На телефоне лента во
+     всю ширину и встаёт вплотную, от 640px это карточка и ей нужен зазор. */
+  .hm-rail { position: sticky; top: var(--site-header-h); z-index: 10; transition: box-shadow 0.15s; }
+  @media (min-width: 640px) {
+    .hm-rail { top: calc(var(--site-header-h) + 12px); }
+  }
   .hm-rail[data-stuck] { box-shadow: 0 10px 24px -12px rgba(15,17,21,0.18); }
+  /* Место одно — липнуть незачем. Весь смысл липкости в том, чтобы дата
+     оставалась под рукой, пока листаешь несколько клиник; с единственной
+     карточкой лента и её слоты и так стоят рядом, а на телефоне она просто
+     отъедала бы полосу экрана над ними.
+     Тень снимаем тем же правилом: data-stuck здесь не появится (детектор
+     сверяется с computed position), но правило выше сработало бы от старого
+     атрибута, если тот успел проставиться до первой перерисовки. */
+  .hm-rail[data-sole-place],
+  .hm-rail[data-sole-place][data-stuck] { position: static; box-shadow: none; }
   /* Низкий экран (ландшафт телефона): 190px шапки от 400px высоты — это уже не
      помощь, а отобранное место. */
   @media (max-height: 620px) {
@@ -610,22 +606,89 @@ const breadcrumbs = {
   .hm-slot { height: 46px; border: 0; border-radius: 10px; background: #0e7c8c; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: box-shadow 0.12s, transform 0.12s; }
   .hm-slot:hover { box-shadow: 0 6px 18px rgba(14,124,140,0.25); }
   .hm-slot:active { transform: translateY(1px); }
+  /* Сетка и сообщение взаимоисключающи, но пустая сетка остаётся в потоке и
+     отдаёт свой mt-4 вниз: под линией «Свободное время» получалось 32px вместо
+     16px — только в тех местах, где на выбранный день слотов нет. */
+  [data-el="slot-grid"]:empty { display: none; }
   .hm-empty-day { padding: 24px 16px; border-radius: 12px; background: #faf8f5; font-size: 14px; color: #8a8e96; text-align: center; line-height: 1.5; }
   .hm-type-chip { display: flex; flex-direction: column; gap: 2px; border-color: #e2e2df; background: #fff; color: #0f1115; cursor: pointer; transition: border-color 0.12s, background-color 0.12s; }
   .hm-type-chip:hover { border-color: #b5b8bd; }
   .hm-type-chip[aria-selected="true"] { background: #0e7c8c; border-color: #0e7c8c; color: #fff; }
   .hm-type-chip-meta { font-size: 11px; font-weight: 600; color: #8a8e96; }
   .hm-type-chip[aria-selected="true"] .hm-type-chip-meta { color: rgba(255,255,255,0.75); }
-  /* Адрес-ссылка. Что это ссылка, видно без ховера: подчёркивание есть всегда,
-     просто бледное (#b5b8bd — та же серая ступень, что у неактивного текста), а
-     на ховере уходит в цвет текста. Ждать ховера нельзя — на тач-экране его нет,
-     и адрес выглядел бы обычной строкой. Цветом не выделяем: бирюзовый на трёх
-     адресах спорил бы с залитыми чипсами времени, а адрес — это в первую очередь
-     информация. Подчёркиваем span, а не саму ссылку: она flex-контейнер, и линия
-     прошла бы и под пином. Вертикальный padding набирает из 18px строки 26px
-     тач-таргета (WCAG 2.5.8 требует минимум 24). */
-  .hm-address span { text-decoration: underline; text-decoration-color: #b5b8bd; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  .hm-address:hover span { text-decoration-color: currentColor; }
+  /* Строка адреса целиком — вход в карту. Ни заливки, ни рамки в покое: в этой
+     же карточке залиты бирюзой чипсы времени, главное действие страницы, и вторая
+     поверхность спорила бы с ними. Суммарно бирюзы стало меньше, чем было у
+     плашки: ушли тонированный фон 36px и обводка, пришли подпись 13px и глиф.
+     Заодно снялась коллизия с некликабельным .hm-chip («Документы проверены»),
+     у которого была ровно та же заливка — ради неё плашке и понадобилась рамка.
+
+     44px (Apple HIG) набираются padding'ом, а не ::after { inset: -4px }, как у
+     плашки: так цель растёт вместе с системным шрифтом и вместе со второй строкой
+     адреса. Отрицательные поля гасят этот padding, чтобы ритм блока не поехал. */
+  .hm-addr {
+    display: block;
+    margin: -4px -6px -8px;
+    padding: 8px 6px;
+    border-radius: 10px;
+    color: inherit;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease-out;
+  }
+  /* scale — единственный язык тактильного отклика в системе; у плашки его не было
+     вовсе, менялся только фон, а на телефоне фон под пальцем не виден. */
+  .hm-addr:active { transform: scale(0.985); }
+  .hm-addr:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-brick-teal) 18%, transparent);
+  }
+  /* Кольцо нарисовано тенью, а в режиме высокой контрастности теней нет — там
+     фокус пропал бы совсем. */
+  @media (forced-colors: active) {
+    .hm-addr:focus-visible { outline: 2px solid CanvasText; }
+  }
+  /* Подпись всегда своей строкой под адресом, а не хвостом за ним. Инлайном она
+     зависела от длины адреса: у «пр. Чуй, 114» вставала в ту же строку, у
+     «ул. Тоголок Молдо, 3» переносилась, и у трёх мест подряд вход в карту
+     оказывался то там, то тут — искать его приходилось заново в каждой карточке.
+     Своей строкой он лежит на одном месте у всех.
+
+     block, а не inline-block с переносом: перенос — это «не поместилось», и на
+     широком экране подпись уехала бы обратно наверх. Отбивать её точкой-
+     разделителем пробовали — на своей строке одинокая «·» читается маркером
+     списка, а графит адреса и подчёркнутая бирюза подписи разделены и без неё.
+
+     nowrap оставлен: фраза короткая и рваться посреди себя не должна.
+     Подчёркнута только сама подпись, шеврон в линию не входит.
+     width по содержимому: полоса на всю колонку ловила бы ховер там, где текста
+     нет. margin-top добирает ритм, который раньше давал line-height строки. */
+  .hm-addr-cue {
+    display: block;
+    width: fit-content;
+    margin-top: 2px;
+    white-space: nowrap;
+    font-size: 13px; font-weight: 600; line-height: 1.3;
+    color: var(--color-brick-teal);
+  }
+  /* Подчёркивание сплошной clinic-teal, а не полупрозрачной: на телефоне ховера
+     нет, значит это единственный ПОСТОЯННЫЙ признак контрола, а 55% бирюзы дали
+     бы 2.2:1 при пороге 3:1 для нетекстовых индикаторов. Текст берёт brick-teal:
+     #0e7c8c на 13px проходит AA впритык, #0a6573 — с запасом. */
+  .hm-addr-cue-t { border-bottom: 1px solid var(--color-clinic-teal); }
+  .hm-addr-cue svg {
+    display: inline-block; margin-left: 2px; vertical-align: -1px;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hm-addr:focus-visible .hm-addr-cue-t { border-bottom-width: 2px; }
+  @media (hover: hover) {
+    .hm-addr:hover .hm-addr-cue-t { border-bottom-color: var(--color-brick-teal); }
+    .hm-addr:hover .hm-addr-cue svg { transform: translateX(2px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hm-addr, .hm-addr-cue svg { transition: none; }
+    .hm-addr:active { transform: none; }
+  }
   .hm-retry { margin-top: 8px; display: inline-block; border-bottom: 1px solid currentColor; color: #0e7c8c; font-weight: 600; cursor: pointer; background: none; border-width: 0 0 1px; padding: 0; }
   /* Чипы шапки: «Документы проверены» и «N лет стажа», один под другим.
      Геометрия по спеке DESIGN.md §5 Chips: pill, 34px, padding 0 12px. Размер
@@ -645,6 +708,10 @@ const breadcrumbs = {
      капле — вторым подпутём с обратным направлением, nonzero winding её
      выбивает, без fill-rule="evenodd". */
   .hm-pin { fill: var(--color-clinic-teal); }
+  /* Пин в шапке врача — маркер списка мест, а не контрол: строки там не
+     кликабельны. Бирюза осталась только у адреса-ссылки, иначе некликабельное
+     выглядело бы кликабельным. Глифу хватает 3:1, #8a8e96 даёт 3.28. */
+  .hm-pin--static { fill: #8a8e96; }
   /* Mono-Numeral Rule: стаж — длительность, значит число идёт моно с
      tabular-nums, как времена в слотах и дата-стампах. Графит на полтона темнее
      слов: число — это факт, «лет» — подпись к нему. */
@@ -700,7 +767,12 @@ const breadcrumbs = {
 </style>
 
 <script>
-  import { fetchAvailableSlots } from "../../lib/booking";
+  import {
+    BOOKING_WINDOW_DAYS,
+    BOOKING_WINDOW_LABEL,
+    fetchAvailableSlots,
+    onBookingCreated,
+  } from "../../lib/booking";
 
   // Слоты НЕЛЬЗЯ вшить в статическую страницу: доступность меняется постоянно,
   // а страница прегенерится на сборке. Поэтому календарь — клиентский остров,
@@ -719,22 +791,30 @@ const breadcrumbs = {
     const blocks = [...section.querySelectorAll('[data-el="place-block"]')];
 
     const MONTHS_NOM = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
-    const MONTHS_GEN = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
-    // Полные формы — только для aria-label дней: «Пт, 25 июл» скринридер
-    // прочитает как «июл», а сокращения в ленте у него контекста лишены.
+    // Только полные родительные формы, сокращённых («июн»/«июл») в этом блоке
+    // нет намеренно: они различаются одной буквой, а даты здесь — то, по чему
+    // пациент сверяет день записи.
     const MONTHS_GEN_FULL = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
     const DOW_SHORT = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
-    const WINDOW_DAYS = 14;
     const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     /** YYYY-MM-DD по ЛОКАЛЬНОЙ дате: toISOString() съехал бы на день в UTC+6. */
     const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+    /** «3 августа», а с октября — «3 января 2027». Год добавляем только чужой:
+        в своём он шум, а в чужом без него дата читается как прошедшая. Окно
+        шириной в квартал заходит в следующий год четверть года, а не пару дней
+        на новогодних, — так что случай этот теперь рядовой. */
+    const humanDate = (d) => {
+      const year = d.getFullYear() === new Date().getFullYear() ? "" : ` ${d.getFullYear()}`;
+      return `${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]}${year}`;
+    };
+
     const windowDates = () => {
       const out = [];
       const base = new Date();
       base.setHours(0, 0, 0, 0);
-      for (let i = 0; i < WINDOW_DAYS; i += 1) {
+      for (let i = 0; i < BOOKING_WINDOW_DAYS; i += 1) {
         const d = new Date(base);
         d.setDate(base.getDate() + i);
         out.push(d);
@@ -773,9 +853,19 @@ const breadcrumbs = {
         });
       }
 
-      /** Заголовок — по видимому куску ленты, а не по всему окну: две недели
-          часто лежат в двух месяцах, и подписать их одним значило бы соврать
-          про половину карточек. Считаем от того, что пациент видит сейчас. */
+      /** Подпись справа отвечает на вопрос «что я сейчас вижу», и ответ зависит
+          от того, видно ли выбранный день.
+
+          Виден — подписываем именно его, полной датой. Эйбрау слева говорит
+          «ДАТА ЗАПИСИ», а рядом стоял месяц: пара отвечала не на тот вопрос,
+          который задаёт сама. Год нужен: лента заходит в следующий год на
+          новогодних, и «3 января» без года читается как прошедшее.
+
+          Не виден — пациент листает, и ориентир нужнее даты: на карточках дней
+          только «ПН 10», месяца на них нет. Тогда возвращаем месяц по видимому
+          куску ленты, а не по всему окну: окно шириной в квартал лежит в трёх
+          месяцах сразу, и подписать его одним значило бы соврать про две трети
+          карточек. */
       function syncMonthLabel() {
         if (!monthLabel) return;
         const cards = [...dayTrack.children];
@@ -789,6 +879,11 @@ const breadcrumbs = {
         const lead = shown[0] ?? cards[0];
         const tail = shown[shown.length - 1] ?? lead;
         if (lead?.dataset.date === undefined || tail?.dataset.date === undefined) return;
+        if (activeDate !== "" && shown.some((el) => el.dataset.date === activeDate)) {
+          const d = new Date(`${activeDate}T00:00:00`);
+          monthLabel.textContent = `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]} ${d.getFullYear()}`;
+          return;
+        }
         const a = new Date(`${lead.dataset.date}T00:00:00`);
         const b = new Date(`${tail.dataset.date}T00:00:00`);
         monthLabel.textContent =
@@ -831,6 +926,14 @@ const breadcrumbs = {
       }
 
       function renderDays() {
+        // Перерисовка обнуляет scrollLeft, а окно шириной в квартал уезжает при
+        // этом на три месяца назад, к первому дню. Раньше это стоило прыжка
+        // только при смене вида приёма; теперь ленту перерисовывает ещё и
+        // обновление после брони, где выбранный день чаще всего не меняется —
+        // а значит revealActive() в publish() не сработает и не вернёт её на
+        // место. Держим позицию сами, до syncMonthLabel/syncNav: обе читают
+        // scrollLeft и на сброшенном посчитали бы не тот месяц и не те края.
+        const keepScroll = dayTrack.scrollLeft;
         dayTrack.innerHTML = "";
         dates.forEach((d) => {
           const iso = isoDate(d);
@@ -860,6 +963,7 @@ const breadcrumbs = {
           if (free > 0) b.addEventListener("click", () => select(iso));
           dayTrack.appendChild(b);
         });
+        dayTrack.scrollLeft = keepScroll;
         syncMonthLabel();
         syncNav();
       }
@@ -871,6 +975,10 @@ const breadcrumbs = {
         if (iso === activeDate) return;
         activeDate = iso;
         markActive();
+        // Подпись справа называет выбранный день, пока он на экране, — значит от
+        // выбора она теперь зависит. Тап по видимой карточке ленту не прокручивает,
+        // и обработчик скролла тут бы не сработал.
+        syncMonthLabel();
         if (reveal) revealActive(true);
         notify();
       }
@@ -1222,18 +1330,28 @@ const breadcrumbs = {
       function renderEmpty(active) {
         if (byDate.size === 0) {
           const tail = typePicker.count > 1 ? "<br>Попробуйте другую услугу." : "";
-          setStatus(`Здесь нет свободного времени в ближайшие две недели.${tail}`);
+          setStatus(`Здесь нет свободного времени в ближайшие ${BOOKING_WINDOW_LABEL}.${tail}`);
           return;
         }
         if (active === "") {
           setStatus(null);
           return;
         }
+        // Ближайшее считаем от СЕГОДНЯ, а не от выбранного дня. Пациент листает
+        // ленту в обе стороны, и «ближайшее» для него — ближайшее в принципе, а не
+        // следующее за тем днём, куда он заехал по дороге. Иначе, уйдя на 7-е, он
+        // не узнал бы про свободное 5-е и решил, что раньше 10-го сюда не попасть.
+        // rail.select(_, true) доезжает до дня в любую сторону, так что прыжок
+        // назад по ленте работает так же, как вперёд.
+        const today = isoDate(new Date());
         const dates = [...byDate.keys()].sort();
-        const near = dates.find((iso) => iso > active) ?? dates[0];
+        const near = dates.find((iso) => iso >= today) ?? dates[0];
         const d = new Date(`${near}T00:00:00`);
+        // «Ближайшее — 3 августа» в день, который и есть 3 августа, читается как
+        // другая дата. Тот же приём, что у ярлыка дня над сеткой времени.
+        const human = near === today ? `сегодня, ${humanDate(d)}` : humanDate(d);
         setStatus(
-          `В этот день здесь записи нет. <button type="button" data-el="jump" class="hm-retry">Ближайшее — ${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]}</button>`,
+          `В этот день здесь записи нет. <button type="button" data-el="jump" class="hm-retry">Ближайшее — ${human}</button>`,
         );
         root.querySelector('[data-el="jump"]')?.addEventListener("click", () => rail.select(near, true));
       }
@@ -1247,12 +1365,16 @@ const breadcrumbs = {
           if (active === "") {
             dayLabel.textContent = "";
           } else {
+            // Полный месяц, не сокращённый: «июн» и «июл» различаются одной
+            // буквой, а этот ярлык — то, по чему пациент сверяет день перед
+            // кликом. Капитализация через JS, а не CSS capitalize — тот сделал
+            // бы «27 Июля».
             const d = new Date(`${active}T00:00:00`);
             const human =
               active === isoDate(new Date())
-                ? `сегодня, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`
-                : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
-            dayLabel.textContent = ` · ${human}`;
+                ? `сегодня, ${humanDate(d)}`
+                : `${DOW_SHORT[d.getDay()]}, ${humanDate(d)}`;
+            dayLabel.textContent = human.charAt(0).toUpperCase() + human.slice(1);
           }
         }
         slotGrid.innerHTML = "";
@@ -1332,5 +1454,15 @@ const breadcrumbs = {
     const places = blocks.map((block) => initPlace(block, rail)).filter((place) => place !== null);
     rail.expect(places.length);
     places.forEach((place) => void place.load());
+
+    // Бронь прошла — доступность на странице устарела, и устарела у ВСЕХ мест
+    // сразу, а не только у того, куда записались: пересечение бэкенд считает по
+    // врачу (slotOverlapQuery фильтрует по doctor_id и дате, work_place_id в
+    // условии нет), так что занятый час в одной клинике закрывает тот же час и
+    // в остальных. Переспрашиваем целиком: свой ответ у каждого места свой.
+    onBookingCreated((detail) => {
+      if (detail.doctorId !== doctorId) return;
+      places.forEach((place) => void place.load());
+    });
   })();
 </script>
