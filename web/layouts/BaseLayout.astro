@@ -60,6 +60,12 @@ const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site).toStri
         JSON array in place of __HM_PREFETCH_LIST__ below. At runtime we
         just fire fetch() at each URL in parallel.
 
+        Gated on an existing session. The list covers the whole SPA bundle —
+        ~176 KB gzip that an SEO page downloads and never executes — and the
+        only way into /app/ is to be signed in. For an anonymous reader
+        arriving from search that is pure background traffic, and on the
+        3G-Android half of the audience it is their own mobile data.
+
         Why fetch() rather than <link rel="prefetch">: Safari does not
         honor rel="prefetch", so a uniform fetch()-based approach is the
         only way to warm Safari's HTTP cache. fetch(url, { priority: "low" })
@@ -71,19 +77,54 @@ const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site).toStri
         In dev (no build step) the placeholder is left as-is and the
         runtime check below treats it as an empty list — script is a no-op. */}
     <script is:inline>
-      addEventListener("load", function () {
+      (function () {
         var urls = "__HM_PREFETCH_LIST__";
         if (!Array.isArray(urls)) return;
-        for (var i = 0; i < urls.length; i++) {
-          // mode: "no-cors" prevents the browser from sending an Origin
-          // request header. The subsequent <script type=module> load and
-          // top-level navigation (for /app/) also do not send Origin, so
-          // the cache key matches and the warmed entry is reused. Without
-          // this, Vary: Origin (which CF Workers Assets adds by default)
-          // would split the cache into two unrelated entries.
-          fetch(urls[i], { priority: "low", mode: "no-cors" }).catch(function () {});
+        var warmed = false;
+
+        function warm() {
+          // Once per page. Guards the two triggers below against each other,
+          // and against the token refresh in api.ts re-announcing a session
+          // that was already warmed at load.
+          if (warmed) return;
+          warmed = true;
+          for (var i = 0; i < urls.length; i++) {
+            // mode: "no-cors" prevents the browser from sending an Origin
+            // request header. The subsequent <script type=module> load and
+            // top-level navigation (for /app/) also do not send Origin, so
+            // the cache key matches and the warmed entry is reused. Without
+            // this, Vary: Origin (which CF Workers Assets adds by default)
+            // would split the cache into two unrelated entries.
+            fetch(urls[i], { priority: "low", mode: "no-cors" }).catch(function () {});
+          }
         }
-      });
+
+        function authed() {
+          // Duplicates the `healthy.auth` key and the zustand persist v0 shape
+          // from lib/auth.ts on purpose: is:inline scripts are never bundled,
+          // so importing isAuthed() is not an option here — and the
+          // placeholder above has to stay in the HTML for the build
+          // integration to find it. Missing or unparseable counts as
+          // anonymous: skipping the warm-up costs one cold /app/ navigation,
+          // running it wrongly costs a reader who will never open the SPA the
+          // entire bundle.
+          try {
+            var raw = localStorage.getItem("healthy.auth");
+            return !!raw && !!JSON.parse(raw).state.isAuthenticated;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        // Returning visitor: session already in storage when the page loads.
+        addEventListener("load", function () {
+          if (authed()) warm();
+        });
+
+        // Signed in during this visit. AUTH_WRITTEN_EVENT from lib/auth.ts,
+        // spelled out for the same is:inline reason as the storage key above.
+        document.addEventListener("hm:auth-written", warm);
+      })();
     </script>
   </head>
   <body class="bg-warm-paper text-graphite">

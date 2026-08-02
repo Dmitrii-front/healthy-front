@@ -56,6 +56,25 @@ interface BackendAuthResponse {
 
 /* ─── Storage ────────────────────────────────────────────────────────── */
 
+/**
+ * A session has just been written to localStorage. Announced from writeAuth()
+ * because that is the single choke point for it: sign-in, registration and the
+ * silent token refresh in api.ts all pass through there, so no future entry
+ * point can forget to fire it.
+ *
+ * The listener today is the SPA warm-up in BaseLayout. It checks for a session
+ * on page load, which leaves out exactly the visitor most likely to open the
+ * SPA next: the one who arrived anonymous, signed in here, and is now one click
+ * from /app/ with a cold cache.
+ */
+export const AUTH_WRITTEN_EVENT = 'hm:auth-written'
+
+declare global {
+  interface DocumentEventMap {
+    'hm:auth-written': CustomEvent<never>
+  }
+}
+
 export function writeAuth(input: {
   accessToken: string
   refreshToken: string
@@ -64,6 +83,7 @@ export function writeAuth(input: {
   const state: AuthState = { ...input, isAuthenticated: true }
   const snapshot: AuthSnapshot = { state, version: 0 }
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(snapshot))
+  document.dispatchEvent(new CustomEvent(AUTH_WRITTEN_EVENT))
   return state
 }
 
