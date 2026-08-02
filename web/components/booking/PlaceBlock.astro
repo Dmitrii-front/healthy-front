@@ -82,7 +82,6 @@ const { place } = Astro.props;
       data-lng={place.coordinates ? String(place.coordinates.lng) : undefined}
       data-name={place.name}
       data-address={place.address}
-      data-place-id={place.id}
       data-bookable={place.types.length > 0 ? "1" : undefined}
       {...(place.opensInApp ? { "aria-haspopup": "dialog" } : {})}
       {/* Метка начинается ровно теми словами, что видны на экране: иначе

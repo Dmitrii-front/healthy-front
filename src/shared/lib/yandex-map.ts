@@ -23,10 +23,15 @@ const YANDEX_MAPS_KEY = import.meta.env.PUBLIC_YANDEX_MAPS_KEY ?? ''
 /** JS API 3.0 принимает координаты как [долгота, широта] — обратно к Leaflet. */
 export type LngLat = [lng: number, lat: number]
 
+/**
+ * Зум, на котором показываем точку приёма. Один и тот же и для карты в шите, и
+ * для внешней ссылки в Яндекс Карты: это два пути к одному и тому же намерению
+ * пациента, и кадрировать точку они обязаны одинаково.
+ */
+export const MAP_POINT_ZOOM = 17
+
 /** Всё, что можно положить в карту через addChild: слои, маркеры, контролы. */
-interface YMapChild {
-  readonly children?: unknown
-}
+type YMapChild = object
 
 /** Метка. `update` унаследован от GenericEntity — им и переставляем пин. */
 export interface YandexMapMarker extends YMapChild {
@@ -36,12 +41,10 @@ export interface YandexMapMarker extends YMapChild {
 export interface YandexMap extends YMapChild {
   /** Текущий зум. Геттер, не проп — писать через setLocation. */
   readonly zoom: number
-  readonly center: LngLat
   /** Пределы карты: сейчас 0–21. Читаем, а не хардкодим — Яндекс их меняет. */
   readonly zoomRange: { min: number; max: number }
   addChild(child: YMapChild): YandexMap
   setLocation(location: { center?: LngLat; zoom?: number; duration?: number }): void
-  destroy(): void
 }
 
 /**
@@ -65,7 +68,6 @@ interface Ymaps3 {
       location: { center: LngLat; zoom: number }
       mode?: 'auto' | 'vector' | 'raster'
       theme?: 'light' | 'dark'
-      behaviors?: string[]
       /**
        * Положение кнопки «Открыть в Картах». Официальный проп YMap — позицию
        * ей менять можно (в отличие от скрытия: `distribution: false` нарушил бы
@@ -83,8 +85,7 @@ interface Ymaps3 {
 }
 
 interface MapCustomizationRule {
-  tags?: { all?: string[]; any?: string[]; none?: string[] }
-  types?: 'point' | 'polyline' | 'polygon'
+  tags?: { any?: string[] }
   elements?: string
   stylers?: Array<Record<string, string | number>>
 }
@@ -234,7 +235,7 @@ export async function loadYandexMaps(): Promise<Ymaps3> {
 export function yandexMapsUrl(query: string, point: { lat: number; lng: number } | null): string {
   if (point) {
     const ll = `${point.lng},${point.lat}`
-    return `https://yandex.ru/maps/?pt=${ll}&z=17&l=map&text=${encodeURIComponent(query)}`
+    return `https://yandex.ru/maps/?pt=${ll}&z=${MAP_POINT_ZOOM}&l=map&text=${encodeURIComponent(query)}`
   }
   return `https://yandex.ru/maps/?text=${encodeURIComponent(query)}`
 }

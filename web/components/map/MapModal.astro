@@ -90,10 +90,14 @@
 
 <script>
   import { openModal, bindModalDismiss } from "../../lib/modal";
-  import { loadYandexMaps, hasYandexMapsKey, stepZoom, YANDEX_MAP_STYLE } from "@/shared/lib";
+  import {
+    loadYandexMaps,
+    hasYandexMapsKey,
+    stepZoom,
+    MAP_POINT_ZOOM,
+    YANDEX_MAP_STYLE,
+  } from "@/shared/lib";
   import type { LngLat, YandexMap, YandexMapMarker } from "@/shared/lib";
-
-  const ZOOM = 17;
 
   const modal = document.getElementById("hm-map-modal") as HTMLDialogElement | null;
   const triggers = [...document.querySelectorAll<HTMLElement>('[data-action="hm-map-open"]')];
@@ -110,8 +114,10 @@
     const bookBtn = modal.querySelector<HTMLButtonElement>('[data-el="map-book"]')!;
     const header = modal.querySelector<HTMLElement>(".hm-map-header")!;
 
-    // Место, по которому карта открыта сейчас: за ним возвращает кнопка записи.
-    let activePlaceId: string | null = null;
+    // Карточка места, по которому карта открыта сейчас: к ней возвращает кнопка
+    // записи. Держим сам элемент, а не id: триггер лежит ВНУТРИ своей карточки,
+    // так что closest() отвечает на тот же вопрос без поиска по документу.
+    let activeBlock: HTMLElement | null = null;
 
     bindModalDismiss(modal);
     // Сейчас под data-action ровно один крестик, но обход через querySelectorAll
@@ -191,11 +197,7 @@
     // Забронировать прямо отсюда нельзя — время и услугу пациент ещё не выбрал,
     // и кнопка, открывающая шит записи с пустым выбором, соврала бы.
     modal.querySelector('[data-action="hm-map-book"]')?.addEventListener("click", () => {
-      const target = activePlaceId
-        ? document.querySelector<HTMLElement>(
-            `[data-el="place-block"][data-place-id="${CSS.escape(activePlaceId)}"]`,
-          )
-        : null;
+      const target = activeBlock;
       modal.close();
       if (!target) return;
       // Ждём кадр: закрытие <dialog> возвращает фокус и снимает блокировку
@@ -221,7 +223,7 @@
     /** Перевозит уже построенную карту на текущую точку. */
     function flyToWanted() {
       if (map === null || wanted === null) return;
-      map.setLocation({ center: wanted, zoom: ZOOM });
+      map.setLocation({ center: wanted, zoom: MAP_POINT_ZOOM });
       marker?.update({ coordinates: wanted });
     }
 
@@ -258,7 +260,7 @@
         const start = wanted ?? center;
         state.hidden = true;
         const instance = new YMap(canvas, {
-          location: { center: start, zoom: ZOOM },
+          location: { center: start, zoom: MAP_POINT_ZOOM },
           // Без 'vector' карта сперва отдаёт растровые тайлы, и стоковая
           // серо-зелёная подложка успевает моргнуть до прихода нашего стиля.
           mode: "vector",
@@ -327,8 +329,13 @@
 
         // Кнопка записи — только когда у места действительно есть виды приёма
         // и есть куда вернуться на странице.
-        activePlaceId = trigger.dataset.placeId ?? null;
-        bookBtn.hidden = trigger.dataset.bookable !== "1" || activePlaceId === null;
+        activeBlock = trigger.closest<HTMLElement>('[data-el="place-block"]');
+        bookBtn.hidden = trigger.dataset.bookable !== "1" || activeBlock === null;
+        // То же состояние, но для CSS. Полоса действия и безопасная зона под
+        // домашним индикатором зависят от него, и раньше оба правила выводили
+        // его из вёрстки двумя инверсными :has(): любая обёртка внутри шита
+        // молча ломала бы отступ. Объявляем там, где решение принято.
+        modal.dataset.bookable = bookBtn.hidden ? "0" : "1";
 
         openModal(modal);
         // Запись в историю — чтобы «назад» закрыл карту, а не страницу врача.
