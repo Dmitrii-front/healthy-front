@@ -4,4 +4,4 @@ dist/
 .wrangler/
 pnpm-lock.yaml
 pnpm-lock.yaml.pre-astro
-public/_design/
+design/

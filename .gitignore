@@ -14,5 +14,12 @@ CLAUDE.md
 .wrangler/
 pnpm-lock.yaml.pre-astro
 
-# Local design references (not for production)
-public/_design/
+# Build sources for shipped assets live in design/ and ARE tracked — see
+# design/og-default.svg, which is the only source /og-default.png has.
+# Nothing in design/ is copied into the build: publicDir is public/, and
+# Astro copies that folder verbatim (a leading _ means nothing there — the
+# underscore convention only applies to web/pages/). Anything under public/
+# is published, tracked or not.
+#
+# standalone.html is a local mockup, not a build input — keep it out of git.
+design/standalone.html

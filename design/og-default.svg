@@ -1,0 +1,80 @@
+<!--
+  Editable source for /og-default.png — the share card every page falls back to.
+
+  Ships as PNG, not as this file: no social scraper (Facebook, Telegram,
+  WhatsApp, VK) accepts SVG for og:image. Which is also why this lives in
+  design/ and not in public/ — everything under public/ is copied into the
+  build verbatim and served, so a source file kept there would be published
+  for no reason.
+
+  Colours and copy are the first hero banner of the home page verbatim — the
+  gradient, the "ЗАПИСЬ К ВРАЧУ" eyebrow and the "Доктор рядом, когда нужен"
+  headline all live in web/pages/index.astro under BANNERS[0]. Change them
+  together or the card stops looking like the site it links to.
+
+  1200x630 is not decorative: og:image:width/height in BaseLayout.astro declare
+  exactly that, and twitter:card=summary_large_image expects the same ratio.
+
+  To re-rasterise (Manrope is loaded from Google Fonts at runtime and is not
+  installed on the machine, so fontconfig has to be pointed at a copy):
+
+    1. grab the TTFs listed at
+       https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800
+       into some <fontdir>
+    2. write a fonts.conf whose <dir> is <fontdir>
+    3. FONTCONFIG_FILE=fonts.conf node -e "
+         const sharp = require('sharp')
+         sharp('design/og-default.svg', { density: 144 })
+           .resize(1200, 630)
+           .png({ compressionLevel: 9 })
+           .toFile('public/og-default.png')"
+
+  density 144 renders at 2x and the resize downsamples it — that supersampling
+  is what keeps the Cyrillic edges clean at 1200px.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#DCEEF1"/>
+      <stop offset="60%" stop-color="#EEF6F8"/>
+      <stop offset="100%" stop-color="#F1E8E0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Same soft-circle motif as the .dw-hero-dot field on the home page.
+       Kept under 6% opacity: teal is the action colour on this site and the
+       One Voice Rule caps it at ~10% of any surface. -->
+  <circle cx="1075" cy="150" r="190" fill="#0e7c8c" opacity="0.06"/>
+  <circle cx="1145" cy="470" r="120" fill="#0e7c8c" opacity="0.05"/>
+
+  <!-- Logo lockup, mirroring .mw-logo in web/styles/site-chrome.css -->
+  <rect x="80" y="72" width="60" height="60" rx="17" fill="#0e7c8c"/>
+  <text x="110" y="72" font-family="Manrope" font-weight="800" font-size="31"
+        fill="#ffffff" text-anchor="middle" dominant-baseline="middle" dy="30">H</text>
+  <text x="156" y="102" font-family="Manrope" font-weight="800" font-size="32"
+        fill="#0f1115" letter-spacing="-0.4" dominant-baseline="middle">Healthy</text>
+
+  <!-- Eyebrow. letter-spacing is in px, not em: librsvg reads the attribute as
+       a user-space length, so 2.3 here is the 0.12em of the design system at
+       19px. -->
+  <text x="80" y="252" font-family="Manrope" font-weight="700" font-size="19"
+        fill="#0e7c8c" letter-spacing="2.3">ЗАПИСЬ К ВРАЧУ</text>
+
+  <!-- Headline. Two <text> elements rather than one with tspans: the card is
+       fixed-size, so the break is a layout decision, not a wrap. -->
+  <text x="80" y="336" font-family="Manrope" font-weight="800" font-size="76"
+        fill="#0f1115" letter-spacing="-1.6">Доктор рядом,</text>
+  <text x="80" y="420" font-family="Manrope" font-weight="800" font-size="76"
+        fill="#0f1115" letter-spacing="-1.6">когда нужен</text>
+
+  <text x="80" y="482" font-family="Manrope" font-weight="500" font-size="27"
+        fill="#5f636a">Проверенные врачи Бишкека: расписание, отзывы, запись онлайн.</text>
+
+  <!-- Domain, so the card still identifies the source when a client crops the
+       preview and drops its own caption. -->
+  <rect x="80" y="532" width="52" height="3" rx="1.5" fill="#0e7c8c"/>
+  <text x="80" y="572" font-family="Manrope" font-weight="600" font-size="21"
+        fill="#0e7c8c" letter-spacing="0.2">sdoctorom.health</text>
+</svg>
