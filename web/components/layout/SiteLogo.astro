@@ -1,0 +1,19 @@
+---
+// Логотип-ссылка на главную. Один на шапку и подвал, обе версии.
+//
+// Разметка стояла в четырёх местах — по две копии в SiteHeader и SiteFooter, —
+// и различалась ровно одним классом и одним инлайновым отступом. Именно такой
+// расхождённостью и объясняется существование site-chrome.css (см. её шапку про
+// разъехавшиеся радиус и поля), так что четвёртая копия внутри компонентов,
+// которые эту копипасту и должны были закончить, долго не прожила бы.
+interface Props {
+  class?: string | undefined;
+}
+
+const { class: cls } = Astro.props;
+---
+
+<a href="/" class:list={["mw-logo", cls]} aria-label="Healthy — на главную">
+  <span class="mw-logo-mark" aria-hidden="true">H</span>
+  <span class="mw-logo-text">Healthy</span>
+</a>

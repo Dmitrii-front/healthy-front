@@ -11,6 +11,7 @@
 // Кнопке «Войти» нужен <LoginModal /> на той же странице, иначе клик ничего не
 // откроет: сама кнопка — только триггер.
 import LoginButton from "../auth/LoginButton.astro";
+import SiteLogo from "./SiteLogo.astro";
 import "../../styles/site-chrome.css";
 
 interface Props {
@@ -29,12 +30,7 @@ const isSearch = path.startsWith("/search");
 {
   variant === "mobile" ? (
     <header class="mw-topbar" id="mw-topbar">
-      <a href="/" class="mw-logo" aria-label="Healthy — на главную">
-        <span class="mw-logo-mark" aria-hidden="true">
-          H
-        </span>
-        <span class="mw-logo-text">Healthy</span>
-      </a>
+      <SiteLogo />
       <div class="mw-spacer" />
       <div class="mw-cta-slot">
         <LoginButton />
@@ -44,12 +40,7 @@ const isSearch = path.startsWith("/search");
     <header class="dw-header">
       <div class="dw-header-inner">
         <div class="dw-header-left">
-          <a href="/" class="mw-logo dw-logo" aria-label="Healthy — на главную">
-            <span class="mw-logo-mark" aria-hidden="true">
-              H
-            </span>
-            <span class="mw-logo-text">Healthy</span>
-          </a>
+          <SiteLogo />
           {/* Только пункты с реальными адресами. «Лаборатории» и «Аптеки»
               появятся здесь вместе с маршрутами, а не раньше. */}
           <nav class="dw-nav">

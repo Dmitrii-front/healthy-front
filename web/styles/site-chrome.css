@@ -136,6 +136,13 @@
 .dw-footer .mw-logo-text {
   color: #fff;
 }
+/* Отступ до колонок ссылок. Только мобильная версия: на десктопе логотип стоит
+   в своей ячейке грида и снизу от него ничего нет. Раньше это значение ехало
+   инлайновым style на самой ссылке — переехало сюда вместе с выносом SiteLogo,
+   чтобы у компонента не появилось пропа ради одного отступа у одного вызова. */
+.mw-footer .mw-logo {
+  margin-bottom: 16px;
+}
 .mw-footer-cols {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -225,9 +232,6 @@
     display: flex;
     align-items: center;
     gap: 40px;
-  }
-  .dw-logo {
-    text-decoration: none;
   }
   .dw-nav {
     display: flex;
