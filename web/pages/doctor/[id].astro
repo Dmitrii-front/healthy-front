@@ -833,7 +833,8 @@ const breadcrumbs = {
       const monthLabel = root.querySelector('[data-el="month-label"]');
       if (!dayTrack) return null;
 
-      const dates = windowDates();
+      let dates = windowDates();
+      let isoDates = dates.map(isoDate);
       /** placeId → Set<YYYY-MM-DD>; null = место не ответило, это не «занято». */
       const byPlace = new Map();
       const listeners = [];
@@ -844,6 +845,19 @@ const breadcrumbs = {
       const known = () => [...byPlace.values()].filter((set) => set !== null);
       const freeAt = (iso) => known().filter((set) => set.has(iso)).length;
       const notify = () => listeners.forEach((fn) => fn());
+
+      /** Окно съезжает в полночь, а страницу открывают вечером и листают ночью.
+          Раньше лента считала свои даты один раз при инициализации, а каждый
+          запрос — заново: после смены суток лента рисовала вчерашний день и не
+          рисовала новый последний, потому что просили уже другой отрезок.
+          Теперь окно одно на обе стороны и пересчитывается лениво — перед
+          запросом и перед публикацией. Возвращает, сдвинулось ли оно. */
+      function syncWindow() {
+        if (isoDates[0] === isoDate(new Date())) return false;
+        dates = windowDates();
+        isoDates = dates.map(isoDate);
+        return true;
+      }
 
       /** Выбранный день переставляем на месте, не перерисовывая ленту: перерисовка
           сбрасывала бы scrollLeft, и лента прыгала бы к началу на каждый тап. */
@@ -925,26 +939,20 @@ const breadcrumbs = {
         dayTrack.scrollTo({ left, behavior: smooth && motionOk ? "smooth" : "auto" });
       }
 
-      function renderDays() {
-        // Перерисовка обнуляет scrollLeft, а окно шириной в квартал уезжает при
-        // этом на три месяца назад, к первому дню. Раньше это стоило прыжка
-        // только при смене вида приёма; теперь ленту перерисовывает ещё и
-        // обновление после брони, где выбранный день чаще всего не меняется —
-        // а значит revealActive() в publish() не сработает и не вернёт её на
-        // место. Держим позицию сами, до syncMonthLabel/syncNav: обе читают
-        // scrollLeft и на сброшенном посчитали бы не тот месяц и не те края.
-        const keepScroll = dayTrack.scrollLeft;
+      /** Карточки дней строим один раз: за всё окно меняться в них могут только
+          доступность и отметка выбора, а остальное задано датой. Перерисовка
+          всей ленты обнуляла scrollLeft и требовала его руками восстанавливать —
+          на окне в квартал это 360 узлов и 90 слушателей за каждый ответ места,
+          и после брони ещё столько же на каждое место. Держим DOM, меняем
+          состояние — тем же приёмом, что markActive(). */
+      function buildDays() {
         dayTrack.innerHTML = "";
-        dates.forEach((d) => {
-          const iso = isoDate(d);
-          const free = freeAt(iso);
-
+        dates.forEach((d, i) => {
+          const iso = isoDates[i];
           const b = document.createElement("button");
           b.type = "button";
           b.className = "hm-day";
-          b.disabled = free === 0;
           b.dataset.date = iso;
-          b.setAttribute("aria-pressed", String(iso === activeDate));
           // Вне сетки месяца «25» само себя не объясняет — дату даём целиком.
           b.setAttribute("aria-label", `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]}`);
 
@@ -957,13 +965,31 @@ const breadcrumbs = {
           // Точка есть всегда: без неё числа в занятых днях съезжали бы вниз.
           const dot = document.createElement("span");
           dot.className = "hm-day-dot";
-          if (free === 0) dot.dataset.empty = "1";
           b.append(dow, num, dot);
 
-          if (free > 0) b.addEventListener("click", () => select(iso));
+          // Слушатель вешаем безусловно: disabled-кнопка click не шлёт, так что
+          // снимать и вешать его вслед за доступностью нечего.
+          b.addEventListener("click", () => select(iso));
           dayTrack.appendChild(b);
         });
-        dayTrack.scrollLeft = keepScroll;
+        syncDays();
+      }
+
+      /** Доступность и отметка выбора — единственное, что меняется по ходу.
+          Наборы дат берём один раз на весь проход, а не на каждый день. */
+      function syncDays() {
+        const sets = known();
+        const cards = dayTrack.querySelectorAll(".hm-day");
+        cards.forEach((el, i) => {
+          const iso = isoDates[i];
+          let free = 0;
+          for (const set of sets) if (set.has(iso)) free += 1;
+          el.disabled = free === 0;
+          el.setAttribute("aria-pressed", String(iso === activeDate));
+          const dot = el.lastElementChild;
+          if (free === 0) dot.dataset.empty = "1";
+          else delete dot.dataset.empty;
+        });
         syncMonthLabel();
         syncNav();
       }
@@ -986,12 +1012,15 @@ const breadcrumbs = {
       /** Место отчитывается своей доступностью: set с датами или null, если
           запрос упал. Пока не отчитались все — день не выбираем. */
       function publish(placeId, availableDates) {
+        // Ответ мог прийти уже после смены суток — тогда ленту надо пересобрать
+        // на новом окне, иначе индексы дней разъедутся с датами ответа.
+        if (syncWindow()) buildDays();
         byPlace.set(placeId, availableDates);
         const previous = activeDate;
         if (byPlace.size >= expected && (activeDate === "" || freeAt(activeDate) === 0)) {
-          activeDate = dates.map(isoDate).find((iso) => freeAt(iso) > 0) ?? "";
+          activeDate = isoDates.find((iso) => freeAt(iso) > 0) ?? "";
         }
-        renderDays();
+        syncDays();
         if (activeDate !== previous) {
           revealActive();
           notify();
@@ -1054,11 +1083,18 @@ const breadcrumbs = {
         subscribe: (fn) => listeners.push(fn),
         select,
         publish,
+        /** Отрезок, который лента показывает прямо сейчас. Места спрашивают
+            доступность именно за него, а не считают свой собственный: иначе
+            после полуночи запрошенное и нарисованное расходятся на день. */
+        window: () => {
+          if (syncWindow()) buildDays();
+          return { from: isoDates[0], to: isoDates[isoDates.length - 1] };
+        },
         /** Сколько мест ждём. Заодно рисует ленту заглушкой, чтобы вёрстка не
             дёргалась, когда придут ответы. */
         expect: (count) => {
           expected = count;
-          renderDays();
+          buildDays();
         },
       };
     }
@@ -1289,6 +1325,16 @@ const breadcrumbs = {
       // Запрос упал — пока не переспросим, «свободного времени нет» здесь врать
       // нельзя: пустой byDate у сбоя и у занятого расписания выглядит одинаково.
       let failed = false;
+      /** Номер поколения запроса; ответы старше текущего выбрасываем.
+       *
+       * load() зовут из трёх независимых мест — первая отрисовка, смена вида
+       * приёма и обновление после брони, — а ответы приходят не в том порядке,
+       * в каком уходили. Раньше каждый вызов чистил общий byDate и потом писал
+       * в него из своего .forEach: обогнанный запрос дописывал время СВОЕЙ
+       * услуги в карту следующего, и сетка показывала смесь двух расписаний.
+       * Клик по такому слоту уходил в бронь с чужим appointmentTypeId — то есть
+       * с чужой длительностью приёма. */
+      let generation = 0;
 
       function setStatus(text) {
         if (!slotStatus) return;
@@ -1401,30 +1447,33 @@ const breadcrumbs = {
       }
 
       async function load() {
+        const mine = (generation += 1);
         byDate = new Map();
         failed = false;
         slotGrid.innerHTML = "";
         if (dayLabel) dayLabel.textContent = "";
         setStatus("Смотрим свободное время…");
 
-        const dates = windowDates();
+        // Отрезок берём у ленты: он у неё и у нас обязан быть один.
+        const { from, to } = rail.window();
+        // Собираем в свою карту, а не в общую: пока идёт запрос, byDate может
+        // принадлежать уже следующему поколению.
+        const next = new Map();
         try {
-          const availability = await fetchAvailableSlots(
-            doctorId,
-            typePicker.current().id,
-            isoDate(dates[0]),
-            isoDate(dates[dates.length - 1]),
-          );
+          const availability = await fetchAvailableSlots(doctorId, typePicker.current().id, from, to);
+          if (mine !== generation) return;
           availability.forEach((day) => {
             const times = day.slots.filter((s) => s.available).map((s) => s.start_time.slice(0, 5));
             if (times.length === 0) return;
-            byDate.set(day.date, {
+            next.set(day.date, {
               workPlaceId: day.workplace.id,
               workplaceName: day.workplace.name,
               times,
             });
           });
+          byDate = next;
         } catch {
+          if (mine !== generation) return;
           // Сеть, а не отсутствие слотов: показывать «всё занято» здесь было бы
           // ложью, и в ленту это место уходит как «неизвестно», а не как «пусто».
           failed = true;
