@@ -113,4 +113,19 @@ describe('getDoctorProfile', () => {
 
     await expect(getDoctorProfile(ID, { retries: 0, delayMs: 0 })).rejects.toThrow(/валидац/iu)
   })
+
+  it('объясняет ответ не в JSON, а не роняет сырой SyntaxError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('<!doctype html><html></html>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    )
+
+    await expect(getDoctorProfile(ID, { retries: 0, delayMs: 0 })).rejects.toThrow(/не JSON/u)
+  })
 })

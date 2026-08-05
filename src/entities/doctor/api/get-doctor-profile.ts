@@ -70,7 +70,16 @@ export async function getDoctorProfile(
       continue
     }
 
-    const parsed = DoctorProfileResponseSchema.safeParse(await response.json())
+    let body: unknown
+    try {
+      body = await response.json()
+    } catch {
+      // По адресу стоит не API: веб-сервер отвечает 200 и отдаёт HTML.
+      // Повтор не поможет — адрес не изменится.
+      throw new Error(`Профиль ${id}: ответ не JSON. Запрошен ${url.toString()}`)
+    }
+
+    const parsed = DoctorProfileResponseSchema.safeParse(body)
     if (!parsed.success) {
       // Повтор не поможет: контракт разъехался. Пропускать врача тоже нельзя —
       // это не отсутствие записи, а неизвестная форма ответа.

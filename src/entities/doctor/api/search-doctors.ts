@@ -55,8 +55,18 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
       )
     }
 
-    // eslint-disable-next-line eslint/no-await-in-loop
-    const parsed = DoctorSearchResponseSchema.safeParse(await response.json())
+    let body: unknown
+    try {
+      // eslint-disable-next-line eslint/no-await-in-loop
+      body = await response.json()
+    } catch {
+      // По адресу стоит не API: веб-сервер отвечает 200 и отдаёт HTML.
+      throw new Error(
+        `Каталог врачей ответил не JSON. Запрошен ${url.toString()}. Проверьте PUBLIC_API_URL.`,
+      )
+    }
+
+    const parsed = DoctorSearchResponseSchema.safeParse(body)
     if (!parsed.success) {
       throw new Error(`Каталог врачей вернул неожиданную структуру: ${parsed.error.message}`)
     }

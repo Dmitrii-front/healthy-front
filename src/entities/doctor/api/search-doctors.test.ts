@@ -127,4 +127,22 @@ describe('searchDoctors', () => {
 
     await expect(searchDoctors()).rejects.toThrow(/PUBLIC_API_URL/u)
   })
+
+  it('объясняет ответ не в JSON, а не роняет сырой SyntaxError', async () => {
+    // Самый вероятный симптом неверного адреса: по нему стоит веб-сервер,
+    // он отвечает 200 и отдаёт HTML.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('<!doctype html><html></html>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    )
+
+    const { searchDoctors } = await import('./search-doctors')
+    await expect(searchDoctors()).rejects.toThrow(/PUBLIC_API_URL/u)
+  })
 })
