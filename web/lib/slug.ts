@@ -51,3 +51,12 @@ export function doctorSlug(doctor: { id: string; name: string }): string {
   const base = slugify(doctor.name)
   return base ? `${base}-${doctor.id}` : doctor.id
 }
+
+/**
+ * Слаг по профилю врача. Существует ради одного: у профиля поле называется
+ * fullName, у doctorSlug параметр — name, и перепутать их легко. Ошибка не
+ * ловится типами и проявляется как 404 на всех карточках выдачи.
+ */
+export function doctorProfileSlug(doctor: { id: string; fullName: string }): string {
+  return doctorSlug({ id: doctor.id, name: doctor.fullName })
+}

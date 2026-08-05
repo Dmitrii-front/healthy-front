@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { doctorSlug, slugify } from './slug'
+import { doctorProfileSlug, doctorSlug, slugify } from './slug'
 
 describe('slugify', () => {
   it('транслитерирует кириллицу', () => {
@@ -41,5 +41,23 @@ describe('doctorSlug', () => {
 
   it('оставляет идентификатор в конце — по нему страница врача находит запись', () => {
     expect(doctorSlug({ id, name: 'Петров Пётр' }).endsWith(id)).toBe(true)
+  })
+})
+
+describe('doctorProfileSlug', () => {
+  const id = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
+
+  it('берёт имя из профиля, не требуя собирать объект руками', () => {
+    expect(doctorProfileSlug({ id, fullName: 'Иванов Иван Иванович' })).toBe(
+      `ivanov-ivan-ivanovich-${id}`,
+    )
+  })
+
+  it('даёт тот же слаг, что и doctorSlug на тех же данных', () => {
+    // Страница врача и ссылки на неё обязаны считать слаг одинаково,
+    // иначе выдача ведёт на несуществующие страницы.
+    expect(doctorProfileSlug({ id, fullName: 'Петров Пётр' })).toBe(
+      doctorSlug({ id, name: 'Петров Пётр' }),
+    )
   })
 })
