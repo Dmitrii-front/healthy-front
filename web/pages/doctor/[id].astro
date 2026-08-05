@@ -24,17 +24,15 @@ export async function getStaticPaths() {
     catalog.map(async (item) => {
       // Поиск не отдаёт ни мест работы, ни стажа, ни образования — за ними
       // приходится идти в полный профиль на каждого врача.
-      const doctor = await getDoctorProfile(item.id);
-      return doctor === null
-        ? null
-        : {
-            params: { id: doctorSlug({ id: doctor.id, name: doctor.fullName }) },
-            props: { doctor },
-          };
+      const result = await getDoctorProfile(item.id);
+      return result.ok
+        ? {
+            params: { id: doctorSlug({ id: result.doctor.id, name: result.doctor.fullName }) },
+            props: { doctor: result.doctor },
+          }
+        : null;
     }),
   );
-  // Профиль мог не открыться при живом поиске — такого врача пропускаем,
-  // getDoctorProfile уже написал предупреждение в лог сборки.
   return paths.filter((path) => path !== null);
 }
 
