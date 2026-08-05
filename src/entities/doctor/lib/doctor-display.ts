@@ -54,13 +54,17 @@ export function normalizeSpecialization(raw: string): string {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
 }
 
-/** Стаж из start_practise_date. Неполный год не засчитывается. */
-export function yearsSince(isoDate: string | null): number | null {
+/**
+ * Стаж из start_practise_date. Неполный год не засчитывается.
+ *
+ * `now` инжектируется, чтобы функция была детерминированной в тестах;
+ * в бою вызывается без второго аргумента.
+ */
+export function yearsSince(isoDate: string | null, now: Date = new Date()): number | null {
   if (isoDate === null) return null
   const start = new Date(isoDate)
   if (Number.isNaN(start.getTime())) return null
 
-  const now = new Date()
   let years = now.getFullYear() - start.getFullYear()
   const monthDelta = now.getMonth() - start.getMonth()
   if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < start.getDate())) {
