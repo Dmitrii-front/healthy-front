@@ -3,6 +3,7 @@ import { env } from '@/shared/config'
 import { DoctorSearchItemSchema, DoctorSearchResponseSchema } from '../model/doctor-api.schema'
 import { toDoctorListItem } from '../model/doctor-view'
 import type { DoctorListItem } from '../model/doctor-view'
+import { failBuild } from './build-failure'
 
 /** Бэкенд ограничивает limit сотней. */
 const PAGE_SIZE = 100
@@ -39,7 +40,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
     // eslint-disable-next-line eslint/no-await-in-loop
     const response = await fetch(url, { headers: { Accept: 'application/json' } })
     if (!response.ok) {
-      throw new Error(
+      failBuild(
         `Каталог врачей недоступен: ${response.status} ${response.statusText}. ` +
           `Запрошен ${url.toString()}. Проверьте PUBLIC_API_URL.`,
       )
@@ -48,7 +49,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
     // eslint-disable-next-line eslint/no-await-in-loop
     const parsed = DoctorSearchResponseSchema.safeParse(await response.json())
     if (!parsed.success) {
-      throw new Error(`Каталог врачей вернул неожиданную структуру: ${parsed.error.message}`)
+      failBuild(`Каталог врачей вернул неожиданную структуру: ${parsed.error.message}`)
     }
 
     // Поштучно: один врач с битым полем не должен обнулять весь каталог.
@@ -65,7 +66,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
   if (dropped > 0) {
     const share = dropped / (doctors.length + dropped)
     if (share > MAX_INVALID_SHARE) {
-      throw new Error(
+      failBuild(
         `Каталог врачей не прошёл валидацию: отброшено ${dropped} записей из ${doctors.length + dropped}. ` +
           'Похоже на разъехавшийся контракт, а не на битые данные отдельных врачей. ' +
           'Сборка остановлена, чтобы не выкатить витрину без части врачей.',
@@ -75,9 +76,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
   }
 
   if (doctors.length === 0) {
-    throw new Error(
-      'Каталог врачей пуст. Сборка остановлена, чтобы не выкатить витрину без врачей.',
-    )
+    failBuild('Каталог врачей пуст. Сборка остановлена, чтобы не выкатить витрину без врачей.')
   }
 
   return doctors

@@ -3,6 +3,7 @@ import { env } from '@/shared/config'
 import { DoctorProfileResponseSchema } from '../model/doctor-api.schema'
 import { toDoctorProfileView } from '../model/doctor-view'
 import type { DoctorProfileView } from '../model/doctor-view'
+import { failBuild } from './build-failure'
 
 /**
  * Результат запроса профиля. `missing` — единственный исход, при котором врача
@@ -74,11 +75,11 @@ export async function getDoctorProfile(
     if (!parsed.success) {
       // Повтор не поможет: контракт разъехался. Пропускать врача тоже нельзя —
       // это не отсутствие записи, а неизвестная форма ответа.
-      throw new Error(`Профиль ${id} не прошёл валидацию: ${parsed.error.message}`)
+      failBuild(`Профиль ${id} не прошёл валидацию: ${parsed.error.message}`)
     }
 
     return { ok: true, doctor: toDoctorProfileView(parsed.data.payload) }
   }
 
-  throw lastError ?? new Error(`Профиль ${id}: запрос не удался`)
+  failBuild(lastError?.message ?? `Профиль ${id}: запрос не удался`)
 }

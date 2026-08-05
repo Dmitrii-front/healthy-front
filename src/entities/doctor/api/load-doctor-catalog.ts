@@ -1,6 +1,7 @@
 import { mapWithConcurrency } from '@/shared/lib'
 
 import type { DoctorProfileView } from '../model/doctor-view'
+import { failBuild } from './build-failure'
 import { getDoctorProfile } from './get-doctor-profile'
 import { searchDoctors } from './search-doctors'
 
@@ -50,7 +51,7 @@ async function load(): Promise<DoctorProfileView[]> {
   if (missing > 0) {
     const share = missing / catalog.length
     if (share > MAX_MISSING_SHARE) {
-      throw new Error(
+      failBuild(
         `Каталог собрался неполным: ${missing} из ${catalog.length} профилей не открылись. ` +
           'Похоже на сменившийся маршрут или чужой PUBLIC_API_URL, а не на удаление врачей. ' +
           'Сборка остановлена, чтобы не выкатить витрину со ссылками в никуда.',
