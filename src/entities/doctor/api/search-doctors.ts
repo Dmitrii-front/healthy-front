@@ -3,7 +3,6 @@ import { env } from '@/shared/config'
 import { DoctorSearchItemSchema, DoctorSearchResponseSchema } from '../model/doctor-api.schema'
 import { toDoctorListItem } from '../model/doctor-view'
 import type { DoctorListItem } from '../model/doctor-view'
-import { failBuild } from './build-failure'
 
 /** Бэкенд ограничивает limit сотней. */
 const PAGE_SIZE = 100
@@ -44,13 +43,13 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
     } catch (error) {
       // Отказ соединения, сбой DNS, недоступный хост. Без этой ветки наружу
       // уходит сырое исключение fetch, и объяснение теряется в обёртке воркера.
-      failBuild(
+      throw new Error(
         `Каталог врачей недоступен: ${error instanceof Error ? error.message : String(error)}. ` +
           `Запрошен ${url.toString()}. Проверьте PUBLIC_API_URL.`,
       )
     }
     if (!response.ok) {
-      failBuild(
+      throw new Error(
         `Каталог врачей недоступен: ${response.status} ${response.statusText}. ` +
           `Запрошен ${url.toString()}. Проверьте PUBLIC_API_URL.`,
       )
@@ -59,7 +58,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
     // eslint-disable-next-line eslint/no-await-in-loop
     const parsed = DoctorSearchResponseSchema.safeParse(await response.json())
     if (!parsed.success) {
-      failBuild(`Каталог врачей вернул неожиданную структуру: ${parsed.error.message}`)
+      throw new Error(`Каталог врачей вернул неожиданную структуру: ${parsed.error.message}`)
     }
 
     // Поштучно: один врач с битым полем не должен обнулять весь каталог.
@@ -76,7 +75,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
   if (dropped > 0) {
     const share = dropped / (doctors.length + dropped)
     if (share > MAX_INVALID_SHARE) {
-      failBuild(
+      throw new Error(
         `Каталог врачей не прошёл валидацию: отброшено ${dropped} записей из ${doctors.length + dropped}. ` +
           'Похоже на разъехавшийся контракт, а не на битые данные отдельных врачей. ' +
           'Сборка остановлена, чтобы не выкатить витрину без части врачей.',
@@ -86,7 +85,9 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
   }
 
   if (doctors.length === 0) {
-    failBuild('Каталог врачей пуст. Сборка остановлена, чтобы не выкатить витрину без врачей.')
+    throw new Error(
+      'Каталог врачей пуст. Сборка остановлена, чтобы не выкатить витрину без врачей.',
+    )
   }
 
   return doctors
