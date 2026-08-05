@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatExperienceLabel, yearsSince } from './doctor-display'
+import {
+  avatarColorFor,
+  buildFullName,
+  buildInitials,
+  buildShortName,
+  formatExperienceLabel,
+  formatLanguages,
+  formatPriceKgs,
+  normalizeSpecialization,
+  yearsSince,
+} from './doctor-display'
 
 describe('yearsSince', () => {
   it('считает полные годы от переданной даты', () => {
@@ -56,5 +66,97 @@ describe('formatExperienceLabel', () => {
 
   it('отдаёт null, когда стаж неизвестен — строку рисовать нечем', () => {
     expect(formatExperienceLabel(null)).toBeNull()
+  })
+})
+
+describe('formatLanguages', () => {
+  it('разворачивает ISO-коды в самоназвания', () => {
+    expect(formatLanguages(['ru', 'ky', 'en'])).toEqual(['Русский', 'Кыргызча', 'English'])
+  })
+
+  it('не теряет незнакомый код, а поднимает его в верхний регистр', () => {
+    expect(formatLanguages(['de'])).toEqual(['DE'])
+  })
+
+  it('не спотыкается о регистр входа', () => {
+    expect(formatLanguages(['RU'])).toEqual(['Русский'])
+  })
+
+  it('отдаёт пустой список для пустого входа', () => {
+    expect(formatLanguages([])).toEqual([])
+  })
+})
+
+describe('formatPriceKgs', () => {
+  it('форматирует цену с разрядами и сомом', () => {
+    // Неразрывный пробел из Intl — сравниваем через регулярку, чтобы тест не
+    // падал из-за невидимого символа.
+    expect(formatPriceKgs(1000)).toMatch(/^1\s000 с$/u)
+    expect(formatPriceKgs(2999)).toMatch(/^2\s999 с$/u)
+  })
+
+  it('отдаёт null, когда цены нет', () => {
+    expect(formatPriceKgs(null)).toBeNull()
+  })
+})
+
+describe('normalizeSpecialization', () => {
+  it('поднимает первую букву: в базе встречается и «стоматолог», и «Стоматолог»', () => {
+    expect(normalizeSpecialization('стоматолог')).toBe('Стоматолог')
+    expect(normalizeSpecialization('Стоматолог')).toBe('Стоматолог')
+  })
+
+  it('не трогает остальные буквы, чтобы не сломать аббревиатуры', () => {
+    expect(normalizeSpecialization('врач УЗИ')).toBe('Врач УЗИ')
+  })
+
+  it('обрезает пробелы и переживает пустую строку', () => {
+    expect(normalizeSpecialization('  хирург  ')).toBe('Хирург')
+    expect(normalizeSpecialization('')).toBe('')
+    expect(normalizeSpecialization('   ')).toBe('')
+  })
+})
+
+describe('buildInitials', () => {
+  it('берёт первые буквы фамилии и имени', () => {
+    expect(buildInitials('Надточий', 'Дмитрий')).toBe('НД')
+  })
+
+  it('переживает пустое имя', () => {
+    expect(buildInitials('Иванов', '')).toBe('И')
+  })
+
+  it('отдаёт прочерк, когда имени нет вовсе — карточке нужен хоть какой-то знак', () => {
+    expect(buildInitials('', '')).toBe('—')
+  })
+})
+
+describe('buildShortName и buildFullName', () => {
+  it('короткое имя — фамилия и имя', () => {
+    expect(buildShortName('Петров', 'Пётр')).toBe('Петров Пётр')
+  })
+
+  it('полное имя добавляет отчество, когда оно есть', () => {
+    expect(buildFullName('Петров', 'Пётр', 'Петрович')).toBe('Петров Пётр Петрович')
+  })
+
+  it('полное имя не оставляет висящий пробел без отчества', () => {
+    expect(buildFullName('Петров', 'Пётр', null)).toBe('Петров Пётр')
+  })
+})
+
+describe('avatarColorFor', () => {
+  it('даёт один и тот же цвет одному и тому же врачу', () => {
+    const id = '0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0'
+    expect(avatarColorFor(id)).toBe(avatarColorFor(id))
+  })
+
+  it('выдаёт цвет из палитры, а не произвольную строку', () => {
+    const palette = ['#E8D5C4', '#D8E3DC', '#E5DCEA', '#DCE5EE', '#EFE3D0', '#DDE7E3']
+    expect(palette).toContain(avatarColorFor('какой-угодно-id'))
+  })
+
+  it('переживает пустой id', () => {
+    expect(typeof avatarColorFor('')).toBe('string')
   })
 })
