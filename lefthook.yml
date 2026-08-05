@@ -10,3 +10,6 @@ pre-commit:
       run: pnpm exec steiger ./src
     typecheck:
       run: pnpm exec tsc -b --noEmit
+    test:
+      glob: '*.{ts,tsx}'
+      run: pnpm exec vitest run
