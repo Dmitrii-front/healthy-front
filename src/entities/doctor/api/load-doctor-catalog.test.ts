@@ -82,7 +82,7 @@ function doctorId(n: number): string {
 /** Отвечает на поиск списком ids, на профили — по правилу profileStatus. */
 function stubApi(ids: string[], profileStatus: (id: string) => number = () => 200) {
   const fetchMock = vi.fn(async (input: string | URL) => {
-    const href = input instanceof URL ? input.href : String(input)
+    const href = input instanceof URL ? input.href : input
     if (href.includes('/doctor-profile/search')) return json(searchPayload(ids))
 
     const id = href.slice(href.lastIndexOf('/') + 1)

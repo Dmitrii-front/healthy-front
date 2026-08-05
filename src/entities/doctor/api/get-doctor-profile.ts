@@ -46,17 +46,24 @@ export async function getDoctorProfile(
 
   let lastError: Error | null = null
 
+  // Повторы обязаны идти строго последовательно: следующая попытка имеет
+  // смысл только после провала предыдущей, Promise.all здесь неприменим.
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    if (attempt > 0) await sleep(delayMs)
+    if (attempt > 0) {
+      // eslint-disable-next-line eslint/no-await-in-loop
+      await sleep(delayMs)
+    }
 
     let response: Response
     try {
+      // eslint-disable-next-line eslint/no-await-in-loop
       response = await fetch(url, { headers: { Accept: 'application/json' } })
     } catch (error) {
       // Обрыв соединения, исчерпание сокетов, недоступный хост. Раньше это
       // исключение вылетало из Promise.all и роняло сборку без объяснения.
       lastError = new Error(
         `Профиль ${id}: сеть недоступна (${error instanceof Error ? error.message : String(error)})`,
+        { cause: error },
       )
       continue
     }
@@ -72,6 +79,7 @@ export async function getDoctorProfile(
 
     let body: unknown
     try {
+      // eslint-disable-next-line eslint/no-await-in-loop
       body = await response.json()
     } catch {
       // По адресу стоит не API: веб-сервер отвечает 200 и отдаёт HTML.

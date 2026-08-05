@@ -17,11 +17,14 @@ export async function mapWithConcurrency<T, R>(
   let cursor = 0
 
   const worker = async (): Promise<void> => {
+    // Задачи внутри воркера обязаны идти последовательно: воркер и есть
+    // граница одновременности, которую задаёт limit, — parallel здесь её сломает.
     while (cursor < items.length) {
       const index = cursor
       cursor += 1
       const item = items[index]
       if (item === undefined) continue
+      // eslint-disable-next-line eslint/no-await-in-loop
       results[index] = await fn(item, index)
     }
   }

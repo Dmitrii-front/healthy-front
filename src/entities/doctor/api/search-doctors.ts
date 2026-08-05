@@ -46,6 +46,7 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
       throw new Error(
         `Каталог врачей недоступен: ${error instanceof Error ? error.message : String(error)}. ` +
           `Запрошен ${url.toString()}. Проверьте PUBLIC_API_URL.`,
+        { cause: error },
       )
     }
     if (!response.ok) {
