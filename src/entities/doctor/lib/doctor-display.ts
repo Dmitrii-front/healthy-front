@@ -101,3 +101,25 @@ export function formatPriceKgs(value: number | null): string | null {
   if (value === null) return null
   return `${priceFormatter.format(value)} с`
 }
+
+/**
+ * Подпись стажа для карточки и профиля.
+ *
+ * Ноль — не «0 лет»: у врача, начавшего практику в этом году, стажа
+ * действительно нет, но такая подпись читается как ошибка данных.
+ */
+export function formatExperienceLabel(years: number | null): string | null {
+  if (years === null) return null
+  if (years === 0) return 'Менее года'
+
+  const m10 = years % 10
+  const m100 = years % 100
+  const noun =
+    m10 === 1 && m100 !== 11
+      ? 'год'
+      : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)
+        ? 'года'
+        : 'лет'
+
+  return `${years} ${noun}`
+}

@@ -13,4 +13,4 @@ export type {
   DoctorProfileView,
   DoctorWorkplaceView,
 } from './model/doctor-view'
-export { formatPriceKgs } from './lib/doctor-display'
+export { formatExperienceLabel, formatPriceKgs } from './lib/doctor-display'

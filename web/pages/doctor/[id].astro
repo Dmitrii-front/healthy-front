@@ -9,7 +9,12 @@ import LoginModal from "../../components/auth/LoginModal.astro";
 import SiteHeader from "../../components/layout/SiteHeader.astro";
 import SiteFooter from "../../components/layout/SiteFooter.astro";
 import { yandexMapsUrl, hasYandexMapsKey } from "@/shared/lib";
-import { searchDoctors, getDoctorProfile, formatPriceKgs } from "@/entities/doctor";
+import {
+  searchDoctors,
+  getDoctorProfile,
+  formatPriceKgs,
+  formatExperienceLabel,
+} from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
 import { doctorSlug } from "../../lib/slug";
 
@@ -49,15 +54,17 @@ const description = doctor.bio
 // ── Display helpers ────────────────────────────────────────────────
 // Названия месяцев и дней недели живут в клиентском скрипте: сетку календаря
 // теперь рисует он, а не сборка.
-function pluralYears(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return "год";
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "года";
-  return "лет";
-}
 
 const priceLabel = formatPriceKgs(doctor.priceFrom);
+const experienceLabel = formatExperienceLabel(doctor.yearsExperience);
+// Число стажа набирается моно с tabular-nums, а слово рядом — обычным
+// графитом: это правило записано в .hm-tenure-num и держит стаж однотипным
+// цене и временам слотов. Поэтому в шапке подпись нужна разобранной на число
+// и слово, а не одной строкой. «Менее года» числа не содержит и идёт целиком.
+const experienceNoun =
+  doctor.yearsExperience !== null && doctor.yearsExperience > 0 && experienceLabel !== null
+    ? experienceLabel.slice(String(doctor.yearsExperience).length + 1)
+    : null;
 
 // Узкие специализации идут через запятую после основной, поэтому с заглавной
 // буквы им начинаться незачем. Строчной делаем ТОЛЬКО первую букву, а не всю
@@ -75,8 +82,8 @@ const bioText =
   doctor.bio ??
   [
     `${specialtyLine}.`,
-    doctor.yearsExperience !== null
-      ? `Опыт работы — ${doctor.yearsExperience} ${pluralYears(doctor.yearsExperience)}.`
+    experienceLabel !== null
+      ? `Опыт работы — ${experienceLabel.charAt(0).toLowerCase() + experienceLabel.slice(1)}.`
       : "",
     workplaceNames.length > 0
       ? `Принимает: ${workplaceNames.join(", ")}${doctor.city ? ` (${doctor.city})` : ""}.`
@@ -307,7 +314,7 @@ const breadcrumbs = {
                 подпись капсом, значение числом. Колонки auto auto 1fr — цене и
                 стажу хватает своей ширины, остаток забирают языки, которым его
                 и не хватало. */}
-            {(priceLabel || doctor.yearsExperience != null || doctor.languages.length > 0) && (
+            {(priceLabel || experienceLabel !== null || doctor.languages.length > 0) && (
               <dl class="mt-1 grid grid-cols-1 gap-y-4 border-t border-[#edebe6] pt-4 sm:grid-cols-[auto_auto_1fr] sm:gap-x-9">
                 {priceLabel && (
                   <div>
@@ -320,13 +327,19 @@ const breadcrumbs = {
                   </div>
                 )}
 
-                {doctor.yearsExperience != null && (
+                {experienceLabel !== null && (
                   <div>
                     <dt class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a8e96]">
                       Стаж
                     </dt>
                     <dd class="mt-1.5 whitespace-nowrap text-[15px] text-[#2a2d33]">
-                      <span class="hm-tenure-num">{doctor.yearsExperience}</span> {pluralYears(doctor.yearsExperience)}
+                      {experienceNoun === null ? (
+                        experienceLabel
+                      ) : (
+                        <Fragment>
+                          <span class="hm-tenure-num">{doctor.yearsExperience}</span> {experienceNoun}
+                        </Fragment>
+                      )}
                     </dd>
                   </div>
                 )}
