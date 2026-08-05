@@ -112,4 +112,19 @@ describe('searchDoctors', () => {
 
     await expect(searchDoctors()).rejects.toThrow(/пуст/iu)
   })
+
+  it('объясняет обрыв соединения, а не роняет сырое исключение fetch', async () => {
+    // Самый частый первый сбой: неверный PUBLIC_API_URL даёт отказ соединения,
+    // а не 500. Без обработки сюда прилетает исключение самого fetch, и всё
+    // объяснение теряется в обёртке воркера.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('ECONNREFUSED')
+      }),
+    )
+    const { searchDoctors } = await import('./search-doctors')
+
+    await expect(searchDoctors()).rejects.toThrow(/PUBLIC_API_URL/u)
+  })
 })

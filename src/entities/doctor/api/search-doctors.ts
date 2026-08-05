@@ -37,8 +37,18 @@ export async function searchDoctors(): Promise<DoctorListItem[]> {
     url.searchParams.set('limit', String(PAGE_SIZE))
     if (cursor !== null) url.searchParams.set('cursor', cursor)
 
-    // eslint-disable-next-line eslint/no-await-in-loop
-    const response = await fetch(url, { headers: { Accept: 'application/json' } })
+    let response: Response
+    try {
+      // eslint-disable-next-line eslint/no-await-in-loop
+      response = await fetch(url, { headers: { Accept: 'application/json' } })
+    } catch (error) {
+      // Отказ соединения, сбой DNS, недоступный хост. Без этой ветки наружу
+      // уходит сырое исключение fetch, и объяснение теряется в обёртке воркера.
+      failBuild(
+        `Каталог врачей недоступен: ${error instanceof Error ? error.message : String(error)}. ` +
+          `Запрошен ${url.toString()}. Проверьте PUBLIC_API_URL.`,
+      )
+    }
     if (!response.ok) {
       failBuild(
         `Каталог врачей недоступен: ${response.status} ${response.statusText}. ` +
