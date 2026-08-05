@@ -7,6 +7,8 @@ export { DOCTOR_MUTATIONS } from './api/doctor.mutations'
 // выше по-прежнему обслуживают экраны SPA, которые ещё не переведены.
 export { searchDoctors } from './api/search-doctors'
 export { getDoctorProfile } from './api/get-doctor-profile'
+export { loadDoctorCatalog } from './api/load-doctor-catalog'
+export type { DoctorProfileResult } from './api/get-doctor-profile'
 export type {
   DoctorAppointmentTypeView,
   DoctorListItem,
