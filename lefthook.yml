@@ -9,7 +9,7 @@ pre-commit:
     fsd:
       run: pnpm exec steiger ./src
     typecheck:
-      run: pnpm exec tsc -b --noEmit
+      run: pnpm typecheck
     test:
       glob: '*.{ts,tsx}'
       run: pnpm exec vitest run
