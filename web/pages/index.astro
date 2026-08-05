@@ -4,9 +4,9 @@ import JsonLd from "../components/seo/JsonLd.astro";
 import LoginModal from "../components/auth/LoginModal.astro";
 import SiteHeader from "../components/layout/SiteHeader.astro";
 import SiteFooter from "../components/layout/SiteFooter.astro";
-import { searchDoctors, formatPriceKgs } from "@/entities/doctor";
+import { loadDoctorCatalog, formatPriceKgs } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
-import { doctorSlug } from "../lib/slug";
+import { doctorProfileSlug } from "../lib/slug";
 
 // ── Design tokens (TEAL + N) ───────────────────────────────
 const TEAL = {
@@ -116,7 +116,9 @@ const SPECIALTY_GLYPHS: Record<string, string[]> = {
 // Одна лента вместо двух: признака «онлайн / в клинике» в данных нет —
 // consultation_formats у всех прод-врачей null, а у сидов приходит
 // offline/online, чего фронтовая схема не понимает.
-const doctors = await searchDoctors();
+// Тот же кэшированный каталог, что и у страниц врачей: раньше главная
+// тянула его вторым независимым обходом.
+const doctors = await loadDoctorCatalog();
 
 // Russian plural for the noun "врач" — 1 врач, 2–4 врача, 5+ врачей.
 function pluralizeDoctor(n: number): string {
@@ -293,7 +295,7 @@ const websiteJsonLd = {
       </div>
       <div class="mw-rail hide-sb">
         {doctors.map((d) => (
-          <a href={`/doctor/${doctorSlug({ id: d.id, name: d.fullName })}`} class="mw-doctor-card tap">
+          <a href={`/doctor/${doctorProfileSlug(d)}`} class="mw-doctor-card tap">
             <div class="mw-doctor-head">
               <div class="mw-avatar-wrap">
                 {d.avatarUrl ? (
@@ -551,7 +553,7 @@ const websiteJsonLd = {
       <div class="dw-carousel">
         <div class="dw-carousel-track">
           {doctors.map((d) => (
-            <a href={`/doctor/${doctorSlug({ id: d.id, name: d.fullName })}`} class="dw-doctor dw-doctor-slide">
+            <a href={`/doctor/${doctorProfileSlug(d)}`} class="dw-doctor dw-doctor-slide">
               <div class="dw-doctor-head">
                 {d.avatarUrl ? (
                   <img

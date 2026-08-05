@@ -9,31 +9,19 @@ import LoginModal from "../../components/auth/LoginModal.astro";
 import SiteHeader from "../../components/layout/SiteHeader.astro";
 import SiteFooter from "../../components/layout/SiteFooter.astro";
 import { yandexMapsUrl, hasYandexMapsKey } from "@/shared/lib";
-import {
-  searchDoctors,
-  getDoctorProfile,
-  formatPriceKgs,
-  formatExperienceLabel,
-} from "@/entities/doctor";
+import { loadDoctorCatalog, formatPriceKgs, formatExperienceLabel } from "@/entities/doctor";
 import { SPECIALTIES } from "@/shared/config";
-import { doctorSlug } from "../../lib/slug";
+import { doctorProfileSlug } from "../../lib/slug";
 
 export async function getStaticPaths() {
-  const catalog = await searchDoctors();
-  const paths = await Promise.all(
-    catalog.map(async (item) => {
-      // Поиск не отдаёт ни мест работы, ни стажа, ни образования — за ними
-      // приходится идти в полный профиль на каждого врача.
-      const result = await getDoctorProfile(item.id);
-      return result.ok
-        ? {
-            params: { id: doctorSlug({ id: result.doctor.id, name: result.doctor.fullName }) },
-            props: { doctor: result.doctor },
-          }
-        : null;
-    }),
-  );
-  return paths.filter((path) => path !== null);
+  // Загрузчик кэширует каталог на всю сборку: главная и поиск получат его
+  // отсюда бесплатно. Политика ошибок живёт внутри — сюда доезжают только
+  // врачи с открывшимися профилями.
+  const catalog = await loadDoctorCatalog();
+  return catalog.map((doctor) => ({
+    params: { id: doctorProfileSlug(doctor) },
+    props: { doctor },
+  }));
 }
 
 const { doctor } = Astro.props;
