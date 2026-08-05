@@ -1,4 +1,5 @@
 export { cn } from './cn'
+export { mapWithConcurrency } from './map-with-concurrency'
 export { RU_MONTHS_SHORT, RU_MONTHS_FULL, formatTime, formatShortDate } from './date'
 export {
   MAP_POINT_ZOOM,
