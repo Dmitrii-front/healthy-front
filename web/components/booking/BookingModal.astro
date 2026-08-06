@@ -191,8 +191,14 @@
   // Astro <script> компилируется как ES-модуль — top-level return запрещён,
   // поэтому вся логика в IIFE, из которой можно выйти раньше.
   (() => {
-    const modal = document.getElementById("hm-booking-modal");
-    if (modal == null) return;
+    // Разметка выше — <dialog>, а getElementById отдаёт просто HTMLElement:
+    // берём через querySelector с дженериком, иначе helpers из lib/modal.ts
+    // (openModal/lockModal) не принимают этот элемент.
+    const found = document.querySelector<HTMLDialogElement>("#hm-booking-modal");
+    if (found == null) return;
+    // Отдельная константа с типом без null: функции ниже (goToStep, book, setMode)
+    // объявлены через function declaration, и сужение от раннего выхода в них не доезжает.
+    const modal: HTMLDialogElement = found;
     type Mode = "login" | "register";
     type Step = "confirm" | "account" | "profile" | "success";
 

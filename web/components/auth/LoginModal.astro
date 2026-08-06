@@ -281,8 +281,13 @@ const { returnTo = "/app/" } = Astro.props;
   } from "../../lib/auth";
   import * as v from "valibot";
 
-  const modal = document.getElementById("hm-login-modal") as HTMLDialogElement | null;
-  if (modal) {
+  const modalEl = document.getElementById("hm-login-modal") as HTMLDialogElement | null;
+  if (modalEl) {
+    // Внутри function-деклараций ниже (они всплывают выше этой проверки) TS
+    // теряет сужение по `if`, поэтому фиксируем проверенный диалог в константе
+    // с уже ненулевым типом — и хелперы работают с ней без повторных проверок.
+    const modal: HTMLDialogElement = modalEl;
+
     type Mode = "login" | "register";
     type Pane = "auth" | "forgot" | "auth-success" | "forgot-success" | "verify-pending";
 

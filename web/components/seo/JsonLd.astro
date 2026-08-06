@@ -7,4 +7,5 @@ const { data } = Astro.props;
 const json = JSON.stringify(data);
 ---
 
-<script type="application/ld+json" set:html={json} />
+{/* is:inline обязателен: скрипт с type уже не обрабатывается сборщиком, объявляем это явно */}
+<script is:inline type="application/ld+json" set:html={json} />
