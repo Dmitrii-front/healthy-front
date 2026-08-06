@@ -122,7 +122,9 @@ const placeBlocks = doctor.workplaces.map((place) => {
     // ключа, нет координат, отключён JS. Город дописываем в запрос, только если
     // его нет в адресе, иначе уезжает «…, Бишкек, Бишкек».
     mapUrl: yandexMapsUrl(
-      [place.name, address, address.includes(doctor.city) ? "" : doctor.city]
+      // Город может быть не заполнен: тогда сравнивать в адресе нечего, а сам
+      // null всё равно снимется .filter(Boolean) — как и раньше.
+      [place.name, address, doctor.city !== null && address.includes(doctor.city) ? "" : doctor.city]
         .filter(Boolean)
         .join(", "),
       place.coordinates,
@@ -779,6 +781,7 @@ const breadcrumbs = {
     fetchAvailableSlots,
     onBookingCreated,
   } from "../../lib/booking";
+  import type { AppointmentType } from "../../lib/booking";
 
   // Ни слоты, ни виды приёма НЕЛЬЗЯ вшить в статическую страницу: доступность
   // меняется постоянно, а услуги решают, открыта ли запись вообще — и врач,
@@ -795,8 +798,8 @@ const breadcrumbs = {
     const section = document.getElementById("booking");
     if (!section) return;
     const doctorId = section.dataset.doctorId ?? "";
-    const trigger = section.querySelector('[data-action="hm-book-open"]');
-    const blocks = [...section.querySelectorAll('[data-el="place-block"]')];
+    const trigger = section.querySelector<HTMLElement>('[data-action="hm-book-open"]');
+    const blocks = [...section.querySelectorAll<HTMLElement>('[data-el="place-block"]')];
 
     const MONTHS_NOM = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
     // Только полные родительные формы, сокращённых («июн»/«июл») в этом блоке
@@ -807,19 +810,19 @@ const breadcrumbs = {
     const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     /** YYYY-MM-DD по ЛОКАЛЬНОЙ дате: toISOString() съехал бы на день в UTC+6. */
-    const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
     /** «3 августа», а с октября — «3 января 2027». Год добавляем только чужой:
         в своём он шум, а в чужом без него дата читается как прошедшая. Окно
         шириной в квартал заходит в следующий год четверть года, а не пару дней
         на новогодних, — так что случай этот теперь рядовой. */
-    const humanDate = (d) => {
+    const humanDate = (d: Date) => {
       const year = d.getFullYear() === new Date().getFullYear() ? "" : ` ${d.getFullYear()}`;
       return `${d.getDate()} ${MONTHS_GEN_FULL[d.getMonth()]}${year}`;
     };
 
     const windowDates = () => {
-      const out = [];
+      const out: Date[] = [];
       const base = new Date();
       base.setHours(0, 0, 0, 0);
       for (let i = 0; i < BOOKING_WINDOW_DAYS; i += 1) {
@@ -834,24 +837,33 @@ const breadcrumbs = {
         дату не выбирают. Точка на дне — объединение доступности всех мест,
         поэтому лента ждёт, пока отчитаются все блоки, и только потом ставит
         первый свободный день: иначе выбор скакал бы по мере ответов. */
-    function createRail(root) {
-      const dayTrack = root.querySelector('[data-el="day-track"]');
-      const dayPrev = root.querySelector('[data-el="day-prev"]');
-      const dayNext = root.querySelector('[data-el="day-next"]');
+    function createRail(root: HTMLElement) {
+      const dayTrackEl = root.querySelector<HTMLElement>('[data-el="day-track"]');
+      const dayPrev = root.querySelector<HTMLButtonElement>('[data-el="day-prev"]');
+      const dayNext = root.querySelector<HTMLButtonElement>('[data-el="day-next"]');
       const monthLabel = root.querySelector('[data-el="month-label"]');
-      if (!dayTrack) return null;
+      if (!dayTrackEl) return null;
+      /** Явная аннотация, а не просто ранний выход: хелперы ниже объявлены через
+          function, всплывают выше проверки, и сужение по потоку до них не
+          доезжает. Аннотация от анализа потока не зависит. */
+      const dayTrack: HTMLElement = dayTrackEl;
 
       let dates = windowDates();
       let isoDates = dates.map(isoDate);
       /** placeId → Set<YYYY-MM-DD>; null = место не ответило, это не «занято». */
-      const byPlace = new Map();
-      const listeners = [];
+      const byPlace = new Map<string, Set<string> | null>();
+      const listeners: (() => void)[] = [];
       let expected = 0;
       let activeDate = "";
       let syncFrame = 0;
 
+      /** Кнопки дня, которые построил buildDays. Приведение здесь честное:
+          в ленте нет ничего, кроме них, а children отдаёт Element — без
+          offsetLeft и offsetWidth, по которым лента и меряет видимый кусок. */
+      const dayCards = () => [...dayTrack.children] as HTMLElement[];
+
       const known = () => [...byPlace.values()].filter((set) => set !== null);
-      const freeAt = (iso) => known().filter((set) => set.has(iso)).length;
+      const freeAt = (iso: string) => known().filter((set) => set.has(iso)).length;
       const notify = () => listeners.forEach((fn) => fn());
 
       /** Окно съезжает в полночь, а страницу открывают вечером и листают ночью.
@@ -870,7 +882,7 @@ const breadcrumbs = {
       /** Выбранный день переставляем на месте, не перерисовывая ленту: перерисовка
           сбрасывала бы scrollLeft, и лента прыгала бы к началу на каждый тап. */
       function markActive() {
-        dayTrack.querySelectorAll(".hm-day").forEach((el) => {
+        dayTrack.querySelectorAll<HTMLElement>(".hm-day").forEach((el) => {
           el.setAttribute("aria-pressed", String(el.dataset.date === activeDate));
         });
       }
@@ -890,7 +902,7 @@ const breadcrumbs = {
           карточек. */
       function syncMonthLabel() {
         if (!monthLabel) return;
-        const cards = [...dayTrack.children];
+        const cards = dayCards();
         const base = cards[0]?.offsetLeft ?? 0;
         const from = dayTrack.scrollLeft;
         const to = from + dayTrack.clientWidth;
@@ -930,9 +942,13 @@ const breadcrumbs = {
 
       /** Шаг стрелки — целое число карточек: замирать на половине дня незачем. */
       function pageStep() {
-        const cards = dayTrack.children;
+        const cards = dayCards();
+        const first = cards[0];
+        const second = cards[1];
         const unit =
-          cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : (cards[0]?.offsetWidth ?? 70);
+          first !== undefined && second !== undefined
+            ? second.offsetLeft - first.offsetLeft
+            : (first?.offsetWidth ?? 70);
         return Math.max(Math.floor(dayTrack.clientWidth / unit), 1) * unit;
       }
 
@@ -940,9 +956,9 @@ const breadcrumbs = {
           только когда день сменился по ходу дела: при первой отрисовке анимация
           поехала бы из ниоткуда. */
       function revealActive(smooth = false) {
-        const el = dayTrack.querySelector('[aria-pressed="true"]');
+        const el = dayTrack.querySelector<HTMLElement>('[aria-pressed="true"]');
         if (el === null) return;
-        const base = dayTrack.firstElementChild?.offsetLeft ?? 0;
+        const base = dayCards()[0]?.offsetLeft ?? 0;
         const left = Math.max(0, el.offsetLeft - base - (dayTrack.clientWidth - el.offsetWidth) / 2);
         dayTrack.scrollTo({ left, behavior: smooth && motionOk ? "smooth" : "auto" });
       }
@@ -956,7 +972,9 @@ const breadcrumbs = {
       function buildDays() {
         dayTrack.innerHTML = "";
         dates.forEach((d, i) => {
-          const iso = isoDates[i];
+          // isoDates — это dates.map(isoDate), так что запасной путь считает ту
+          // же строку; он только снимает с индекса необязательность.
+          const iso = isoDates[i] ?? isoDate(d);
           const b = document.createElement("button");
           b.type = "button";
           b.className = "hm-day";
@@ -966,7 +984,8 @@ const breadcrumbs = {
 
           const dow = document.createElement("span");
           dow.className = "hm-day-dow";
-          dow.textContent = DOW_SHORT[d.getDay()];
+          // getDay() всегда в пределах DOW_SHORT — пустая строка недостижима.
+          dow.textContent = DOW_SHORT[d.getDay()] ?? "";
           const num = document.createElement("span");
           num.className = "hm-day-num";
           num.textContent = String(d.getDate());
@@ -987,14 +1006,18 @@ const breadcrumbs = {
           Наборы дат берём один раз на весь проход, а не на каждый день. */
       function syncDays() {
         const sets = known();
-        const cards = dayTrack.querySelectorAll(".hm-day");
+        const cards = dayTrack.querySelectorAll<HTMLButtonElement>(".hm-day");
         cards.forEach((el, i) => {
-          const iso = isoDates[i];
+          // Карточки построены по isoDates тем же проходом — индексы совпадают.
+          const iso = isoDates[i] ?? "";
           let free = 0;
           for (const set of sets) if (set.has(iso)) free += 1;
           el.disabled = free === 0;
           el.setAttribute("aria-pressed", String(iso === activeDate));
+          // Точку кладёт buildDays последним ребёнком; проверка формальная, но
+          // упасть посреди прохода хуже, чем пропустить один день.
           const dot = el.lastElementChild;
+          if (!(dot instanceof HTMLElement)) return;
           if (free === 0) dot.dataset.empty = "1";
           else delete dot.dataset.empty;
         });
@@ -1005,7 +1028,7 @@ const breadcrumbs = {
       /** reveal — для выбора не из самой ленты («Ближайшее — 31 июля» в карточке
           места): выбранный день может лежать за краем, и лента должна доехать
           до него, иначе слоты сменились, а в ленте не видно ничего. */
-      function select(iso, reveal = false) {
+      function select(iso: string, reveal = false) {
         if (iso === activeDate) return;
         activeDate = iso;
         markActive();
@@ -1019,7 +1042,7 @@ const breadcrumbs = {
 
       /** Место отчитывается своей доступностью: set с датами или null, если
           запрос упал. Пока не отчитались все — день не выбираем. */
-      function publish(placeId, availableDates) {
+      function publish(placeId: string, availableDates: Set<string> | null) {
         // Ответ мог прийти уже после смены суток — тогда ленту надо пересобрать
         // на новом окне, иначе индексы дней разъедутся с датами ответа.
         if (syncWindow()) buildDays();
@@ -1088,7 +1111,7 @@ const breadcrumbs = {
 
       return {
         date: () => activeDate,
-        subscribe: (fn) => listeners.push(fn),
+        subscribe: (fn: () => void) => listeners.push(fn),
         select,
         publish,
         /** Отрезок, который лента показывает прямо сейчас. Места спрашивают
@@ -1096,11 +1119,12 @@ const breadcrumbs = {
             после полуночи запрошенное и нарисованное расходятся на день. */
         window: () => {
           if (syncWindow()) buildDays();
-          return { from: isoDates[0], to: isoDates[isoDates.length - 1] };
+          // Окно шириной BOOKING_WINDOW_DAYS пустым не бывает — края есть всегда.
+          return { from: isoDates[0] ?? "", to: isoDates[isoDates.length - 1] ?? "" };
         },
         /** Сколько мест ждём. Заодно рисует ленту заглушкой, чтобы вёрстка не
             дёргалась, когда придут ответы. */
-        expect: (count) => {
+        expect: (count: number) => {
           expected = count;
           buildDays();
         },
@@ -1117,30 +1141,40 @@ const breadcrumbs = {
      *
      * Место с единственным типом рендерится строкой, без выбора: тогда наружу
      * отдаём её данные, а подписка ничего не делает — менять нечего. */
-    function initTypePicker(root, types) {
+    function initTypePicker(root: HTMLElement, types: AppointmentType[]) {
       // Услуга одна — выбирать нечего, комбобокс не поднимаем совсем. Её id и
       // длительность всё равно нужны запросу слотов; раньше они лежали в
       // data-атрибутах карточки, потому что приходили со сборки, теперь живут
       // здесь же, в замыкании.
+      const firstType = types[0];
+      // Пустой список типов приходить не должен, но если пришёл — выбирать
+      // нечего: наружу отдаём null, как и при неполной разметке ниже.
+      if (firstType === undefined) return null;
       if (types.length === 1) {
-        const sole = types[0];
         return {
           count: 1,
           current: () => ({
-            id: sole.id,
-            name: sole.name,
-            duration: String(sole.durationMin),
+            id: firstType.id,
+            name: firstType.name,
+            duration: String(firstType.durationMin),
           }),
           subscribe: () => {},
         };
       }
 
-      const typeSection = root.querySelector('[data-el="type-section"]');
-      const input = root.querySelector('[data-el="type-input"]');
-      const pop = root.querySelector('[data-el="type-pop"]');
-      const empty = root.querySelector('[data-el="type-empty"]');
-      const list = root.querySelector('[data-el="type-list"]');
-      if (input === null || pop === null || empty === null || list === null) return null;
+      const typeSection = root.querySelector<HTMLElement>('[data-el="type-section"]');
+      const inputEl = root.querySelector<HTMLInputElement>('[data-el="type-input"]');
+      const popEl = root.querySelector<HTMLElement>('[data-el="type-pop"]');
+      const emptyEl = root.querySelector<HTMLElement>('[data-el="type-empty"]');
+      const listEl = root.querySelector<HTMLElement>('[data-el="type-list"]');
+      if (inputEl === null || popEl === null || emptyEl === null || listEl === null) return null;
+      // Те же узлы, но уже без null. Объявления функций ниже поднимаются, и
+      // проверку выше TypeScript в них не переносит — от неё остаётся сужение
+      // только на этих переменных.
+      const input = inputEl;
+      const pop = popEl;
+      const empty = emptyEl;
+      const list = listEl;
 
       // Список строим из ответа: из разметки приезжает пустая оболочка.
       types.forEach((type, index) => {
@@ -1174,20 +1208,27 @@ const breadcrumbs = {
       if (searchable) input.placeholder = "Введите название";
       // До первого клика выбран первый тип, и именно за его слотами уходит
       // первый запрос.
-      input.value = `${types[0].name} · ${types[0].durationMin} мин`;
+      input.value = `${firstType.name} · ${firstType.durationMin} мин`;
       if (typeSection !== null) typeSection.hidden = false;
 
-      const options = [...list.querySelectorAll('[role="option"]')];
-      const listeners = [];
-      const label = (option) => `${option.dataset.typeName} · ${option.dataset.duration} мин`;
+      const options = [...list.querySelectorAll<HTMLLIElement>('[role="option"]')];
+      const listeners: Array<() => void> = [];
+      const label = (option: HTMLLIElement) => `${option.dataset.typeName} · ${option.dataset.duration} мин`;
       // «ё» на клавиатуре стоит отдельно от остальных букв, и её почти никто не
       // печатает: без этого запрос «прием» не находил бы «Первичный приём».
-      const fold = (text) => text.toLowerCase().replaceAll("ё", "е");
+      const fold = (text: string) => text.toLowerCase().replaceAll("ё", "е");
       const visible = () => options.filter((option) => !option.hidden);
-      let selected = options.find((option) => option.getAttribute("aria-selected") === "true") ?? options[0];
-      let active = selected;
+      // Опции собраны из types, а пустой types отсеян выше — проверка формальна,
+      // но связать одно с другим может только она.
+      const firstOption = options[0];
+      if (firstOption === undefined) return null;
+      let selected =
+        options.find((option) => option.getAttribute("aria-selected") === "true") ?? firstOption;
+      let active: HTMLLIElement | null = selected;
 
-      function setActive(option) {
+      // undefined в параметре — не оплошность: сюда приходит и результат доступа
+      // по индексу, а тело всё равно приводит его к null.
+      function setActive(option: HTMLLIElement | null | undefined) {
         active = option ?? null;
         options.forEach((item) => item.toggleAttribute("data-active", item === active));
         if (active === null) {
@@ -1199,16 +1240,18 @@ const breadcrumbs = {
         active.scrollIntoView({ block: "nearest" });
       }
 
-      function filter(query) {
+      function filter(query: string) {
         const needle = fold(query.trim());
         options.forEach((option) => {
           // Пустой запрос показывает всё: в закрытом виде в поле лежит название
           // выбранного типа, и фильтровать список сам по себе он не должен.
-          option.hidden = needle !== "" && !fold(option.dataset.typeName).includes(needle);
+          // data-type-name проставляется при сборке списка выше, поэтому запасное
+          // пустое имя — формальность: без имени опция просто не найдётся.
+          option.hidden = needle !== "" && !fold(option.dataset.typeName ?? "").includes(needle);
         });
         const shown = visible();
         empty.hidden = shown.length > 0;
-        setActive(shown.includes(active) ? active : (shown[0] ?? null));
+        setActive(active !== null && shown.includes(active) ? active : (shown[0] ?? null));
       }
 
       /** Показать список, не трогая поле. */
@@ -1249,7 +1292,7 @@ const breadcrumbs = {
         empty.hidden = true;
       }
 
-      function commit(option) {
+      function commit(option: HTMLLIElement) {
         const changed = option !== selected;
         selected = option;
         options.forEach((item) => item.setAttribute("aria-selected", String(item === option)));
@@ -1302,7 +1345,10 @@ const breadcrumbs = {
           const shown = visible();
           if (shown.length === 0) return;
           const step = event.key === "ArrowDown" ? 1 : -1;
-          const next = (shown.indexOf(active) + step + shown.length) % shown.length;
+          // Активной опции может не быть вовсе — тогда ведём отсчёт от -1, как
+          // это делал бы indexOf, не найдя элемент.
+          const from = active === null ? -1 : shown.indexOf(active);
+          const next = (from + step + shown.length) % shown.length;
           setActive(shown[next]);
           return;
         }
@@ -1331,14 +1377,17 @@ const breadcrumbs = {
       // список — и click прилетает уже в пустоту. preventDefault оставляет фокус
       // в поле, чтобы после выбора работали стрелки.
       pop.addEventListener("mousedown", (event) => {
-        const option = event.target.closest('[role="option"]');
+        // closest есть только у элементов, а target события — что угодно.
+        if (!(event.target instanceof Element)) return;
+        const option = event.target.closest<HTMLLIElement>('[role="option"]');
         if (option === null) return;
         event.preventDefault();
         commit(option);
       });
       // Тап по опции на телефоне: pointer-события там не дают mousedown до click.
       pop.addEventListener("click", (event) => {
-        const option = event.target.closest('[role="option"]');
+        if (!(event.target instanceof Element)) return;
+        const option = event.target.closest<HTMLLIElement>('[role="option"]');
         if (option !== null && !pop.hidden) commit(option);
       });
 
@@ -1346,7 +1395,9 @@ const breadcrumbs = {
       // Тап мимо поля фокус снимает не всегда (например, по неинтерактивному
       // фону), а список при этом обязан закрыться.
       document.addEventListener("pointerdown", (event) => {
-        if (!pop.hidden && !root.contains(event.target)) close();
+        // Тап не по узлу дерева — тем более не по карточке: закрываем.
+        const inside = event.target instanceof Node && root.contains(event.target);
+        if (!pop.hidden && !inside) close();
       });
 
       return {
@@ -1356,23 +1407,36 @@ const breadcrumbs = {
           name: selected.dataset.typeName ?? "",
           duration: selected.dataset.duration ?? "",
         }),
-        subscribe: (fn) => listeners.push(fn),
+        subscribe: (fn: () => void) => listeners.push(fn),
       };
     }
 
-    function initPlace(root, rail, types) {
-      const slotGrid = root.querySelector('[data-el="slot-grid"]');
-      const slotStatus = root.querySelector('[data-el="slot-status"]');
+    /** Лента, уже собранная: до мест доезжает только непустой результат
+        createRail — пустой отсеивают на вызове. */
+    type DayRail = NonNullable<ReturnType<typeof createRail>>;
+
+    /** Расписание одного места на один день. work_place_id и название клиники
+        приходят из ответа слотов и уезжают в бронь вместе с временем. */
+    type PlaceDay = { workPlaceId: string; workplaceName: string; times: string[] };
+
+    function initPlace(root: HTMLElement, rail: DayRail, types: AppointmentType[]) {
+      const slotGridEl = root.querySelector('[data-el="slot-grid"]');
+      const slotStatus = root.querySelector<HTMLElement>('[data-el="slot-status"]');
       const dayLabel = root.querySelector('[data-el="slot-day-label"]');
-      if (!slotGrid) return null;
+      if (!slotGridEl) return null;
 
       // null — комбобокс не собрался (оболочки нет в разметке). Место без услуг
       // сюда не доходит: их отсеивают до вызова.
-      const typePicker = initTypePicker(root, types);
-      if (typePicker === null) return null;
+      const picker = initTypePicker(root, types);
+      if (picker === null) return null;
+      /** Отдельные константы, а не только ранние выходы: хелперы ниже объявлены
+          через function, всплывают выше проверок, и сужение по потоку до них не
+          доезжает. У этих имён тип уже без null сам по себе. */
+      const slotGrid = slotGridEl;
+      const typePicker = picker;
       const placeId = root.dataset.placeId ?? "";
-      /** date → { workPlaceId, workplaceName, times: string[] } */
-      let byDate = new Map();
+      /** date → расписание этого места на тот день */
+      let byDate = new Map<string, PlaceDay>();
       // Запрос упал — пока не переспросим, «свободного времени нет» здесь врать
       // нельзя: пустой byDate у сбоя и у занятого расписания выглядит одинаково.
       let failed = false;
@@ -1387,7 +1451,7 @@ const breadcrumbs = {
        * с чужой длительностью приёма. */
       let generation = 0;
 
-      function setStatus(text) {
+      function setStatus(text: string | null) {
         if (!slotStatus) return;
         if (text === null) {
           slotStatus.hidden = true;
@@ -1402,7 +1466,7 @@ const breadcrumbs = {
           подтверждает шит, который сейчас откроется. Всё, что нужно для брони,
           уезжает туда через dataset: своего состояния у шита нет. work_place_id
           берём из ответа слотов, а не из блока — сервер тут авторитетнее вёрстки. */
-      function book(time) {
+      function book(time: string) {
         const active = rail.date();
         const day = byDate.get(active);
         if (!day || !trigger) return;
@@ -1424,7 +1488,7 @@ const breadcrumbs = {
 
       /** Пусто — не тупик. Если у места время есть, но в другой день, зовём
           туда кнопкой: искать этот день по ленте вручную пациент не должен. */
-      function renderEmpty(active) {
+      function renderEmpty(active: string) {
         if (byDate.size === 0) {
           const tail = typePicker.count > 1 ? "<br>Попробуйте другую услугу." : "";
           setStatus(`Здесь нет свободного времени в ближайшие ${BOOKING_WINDOW_LABEL}.${tail}`);
@@ -1443,6 +1507,10 @@ const breadcrumbs = {
         const today = isoDate(new Date());
         const dates = [...byDate.keys()].sort();
         const near = dates.find((iso) => iso >= today) ?? dates[0];
+        // Проверка формальная: сюда доходят только при непустом byDate, значит и
+        // dates непуст. Но пустоту первого элемента компилятор видит честно, а
+        // «Ближайшее — undefined» в кнопке было бы хуже молчания.
+        if (near === undefined) return;
         const d = new Date(`${near}T00:00:00`);
         // «Ближайшее — 3 августа» в день, который и есть 3 августа, читается как
         // другая дата. Тот же приём, что у ярлыка дня над сеткой времени.
@@ -1509,7 +1577,7 @@ const breadcrumbs = {
         const { from, to } = rail.window();
         // Собираем в свою карту, а не в общую: пока идёт запрос, byDate может
         // принадлежать уже следующему поколению.
-        const next = new Map();
+        const next = new Map<string, PlaceDay>();
         try {
           const availability = await fetchAvailableSlots(doctorId, typePicker.current().id, from, to);
           if (mine !== generation) return;
@@ -1549,25 +1617,25 @@ const breadcrumbs = {
     /** Место, куда записаться нельзя: сетки не будет, поэтому снимаем и её
         шапку — подпись «Свободное время» над сообщением «записи нет» обещала бы
         то, чего под ней не появится. */
-    function closePlace(root, text) {
-      const head = root.querySelector('[data-el="slot-head"]');
+    function closePlace(root: HTMLElement, text: string) {
+      const head = root.querySelector<HTMLElement>('[data-el="slot-head"]');
       if (head !== null) head.hidden = true;
-      const status = root.querySelector('[data-el="slot-status"]');
+      const status = root.querySelector<HTMLElement>('[data-el="slot-status"]');
       if (status === null) return;
       status.hidden = false;
       status.textContent = text;
     }
 
-    const railEl = section.querySelector('[data-el="day-rail"]');
+    const railEl = section.querySelector<HTMLElement>('[data-el="day-rail"]');
     // Мест нет вовсе — ленты в разметке тоже нет, а объясняющий текст уже стоит
     // на странице статикой: места приходят из профиля и не текут.
     if (railEl === null) return;
-    const closedNotice = section.querySelector('[data-el="booking-closed"]');
+    const closedNotice = section.querySelector<HTMLElement>('[data-el="booking-closed"]');
 
     // Пока едут услуги, карточки не должны стоять пустыми: между разбором HTML и
     // ответом проходит целый круг до бэкенда.
     blocks.forEach((block) => {
-      const status = block.querySelector('[data-el="slot-status"]');
+      const status = block.querySelector<HTMLElement>('[data-el="slot-status"]');
       if (status === null) return;
       status.hidden = false;
       status.textContent = "Смотрим свободное время…";
@@ -1604,7 +1672,9 @@ const breadcrumbs = {
       const live = new Set(profile.workplaceIds);
       let present = blocks;
       if (live.size > 0) {
-        present = blocks.filter((block) => live.has(block.dataset.placeId));
+        present = blocks.filter(
+          (block) => block.dataset.placeId !== undefined && live.has(block.dataset.placeId),
+        );
         blocks
           .filter((block) => !present.includes(block))
           .forEach((block) => {
@@ -1613,7 +1683,9 @@ const breadcrumbs = {
             // клинику, карточку которой мы только что убрали, значило бы
             // противоречить себе на одном экране.
             section.ownerDocument
-              .querySelectorAll(`[data-el="header-place"][data-place-id="${block.dataset.placeId}"]`)
+              .querySelectorAll<HTMLElement>(
+                `[data-el="header-place"][data-place-id="${block.dataset.placeId}"]`,
+              )
               .forEach((entry) => {
                 entry.hidden = true;
               });
@@ -1622,7 +1694,7 @@ const breadcrumbs = {
 
       // Устарели все до единого: показывать пустую секцию молча нельзя.
       if (present.length === 0) {
-        const staleNotice = section.querySelector('[data-el="places-stale"]');
+        const staleNotice = section.querySelector<HTMLElement>('[data-el="places-stale"]');
         if (staleNotice !== null) staleNotice.hidden = false;
         return;
       }
@@ -1659,7 +1731,7 @@ const breadcrumbs = {
         .map((block) => {
           // Кнопку записи в шите карты показываем только у мест, куда записаться
           // действительно можно; до ответа этого знать было нельзя.
-          const addr = block.querySelector('[data-action="hm-map-open"]');
+          const addr = block.querySelector<HTMLElement>('[data-action="hm-map-open"]');
           if (addr !== null) addr.dataset.bookable = "1";
           return initPlace(block, rail, byPlace.get(block.dataset.placeId) ?? []);
         })
