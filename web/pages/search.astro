@@ -11,6 +11,7 @@ import {
   loadDoctorCatalog,
   specialtyKeyOf,
   toSearchIndexItem,
+  toSearchIndexWire,
 } from "@/entities/doctor";
 import { doctorProfileSlug } from "../lib/slug";
 import { serializeForJsonIsland } from "../lib/search/serialize";
@@ -23,17 +24,24 @@ const description =
 
 const catalog = await loadDoctorCatalog();
 
+// В островок уезжает запись без подписей: специальность и языки клиент соберёт
+// из словарей ниже, которые всё равно едут на страницу.
 const doctorItems = catalog.map((doctor) =>
-  toSearchIndexItem(doctor, doctorProfileSlug(doctor)),
+  toSearchIndexWire(toSearchIndexItem(doctor, doctorProfileSlug(doctor))),
 );
 const specialtyOptions = buildSpecialtyOptions(catalog);
 const languageOptions = buildLanguageOptions(catalog);
 
-// Нижний слой — подписи плиток главной: они ведут на специальности, которых
-// в каталоге может не быть, и без него чип и заголовок теряют слово, по
-// которому пользователь пришёл, а пустая выдача выглядит необъяснимой.
+// Нижний слой — специальности плиток главной: они ведут на ключи, которых в
+// каталоге может не быть, и без него чип и заголовок теряют слово, по которому
+// пользователь пришёл, а пустая выдача выглядит необъяснимой. Слово берём из
+// doctorSpecialty, а не из подписи плитки: подпись каталога всё равно
+// перекрывает нижний слой, и на «Окулисте» заголовок иначе скакал бы между
+// плиточным и каталожным словом в зависимости от наличия врачей.
 const specialtyLabels: Record<string, string> = {
-  ...Object.fromEntries(SPECIALTIES.map((s) => [specialtyKeyOf(s.doctorSpecialty), s.label])),
+  ...Object.fromEntries(
+    SPECIALTIES.map((s) => [specialtyKeyOf(s.doctorSpecialty), s.doctorSpecialty]),
+  ),
   ...Object.fromEntries(specialtyOptions.map((option) => [option.key, option.label])),
 };
 
@@ -467,17 +475,18 @@ const breadcrumbs = {
   />
 
   <script>
-    import { formatExperienceLabel, formatPriceKgs } from "@/entities/doctor";
-    import type { SearchIndexItem } from "@/entities/doctor";
+    import { formatExperienceLabel, formatPriceKgs, fromSearchIndexWire } from "@/entities/doctor";
+    import type { SearchIndexItem, SearchIndexWire } from "@/entities/doctor";
     import { filterDoctors } from "../lib/search/filter";
     import { pluralizeDoctors } from "../lib/search/format";
     import type { SearchState } from "../lib/search/state";
     import { activeChips, buildSearchQuery, readSearchState } from "../lib/search/state";
 
     (() => {
-      // Островок сериализуется тем же типом, которым построен: перепечатанная
+      // Островок описан теми же типами, которыми построен: перепечатанная
       // копия разъехалась бы молча — JSON.parse отдаёт any, и промах полей
-      // дошёл бы до прода пустой карточкой.
+      // дошёл бы до прода пустой карточкой. В HTML лежит SearchIndexWire (без
+      // подписей), карточка работает с полной записью.
       type DoctorItem = SearchIndexItem;
       type UiState = "loading" | "results" | "empty" | "error";
 
@@ -488,7 +497,7 @@ const breadcrumbs = {
       const payload: {
         specialtyLabels?: Record<string, string>;
         languageLabels?: Record<string, string>;
-        doctorItems?: DoctorItem[];
+        doctorItems?: SearchIndexWire[];
       } = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : {};
       const specialtyLabels = payload.specialtyLabels || {};
       const languageLabels = payload.languageLabels || {};
@@ -563,8 +572,11 @@ const breadcrumbs = {
       const template = templateNode;
 
       // Каталог целиком приезжает вместе со страницей — фильтрация идёт
-      // синхронно по памяти, без сети и ожидания.
-      const allItems = Array.isArray(doctorItems) ? doctorItems : [];
+      // синхронно по памяти, без сети и ожидания. Подписи возвращаются на
+      // записи здесь, один раз на загрузку, а не на каждую отрисовку.
+      const allItems: DoctorItem[] = (Array.isArray(doctorItems) ? doctorItems : []).map((wire) =>
+        fromSearchIndexWire(wire, specialtyLabels, languageLabels),
+      );
 
       // toLowerCase ради «Стаж менее года»: на числовых подписях он ничего не меняет.
       function experienceText(years: number | null): string | null {
@@ -585,6 +597,21 @@ const breadcrumbs = {
         return parts.join(" · ");
       }
 
+      // Опциональные блоки карточки лежат в шаблоне скрытыми: пустое поле
+      // оставляет блок скрытым, непустое — открывает его и заполняет.
+      //
+      // Узел значения ищется внутри своей секции, а не по всей карточке: иначе
+      // одноимённый data-атрибут, появившийся в шаблоне снаружи, перехватил бы
+      // текст, а раскрытая секция осталась бы пустой.
+      function reveal(li: Element, section: string, value: string, text: string | null) {
+        if (!text) return;
+        const sectionEl = li.querySelector<HTMLElement>(section);
+        if (!sectionEl) return;
+        sectionEl.hidden = false;
+        const valueEl = sectionEl.querySelector(value);
+        if (valueEl) valueEl.textContent = text;
+      }
+
       function setUiState(s: UiState) {
         // Mobile
         loading.hidden = s !== "loading";
@@ -600,17 +627,41 @@ const breadcrumbs = {
         if (dwError) dwError.hidden = s !== "error";
       }
 
+      // Опции селектов собраны из каталога, а ссылка может нести специальность
+      // или язык, которых в каталоге нет: плитки главной ведут на все восемь
+      // специальностей. Без подставленной опции контрол остаётся ни на чём —
+      // selectedIndex = -1, поле пустое при заполненном чипе, а следующая
+      // отправка формы молча теряет фильтр, с которым пришёл пользователь.
+      function syncSelect(select: HTMLSelectElement, value: string, label: string) {
+        select.querySelectorAll("option[data-absent]").forEach((option) => option.remove());
+        select.value = value;
+        if (select.value === value) return;
+
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        option.dataset.absent = "";
+        select.append(option);
+        select.value = value;
+      }
+
       function renderMeta(state: SearchState) {
-        // Form prefill — both shells
+        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
+
+        // Form prefill — both shells. Ноль в подписи не украшение: у каждой
+        // опции списка стоит число врачей, и подставленная обязана читаться
+        // так же. У языков счётчика в списке нет — там только подпись.
+        const absentSpecialty = (specialtyLabel ?? state.specialty) + " (0)";
+        const absentLang = languageLabels[state.lang] ?? state.lang;
+
         qInput.value = state.q;
-        specSelect.value = state.specialty;
-        langSelect.value = state.lang;
+        syncSelect(specSelect, state.specialty, absentSpecialty);
+        syncSelect(langSelect, state.lang, absentLang);
         if (dwQ) dwQ.value = state.q;
-        if (dwSpec) dwSpec.value = state.specialty;
-        if (dwLang) dwLang.value = state.lang;
+        if (dwSpec) syncSelect(dwSpec, state.specialty, absentSpecialty);
+        if (dwLang) syncSelect(dwLang, state.lang, absentLang);
 
         // H1 + document title
-        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
         let h1Text = "Найти врача";
         let crumbText = "Все врачи";
         if (specialtyLabel) {
@@ -733,36 +784,10 @@ const breadcrumbs = {
         const spec = li.querySelector("[data-spec]");
         if (spec) spec.textContent = d.specialty;
 
-        const expLabel = experienceText(d.yearsExperience);
-        const expChip = li.querySelector<HTMLElement>("[data-exp-chip]");
-        if (expChip && expLabel) {
-          expChip.hidden = false;
-          const exp = expChip.querySelector("[data-exp]");
-          if (exp) exp.textContent = expLabel;
-        }
-
-        const priceLabel = priceText(d.priceFrom);
-        const priceChip = li.querySelector<HTMLElement>("[data-price-chip]");
-        if (priceChip && priceLabel) {
-          priceChip.hidden = false;
-          const price = priceChip.querySelector("[data-price]");
-          if (price) price.textContent = priceLabel;
-        }
-
-        if (d.subspecializations.length > 0) {
-          const sec = li.querySelector<HTMLElement>("[data-subspecs-section]");
-          if (sec) sec.hidden = false;
-          const subspecs = li.querySelector("[data-subspecs]");
-          if (subspecs) subspecs.textContent = d.subspecializations.join(" · ");
-        }
-
-        // Languages section
-        if (Array.isArray(d.languages) && d.languages.length > 0) {
-          const sec = li.querySelector<HTMLElement>("[data-langs-section]");
-          if (sec) sec.hidden = false;
-          const langs = li.querySelector("[data-langs]");
-          if (langs) langs.textContent = d.languages.join(", ");
-        }
+        reveal(li, "[data-exp-chip]", "[data-exp]", experienceText(d.yearsExperience));
+        reveal(li, "[data-price-chip]", "[data-price]", priceText(d.priceFrom));
+        reveal(li, "[data-subspecs-section]", "[data-subspecs]", d.subspecializations.join(" · "));
+        reveal(li, "[data-langs-section]", "[data-langs]", d.languages.join(", "));
 
         const clinic = li.querySelector("[data-clinic]");
         if (clinic) clinic.textContent = clinicText(d);
