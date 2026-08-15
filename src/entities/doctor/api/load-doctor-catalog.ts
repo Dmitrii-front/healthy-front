@@ -1,3 +1,4 @@
+import { env } from '@/shared/config'
 import { mapWithConcurrency } from '@/shared/lib'
 
 import type { DoctorProfileView } from '../model/doctor-view'
@@ -38,6 +39,12 @@ export function loadDoctorCatalog(): Promise<DoctorProfileView[]> {
 }
 
 async function load(): Promise<DoctorProfileView[]> {
+  // Адрес каталога приезжает из .env, переменной окружения или vars в
+  // wrangler.jsonc, и .env сильнее всех: адаптер Cloudflare перекладывает его
+  // в process.env на старте сборки. Молча собранная не на том каталоге витрина
+  // выглядит рабочей, поэтому сборка говорит, откуда взяла врачей.
+  console.info(`[doctors] каталог берётся с ${env.API_URL}`)
+
   const catalog = await searchDoctors()
 
   const results = await mapWithConcurrency(catalog, CONCURRENCY, (item) =>
