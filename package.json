@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:prod": "CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false astro build",
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest run",

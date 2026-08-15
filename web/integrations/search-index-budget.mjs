@@ -13,11 +13,13 @@ const kb = (bytes) => (bytes / 1024).toFixed(1)
 // the version — same probe as prefetch-list.mjs.
 async function readSearchPage(dir) {
   const fsPath = fileURLToPath(dir)
-  for (const root of [join(fsPath, 'client'), fsPath]) {
-    const html = await readFile(join(root, 'search', 'index.html'), 'utf8').catch(() => null)
-    if (html !== null) return html
-  }
-  return null
+  const candidates = [join(fsPath, 'client'), fsPath]
+  const reads = await Promise.all(
+    candidates.map((root) =>
+      readFile(join(root, 'search', 'index.html'), 'utf8').catch(() => null),
+    ),
+  )
+  return reads.find((html) => html !== null) ?? null
 }
 
 // The trade stops paying somewhere around three hundred doctors.

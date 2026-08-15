@@ -31,6 +31,8 @@ const N = {
 // тянула его вторым независимым обходом.
 const doctors = await loadDoctorCatalog();
 
+const HERO_AVATARS = 6;
+
 // ── Hero banners (from design) ─────────────────────────────
 const BANNERS = [
   {
@@ -339,10 +341,10 @@ const websiteJsonLd = {
         {/* LEFT — promise + live availability */}
         <div class="dw-search-promise">
           <h2>Найдите своего врача</h2>
-          <p>Более 2 000 проверенных специалистов. Онлайн-консультации и приём в клиниках по всему городу.</p>
+          <p>Выбирайте по специальности, языку приёма и цене — всё это видно до записи.</p>
           <div class="dw-live-stack">
             <div class="dw-avatars">
-              {doctors.slice(0, 6).map((d) => (
+              {doctors.slice(0, HERO_AVATARS).map((d) => (
                 <span
                   class="dw-stack-avatar"
                   style={`background-color:${d.avatarColor}`}
@@ -351,11 +353,20 @@ const websiteJsonLd = {
                   {d.initials}
                 </span>
               ))}
-              <span class="dw-stack-avatar dw-stack-avatar-more">+192</span>
+              {doctors.length > HERO_AVATARS && (
+                <span class="dw-stack-avatar dw-stack-avatar-more">
+                  +{doctors.length - HERO_AVATARS}
+                </span>
+              )}
             </div>
             <div class="dw-live-row">
               <span class="dw-live-pulse" aria-hidden="true" />
-              <span><strong>192 врача</strong> доступны прямо сейчас</span>
+              <span>
+                <strong>
+                  {doctors.length} {pluralizeDoctors(doctors.length)}
+                </strong>{" "}
+                в каталоге
+              </span>
             </div>
           </div>
         </div>

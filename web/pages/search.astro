@@ -9,6 +9,7 @@ import {
   buildLanguageOptions,
   buildSpecialtyOptions,
   loadDoctorCatalog,
+  specialtyKeyOf,
   toSearchIndexItem,
 } from "@/entities/doctor";
 import { doctorProfileSlug } from "../lib/slug";
@@ -34,7 +35,7 @@ const doctorsTotal = catalog.length;
 // в каталоге может не быть, и без него чип и заголовок теряют слово, по
 // которому пользователь пришёл, а пустая выдача выглядит необъяснимой.
 const specialtyLabels: Record<string, string> = {
-  ...Object.fromEntries(SPECIALTIES.map((s) => [s.doctorSpecialty.toLowerCase(), s.label])),
+  ...Object.fromEntries(SPECIALTIES.map((s) => [specialtyKeyOf(s.doctorSpecialty), s.label])),
   ...Object.fromEntries(specialtyOptions.map((option) => [option.key, option.label])),
 };
 
@@ -475,29 +476,17 @@ const breadcrumbs = {
 
   <script>
     import { formatExperienceLabel, formatPriceKgs } from "@/entities/doctor";
+    import type { SearchIndexItem } from "@/entities/doctor";
     import { filterDoctors } from "../lib/search/filter";
     import { pluralizeDoctors } from "../lib/search/format";
     import type { SearchState } from "../lib/search/state";
     import { activeChips, buildSearchQuery, readSearchState } from "../lib/search/state";
 
     (() => {
-      type DoctorItem = {
-        slug: string;
-        fullName: string;
-        initials: string;
-        avatarColor: string;
-        avatarUrl: string | null;
-        specialty: string;
-        specialtyKey: string;
-        subspecializations: string[];
-        city: string | null;
-        languages: string[];
-        languageCodes: string[];
-        priceFrom: number | null;
-        yearsExperience: number | null;
-        workplaceName: string | null;
-        workplacesTotal: number;
-      };
+      // Островок сериализуется тем же типом, которым построен: перепечатанная
+      // копия разъехалась бы молча — JSON.parse отдаёт any, и промах полей
+      // дошёл бы до прода пустой карточкой.
+      type DoctorItem = SearchIndexItem;
       type UiState = "loading" | "results" | "empty" | "error";
 
       // Данные приезжают островком <script type="application/json"> — см.
@@ -618,9 +607,6 @@ const breadcrumbs = {
         if (dwEmpty) dwEmpty.hidden = s !== "empty";
         if (dwError) dwError.hidden = s !== "error";
       }
-
-      // Single list view — grid was removed in the card-redesign pass since
-      // the three-column rich card needs full row width to breathe.
 
       function renderMeta(state: SearchState) {
         // Form prefill — both shells
@@ -746,12 +732,9 @@ const breadcrumbs = {
         const link = li.querySelector<HTMLAnchorElement>("[data-link]");
         if (link) link.href = "/doctor/" + d.slug;
 
-        // LEFT — initials block. The color from the mock tints the gradient subtly
-        // so cards stay visually distinct without becoming a rainbow.
         const initials = li.querySelector("[data-initials]");
         if (initials) initials.textContent = d.initials;
 
-        // MIDDLE — name, chips, specialty, sections, clinic
         const name = li.querySelector("[data-name]");
         if (name) name.textContent = d.fullName;
 
@@ -1101,7 +1084,8 @@ const breadcrumbs = {
         box-shadow: var(--e-hover);
       }
 
-      /* LEFT — initials block (no photo data in mocks; would be <img> in prod) */
+      /* Инициалы, а не фото: фотография есть у одного врача каталога из семи,
+         и лента из шести подложек и одного снимка выглядит сломанной. */
       .dw-card-photo {
         width: 120px; height: 140px;
         border-radius: var(--r-card);
@@ -1116,7 +1100,6 @@ const breadcrumbs = {
         font-size: 44px;
         line-height: 1;
       }
-      /* MIDDLE — name, chips, specialty, sections, clinic */
       .dw-card-info {
         min-width: 0;
         display: flex; flex-direction: column; gap: 8px;

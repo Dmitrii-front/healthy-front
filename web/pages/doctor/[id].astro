@@ -9,8 +9,12 @@ import LoginModal from "../../components/auth/LoginModal.astro";
 import SiteHeader from "../../components/layout/SiteHeader.astro";
 import SiteFooter from "../../components/layout/SiteFooter.astro";
 import { yandexMapsUrl, hasYandexMapsKey } from "@/shared/lib";
-import { loadDoctorCatalog, formatPriceKgs, formatExperienceLabel } from "@/entities/doctor";
-import { SPECIALTIES } from "@/shared/config";
+import {
+  loadDoctorCatalog,
+  formatPriceKgs,
+  formatExperienceLabel,
+  specialtyKeyOf,
+} from "@/entities/doctor";
 import { doctorProfileSlug } from "../../lib/slug";
 
 export async function getStaticPaths() {
@@ -26,7 +30,10 @@ export async function getStaticPaths() {
 
 const { doctor } = Astro.props;
 
-const specialty = SPECIALTIES.find((s) => s.doctorSpecialty === doctor.specialization);
+// Специальность берётся у самого врача, а не подбирается в конфиге плиток:
+// плиток восемь и они про навигацию, а каталог с ними почти не пересекается —
+// подбором крошка доставалась бы паре врачей из семи.
+const specialtyKey = specialtyKeyOf(doctor.specialization);
 const clinicName = doctor.workplaces[0]?.name ?? null;
 // Врач часто принимает в нескольких местах, и первое из них ничем не выделено:
 // в шапке перечисляем все, а не одно произвольное.
@@ -189,13 +196,13 @@ const breadcrumbs = {
   itemListElement: [
     { "@type": "ListItem", position: 1, name: "Главная", item: "https://sdoctorom.health/" },
     { "@type": "ListItem", position: 2, name: "Поиск", item: "https://sdoctorom.health/search" },
-    ...(specialty
+    ...(specialtyKey
       ? [
           {
             "@type": "ListItem",
             position: 3,
-            name: specialty.label,
-            item: `https://sdoctorom.health/search?specialty=${encodeURIComponent(specialty.doctorSpecialty)}`,
+            name: doctor.specialization,
+            item: `https://sdoctorom.health/search?specialty=${encodeURIComponent(specialtyKey)}`,
           },
           { "@type": "ListItem", position: 4, name: doctor.fullName },
         ]
@@ -216,9 +223,9 @@ const breadcrumbs = {
       <nav class="mb-5 text-[12.5px] text-[#8a8e96]">
         <a href="/" class="hover:text-[#2a2d33]">Главная</a>
         <span class="mx-1.5">›</span>
-        {specialty ? (
+        {specialtyKey ? (
           <>
-            <a href={`/search?specialty=${encodeURIComponent(specialty.doctorSpecialty)}`} class="hover:text-[#2a2d33]">{specialty.label}</a>
+            <a href={`/search?specialty=${encodeURIComponent(specialtyKey)}`} class="hover:text-[#2a2d33]">{doctor.specialization}</a>
             <span class="mx-1.5">›</span>
           </>
         ) : (
