@@ -8,7 +8,7 @@ import { SPECIALTIES } from "@/shared/config";
 import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
 import { doctorSlug } from "../lib/slug";
 
-// SSG. The page ships only the shell — search form, sort tabs, skeleton,
+// SSG. The page ships only the shell — search form, skeleton,
 // empty/error states, and a card <template>. Doctor data is inlined into
 // the HTML at build time (DOCTOR_MOCKS → search-projection → define:vars).
 // No `/api/doctors.json` fetch, no Worker invocation, no extra HTTP round
@@ -129,33 +129,6 @@ const breadcrumbs = {
         Найти
       </button>
     </form>
-
-    <div class="mt-4 flex flex-wrap gap-1.5">
-      <a
-        data-sort-tab="soon"
-        data-active="true"
-        href="/search?sort=soon"
-        class="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-card-white px-3 text-[13px] font-medium text-soft-graphite transition-colors hover:bg-linen-shade data-[active=true]:border-graphite data-[active=true]:bg-graphite data-[active=true]:text-card-white data-[active=true]:hover:bg-graphite"
-      >
-        Сначала: скоро
-      </a>
-      <a
-        data-sort-tab="near"
-        data-active="false"
-        href="/search?sort=near"
-        class="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-card-white px-3 text-[13px] font-medium text-soft-graphite transition-colors hover:bg-linen-shade data-[active=true]:border-graphite data-[active=true]:bg-graphite data-[active=true]:text-card-white data-[active=true]:hover:bg-graphite"
-      >
-        Сначала: ближе
-      </a>
-      <a
-        data-sort-tab="experience"
-        data-active="false"
-        href="/search?sort=experience"
-        class="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-card-white px-3 text-[13px] font-medium text-soft-graphite transition-colors hover:bg-linen-shade data-[active=true]:border-graphite data-[active=true]:bg-graphite data-[active=true]:text-card-white data-[active=true]:hover:bg-graphite"
-      >
-        Сначала: опытнее
-      </a>
-    </div>
 
     <p class="mt-6 text-[12.5px] text-distant-graphite" id="result-meta" hidden>
       <span id="result-count" class="font-medium text-soft-graphite">—</span>
@@ -410,33 +383,13 @@ const breadcrumbs = {
         </button>
       </section>
 
-      {/* Sort bar + results */}
+      {/* Результаты */}
       <section class="dw-results-section">
-        <div class="dw-sort-bar">
+        <div class="dw-results-bar">
           <div class="dw-results-heading">
             <span class="dw-results-count" id="dw-results-count">—</span>
             <span class="dw-results-noun" id="dw-results-noun">врачей</span>
             <span class="dw-results-city"> принимают в Бишкеке</span>
-          </div>
-          <div class="dw-sort-controls">
-            <div class="dw-sort-dropdown" id="dw-sort-dropdown">
-              <button type="button" class="dw-sort-trigger" data-action="toggle-sort">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6h13"/><path d="M3 12h9"/><path d="M3 18h5"/>
-                  <path d="m17 9 4-3-4-3"/><path d="M21 6h-8"/>
-                </svg>
-                <span class="dw-sort-trigger-label">Сортировка:</span>
-                <span class="dw-sort-trigger-value" id="dw-sort-current">Сначала: скоро</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m6 9 6 6 6-6"/>
-                </svg>
-              </button>
-              <div class="dw-sort-menu" id="dw-sort-menu" hidden>
-                <button type="button" class="dw-sort-option" data-sort-tab="soon">Сначала: скоро</button>
-                <button type="button" class="dw-sort-option" data-sort-tab="near">Сначала: ближе</button>
-                <button type="button" class="dw-sort-option" data-sort-tab="experience">Сначала: опытнее</button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -616,12 +569,6 @@ const breadcrumbs = {
   <script is:inline define:vars={{ specialtyLabels, doctorItems }}>
     (() => {
       const PAGE_LIMIT = 30;
-      const SORTS = ["soon", "near", "experience"];
-      const SORT_LABELS = {
-        soon: "Сначала: скоро",
-        near: "Сначала: ближе",
-        experience: "Сначала: опытнее",
-      };
 
       // ── Mobile shell refs ───────────────────────────
       const list = document.getElementById("doctor-list");
@@ -635,7 +582,6 @@ const breadcrumbs = {
       const form = document.getElementById("search-form");
       const qInput = document.getElementById("search-q");
       const specSelect = document.getElementById("search-specialty");
-      const tabs = document.querySelectorAll("[data-sort-tab]");
       const template = document.getElementById("card-template");
       const retryBtn = document.getElementById("retry-btn");
 
@@ -652,8 +598,6 @@ const breadcrumbs = {
       const dwEmpty = document.getElementById("dw-empty");
       const dwError = document.getElementById("dw-error");
       const dwPagination = document.getElementById("dw-pagination");
-      const dwSortMenu = document.getElementById("dw-sort-menu");
-      const dwSortCurrent = document.getElementById("dw-sort-current");
       const dwChipList = document.getElementById("dw-chip-list");
       const dwChipCount = document.getElementById("dw-chip-count");
       const dwChipReset = document.getElementById("dw-chip-reset");
@@ -667,26 +611,16 @@ const breadcrumbs = {
 
       // Doctor data is inlined into the HTML by Astro frontmatter
       // (define:vars). Already in memory before this script runs — zero
-      // network, zero waiting. Filter/sort/paginate happen synchronously
-      // against `doctorItems`.
+      // network, zero waiting. Filtering happens synchronously against
+      // `doctorItems`.
       const allItems = Array.isArray(doctorItems) ? doctorItems : [];
 
-      function parseKm(raw) {
-        if (!raw) return Number.POSITIVE_INFINITY;
-        const n = parseFloat(String(raw).replace(",", "."));
-        return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
-      }
-      function nextAvailableMs(raw) {
-        if (!raw) return Number.POSITIVE_INFINITY;
-        const ms = new Date(raw).getTime();
-        return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
-      }
-      function applyFilterAndSort(items, state) {
+      function applyFilters(items, state) {
         const q = state.q.toLowerCase();
         const minRating = state.rating ? parseFloat(state.rating) : 0;
         const exact50 = state.rating === "5.0";
         const minExp = state.exp ? parseInt(state.exp, 10) : 0;
-        const filtered = items.filter((d) => {
+        return items.filter((d) => {
           if (q && !(d.name + " " + d.specialty + " " + d.clinic).toLowerCase().includes(q)) {
             return false;
           }
@@ -697,18 +631,6 @@ const breadcrumbs = {
           if (state.accepting && d.acceptingNewPatients !== true) return false;
           return true;
         });
-        const sorted = filtered.slice().sort((a, b) => {
-          let delta = 0;
-          if (state.sort === "soon") {
-            delta = nextAvailableMs(a.nextAvailable) - nextAvailableMs(b.nextAvailable);
-          } else if (state.sort === "near") {
-            delta = parseKm(a.distance) - parseKm(b.distance);
-          } else {
-            delta = (b.yearsExperience ?? -1) - (a.yearsExperience ?? -1);
-          }
-          return delta !== 0 ? delta : a.name.localeCompare(b.name, "ru");
-        });
-        return sorted;
       }
 
       function pluralize(n, forms) {
@@ -764,7 +686,6 @@ const breadcrumbs = {
 
       function readState() {
         const p = new URLSearchParams(location.search);
-        const sortRaw = p.get("sort") || "soon";
         return {
           q: (p.get("q") || "").trim(),
           specialty: p.get("specialty") || "",
@@ -773,7 +694,6 @@ const breadcrumbs = {
           exp: p.get("exp") || "",
           format: p.get("format") || "",
           accepting: p.get("accepting") === "1",
-          sort: SORTS.includes(sortRaw) ? sortRaw : "soon",
         };
       }
 
@@ -826,22 +746,6 @@ const breadcrumbs = {
           } else {
             dwH1.textContent = "Найти врача";
           }
-        }
-
-        // Sort tabs: active + preserved-param hrefs (mobile)
-        tabs.forEach((tab) => {
-          tab.dataset.active = tab.dataset.sortTab === state.sort ? "true" : "false";
-          const next = new URLSearchParams(location.search);
-          next.set("sort", tab.dataset.sortTab);
-          tab.setAttribute("href", "/search?" + next.toString());
-        });
-
-        // Desktop sort dropdown current label + option highlight
-        if (dwSortCurrent) dwSortCurrent.textContent = SORT_LABELS[state.sort] || SORT_LABELS.soon;
-        if (dwSortMenu) {
-          dwSortMenu.querySelectorAll(".dw-sort-option").forEach((opt) => {
-            opt.dataset.active = opt.dataset.sortTab === state.sort ? "true" : "false";
-          });
         }
 
         // Filter chips (desktop)
@@ -916,11 +820,7 @@ const breadcrumbs = {
       }
 
       function resetAllFilters() {
-        const next = new URLSearchParams();
-        const sort = new URLSearchParams(location.search).get("sort");
-        if (sort && sort !== "soon") next.set("sort", sort);
-        const qs = next.toString();
-        history.pushState({}, "", qs ? "/search?" + qs : "/search");
+        history.pushState({}, "", "/search");
         load();
       }
 
@@ -1109,7 +1009,7 @@ const breadcrumbs = {
       function load() {
         const state = readState();
         renderMeta(state);
-        const filtered = applyFilterAndSort(allItems, state);
+        const filtered = applyFilters(allItems, state);
         if (drawerCount) drawerCount.textContent = String(filtered.length) + " " + pDoctorsLong(filtered.length);
         if (filtered.length === 0) {
           countEl.textContent = "0";
@@ -1123,25 +1023,13 @@ const breadcrumbs = {
         }
       }
 
-      // ── Mobile: sort tabs ───────────────────────────
-      tabs.forEach((tab) => {
-        tab.addEventListener("click", (e) => {
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-          e.preventDefault();
-          history.pushState({}, "", tab.getAttribute("href"));
-          load();
-        });
-      });
-
       // ── Mobile: form submit ─────────────────────────
       function buildQuery(q, specialty, extra) {
         const next = new URLSearchParams();
         if (q) next.set("q", q);
         if (specialty) next.set("specialty", specialty);
-        // Preserve sort + filter params not on this form
+        // Preserve filter params not on this form
         const cur = new URLSearchParams(location.search);
-        const curSort = cur.get("sort");
-        if (curSort && curSort !== "soon") next.set("sort", curSort);
         for (const k of ["city", "rating", "exp", "format", "accepting"]) {
           const v = (extra && k in extra) ? extra[k] : cur.get(k);
           if (v) next.set(k, v);
@@ -1166,31 +1054,10 @@ const breadcrumbs = {
         });
       }
 
-      // ── Desktop: sort dropdown ──────────────────────
+      // ── Desktop: chip bar + drawer ──────────────────
       document.addEventListener("click", (e) => {
         const target = e.target;
         if (!(target instanceof Element)) return;
-
-        const toggle = target.closest('[data-action="toggle-sort"]');
-        if (toggle && dwSortMenu) {
-          dwSortMenu.hidden = !dwSortMenu.hidden;
-          return;
-        }
-        if (!target.closest("#dw-sort-dropdown") && dwSortMenu && !dwSortMenu.hidden) {
-          dwSortMenu.hidden = true;
-        }
-
-        const sortOpt = target.closest(".dw-sort-option");
-        if (sortOpt && sortOpt instanceof HTMLElement && sortOpt.dataset.sortTab) {
-          const next = new URLSearchParams(location.search);
-          next.set("sort", sortOpt.dataset.sortTab);
-          history.pushState({}, "", "/search?" + next.toString());
-          if (dwSortMenu) dwSortMenu.hidden = true;
-          load();
-          return;
-        }
-
-        // (view toggle removed — single rich-card list view by design)
 
         // Drawer open/close
         if (target.closest('[data-action="open-drawer"]')) {
@@ -1254,7 +1121,7 @@ const breadcrumbs = {
           exp: dr.exp,
           accepting: dr.accepting,
         };
-        const filtered = applyFilterAndSort(allItems, merged);
+        const filtered = applyFilters(allItems, merged);
         if (drawerCount) drawerCount.textContent = String(filtered.length) + " " + pDoctorsLong(filtered.length);
       }
 
@@ -1660,9 +1527,9 @@ const breadcrumbs = {
       }
       .dw-chip-reset:hover { color: var(--n-ink2); }
 
-      /* ── Sort bar ───────────────────────────── */
+      /* ── Results bar ────────────────────────── */
       .dw-results-section { margin-top: 12px; }
-      .dw-sort-bar {
+      .dw-results-bar {
         display: flex; justify-content: space-between; align-items: center;
         margin-bottom: 14px;
         padding-top: 12px;
@@ -1682,40 +1549,6 @@ const breadcrumbs = {
       .dw-results-city {
         font-size: 14px; color: var(--n-muted);
       }
-      .dw-sort-controls {
-        display: flex; align-items: center; gap: 12px;
-      }
-      .dw-sort-dropdown { position: relative; }
-      .dw-sort-trigger {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 8px 14px; border-radius: var(--r-control);
-        background: #fff; border: 1px solid var(--n-line-soft);
-        cursor: pointer;
-        font-family: inherit; font-size: 13px; font-weight: 600; color: var(--n-ink);
-      }
-      .dw-sort-trigger:hover { border-color: var(--n-line); }
-      .dw-sort-trigger-label { color: var(--n-muted); font-weight: 500; }
-      .dw-sort-menu {
-        position: absolute; top: calc(100% + 6px); right: 0;
-        padding: 6px; min-width: 220px;
-        background: #fff; border: 1px solid var(--n-line-soft);
-        border-radius: var(--r-control);
-        box-shadow: var(--e-overlay);
-        /* Sort menu must float above the sticky header (z-index: 30), not under it. */
-        z-index: 35;
-        display: flex; flex-direction: column; gap: 2px;
-      }
-      .dw-sort-option {
-        padding: 8px 12px; border-radius: var(--r-chip);
-        border: none; background: transparent;
-        color: var(--n-ink); text-align: left; cursor: pointer;
-        font-family: inherit; font-size: 13px; font-weight: 600;
-      }
-      .dw-sort-option:hover { background: var(--n-line-soft); }
-      .dw-sort-option[data-active="true"] {
-        background: var(--teal-softer); color: var(--teal);
-      }
-
       /* ── Doctor list + three-column card ─────── */
       .dw-doctor-list {
         list-style: none; padding: 0; margin: 0;
@@ -2041,9 +1874,6 @@ const breadcrumbs = {
         border-left: none; padding-left: 0;
         border-top: 1px solid var(--n-line-soft); padding-top: 14px;
       }
-
-      .dw-sort-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
-
     }
 
     @media (prefers-reduced-motion: reduce) {
