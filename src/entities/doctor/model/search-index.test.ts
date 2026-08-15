@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DoctorProfileView } from './doctor-view'
-import {
-  buildLanguageOptions,
-  buildSpecialtyOptions,
-  SEARCH_INDEX_MAX_WORKPLACES,
-  toSearchIndexItem,
-} from './search-index'
+import { buildLanguageOptions, buildSpecialtyOptions, toSearchIndexItem } from './search-index'
 
 function profile(overrides: Partial<DoctorProfileView> = {}): DoctorProfileView {
   return {
@@ -63,7 +58,7 @@ describe('toSearchIndexItem', () => {
     expect(item).not.toHaveProperty('id')
   })
 
-  it('обрезает места приёма до предела, но помнит полное число', () => {
+  it('берёт из мест приёма только первое название, но помнит полное число', () => {
     const workplace = (id: string) => ({
       id,
       name: `Клиника ${id}`,
@@ -77,19 +72,55 @@ describe('toSearchIndexItem', () => {
       'nadtochiy',
     )
 
-    expect(SEARCH_INDEX_MAX_WORKPLACES).toBe(2)
+    expect(item.workplaceName).toBe('Клиника a')
     expect(item.workplacesTotal).toBe(3)
-    expect(item.workplaces).toEqual([
-      { name: 'Клиника a', address: 'ул. a' },
-      { name: 'Клиника b', address: 'ул. b' },
-    ])
   })
 
   it('переживает врача без мест приёма', () => {
     const item = toSearchIndexItem(profile({ workplaces: [] }), 'nadtochiy')
 
-    expect(item.workplaces).toEqual([])
+    expect(item.workplaceName).toBeNull()
     expect(item.workplacesTotal).toBe(0)
+  })
+
+  it('переносит каждое поле из своего источника', () => {
+    // Половина полей проекции — строки, и типы не поймают перепутанные местами
+    // fullName с initials или languages с languageCodes. Ловит только сверка
+    // целиком на значениях, различимых между собой.
+    const item = toSearchIndexItem(
+      profile({
+        fullName: 'Петровский Сергей',
+        initials: 'ПС',
+        avatarColor: '#ABCDEF',
+        avatarUrl: 'https://example.com/a.jpg',
+        specialization: 'Хирург',
+        subspecializations: ['Ортопед', 'Травматолог'],
+        city: 'Ананьево',
+        languages: ['Русский', 'English'],
+        languageCodes: ['ru', 'en'],
+        priceFrom: 2999,
+        yearsExperience: 23,
+      }),
+      'petrovskiy-sergey',
+    )
+
+    expect(item).toEqual({
+      slug: 'petrovskiy-sergey',
+      fullName: 'Петровский Сергей',
+      initials: 'ПС',
+      avatarColor: '#ABCDEF',
+      avatarUrl: 'https://example.com/a.jpg',
+      specialty: 'Хирург',
+      specialtyKey: 'хирург',
+      subspecializations: ['Ортопед', 'Травматолог'],
+      city: 'Ананьево',
+      languages: ['Русский', 'English'],
+      languageCodes: ['ru', 'en'],
+      priceFrom: 2999,
+      yearsExperience: 23,
+      workplaceName: 'Клиника Смайл',
+      workplacesTotal: 1,
+    })
   })
 
   it('переносит стаж и цену числами, а не готовыми подписями', () => {
@@ -162,6 +193,12 @@ describe('buildLanguageOptions', () => {
       { key: 'ru', label: 'Русский', count: 2 },
       { key: 'ky', label: 'Кыргызча', count: 1 },
     ])
+  })
+
+  it('считает врача один раз, даже если код повторился в его списке', () => {
+    const options = buildLanguageOptions([profile({ languageCodes: ['ru', 'ru'] })])
+
+    expect(options).toEqual([{ key: 'ru', label: 'Русский', count: 1 }])
   })
 
   it('не теряет незнакомый код', () => {

@@ -20,7 +20,7 @@ export interface SearchIndexItem {
   languageCodes: string[]
   priceFrom: number | null
   yearsExperience: number | null
-  workplaces: { name: string; address: string }[]
+  workplaceName: string | null
   workplacesTotal: number
 }
 
@@ -29,9 +29,6 @@ export interface FilterOption {
   label: string
   count: number
 }
-
-/** Карточка показывает два места приёма, остальные сворачиваются в «+N». */
-export const SEARCH_INDEX_MAX_WORKPLACES = 2
 
 export function specialtyKeyOf(specialty: string): string {
   return specialty.trim().toLowerCase()
@@ -52,9 +49,7 @@ export function toSearchIndexItem(doctor: DoctorProfileView, slug: string): Sear
     languageCodes: doctor.languageCodes,
     priceFrom: doctor.priceFrom,
     yearsExperience: doctor.yearsExperience,
-    workplaces: doctor.workplaces
-      .slice(0, SEARCH_INDEX_MAX_WORKPLACES)
-      .map((workplace) => ({ name: workplace.name, address: workplace.address })),
+    workplaceName: doctor.workplaces[0]?.name ?? null,
     workplacesTotal: doctor.workplaces.length,
   }
 }
@@ -74,8 +69,6 @@ export function buildSpecialtyOptions(doctors: readonly DoctorProfileView[]): Fi
     if (seen) {
       seen.count += 1
     } else {
-      // Написание уже нормализовано в toDoctorListItem, внутри группы оно одно
-      // на всех — поэтому подписью служит первое встреченное, без выбора частот.
       groups.set(key, { key, label: doctor.specialization, count: 1 })
     }
   }
@@ -87,7 +80,9 @@ export function buildLanguageOptions(doctors: readonly DoctorProfileView[]): Fil
   const groups = new Map<string, FilterOption>()
 
   for (const doctor of doctors) {
-    for (const code of doctor.languageCodes) {
+    // Счётчик показывается рядом с опцией и означает врачей, а не строки:
+    // бэкенд отдаёт список языков как есть и повторы в нём не исключены.
+    for (const code of new Set(doctor.languageCodes)) {
       const seen = groups.get(code)
       if (seen) {
         seen.count += 1

@@ -18,7 +18,6 @@ export type {
 export {
   buildLanguageOptions,
   buildSpecialtyOptions,
-  SEARCH_INDEX_MAX_WORKPLACES,
   specialtyKeyOf,
   toSearchIndexItem,
 } from './model/search-index'

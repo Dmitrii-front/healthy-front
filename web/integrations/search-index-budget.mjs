@@ -9,31 +9,38 @@ const FAIL_KB = 30
 
 const kb = (bytes) => (bytes / 1024).toFixed(1)
 
-// The doctor catalogue ships inline in /search: one round-trip beats a separate
-// file on 3G. The trade stops paying somewhere around 300 doctors — past that
-// the index has to move out and pagination has to come back. Sizes drift by a
-// kilobyte per release, so the threshold is checked here, not by eye.
+// The CF adapter puts static output under dist/ or dist/client/ depending on
+// the version — same probe as prefetch-list.mjs.
+async function readSearchPage(dir) {
+  const fsPath = fileURLToPath(dir)
+  for (const root of [join(fsPath, 'client'), fsPath]) {
+    const html = await readFile(join(root, 'search', 'index.html'), 'utf8').catch(() => null)
+    if (html !== null) return html
+  }
+  return null
+}
+
+// The trade stops paying somewhere around three hundred doctors.
 export default function searchIndexBudget() {
   return {
     name: 'hm-search-index-budget',
     hooks: {
       'astro:build:done': async ({ dir, logger }) => {
-        const page = join(fileURLToPath(dir), 'search', 'index.html')
-
-        let html
-        try {
-          html = await readFile(page, 'utf8')
-        } catch {
+        const html = await readSearchPage(dir)
+        if (html === null) {
           logger.warn('No search/index.html in the output — skipping the search index budget.')
           return
         }
 
         const island = ISLAND.exec(html)
         if (!island) {
-          logger.warn(
-            'No #search-data island in search/index.html — skipping the search index budget.',
+          // Молчать здесь нельзя: страница на месте, а островка нет — значит
+          // сломалась либо выдача, либо сам сторож, и оба случая тихо
+          // превращают проверку веса в зелёную сборку.
+          throw new Error(
+            'No #search-data island in search/index.html: the search page ships no catalogue, ' +
+              'or the island id changed and this budget check no longer measures anything.',
           )
-          return
         }
 
         const payload = Buffer.from(island[1], 'utf8')
