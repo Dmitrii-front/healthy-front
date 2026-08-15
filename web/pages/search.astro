@@ -12,6 +12,7 @@ import {
   toSearchIndexItem,
 } from "@/entities/doctor";
 import { doctorProfileSlug } from "../lib/slug";
+import { pluralizeDoctors } from "../lib/search/format";
 import { serializeForJsonIsland } from "../lib/search/serialize";
 
 // Строка идёт и в мета-описание, и в подзаголовок над формой, поэтому обещает
@@ -27,6 +28,7 @@ const doctorItems = catalog.map((doctor) =>
 );
 const specialtyOptions = buildSpecialtyOptions(catalog);
 const languageOptions = buildLanguageOptions(catalog);
+const doctorsTotal = catalog.length;
 
 // Нижний слой — подписи плиток главной: они ведут на специальности, которых
 // в каталоге может не быть, и без него чип и заголовок теряют слово, по
@@ -51,7 +53,7 @@ const breadcrumbs = {
 ---
 
 <BaseLayout
-  title="Найти врача в Бишкеке — Healthy"
+  title="Найти врача — Healthy"
   description={description}
 >
   {/* ════════════════════════════════════════════════ */}
@@ -69,7 +71,7 @@ const breadcrumbs = {
         id="search-h1"
         class="text-[28px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite"
       >
-        Найти врача в Бишкеке
+        Найти врача
       </h1>
       <p class="mt-3 max-w-lg text-[15px] leading-relaxed text-soft-graphite">
         {description}
@@ -297,12 +299,12 @@ const breadcrumbs = {
       </nav>
       <header class="dw-intro">
         <div class="dw-intro-text">
-          <span class="dw-intro-eyebrow">Каталог · Бишкек</span>
+          <span class="dw-intro-eyebrow">Каталог</span>
           <h1 class="dw-intro-title" id="dw-h1">Найти врача</h1>
         </div>
         <p class="dw-intro-trust">
           <span class="dw-intro-pulse" aria-hidden="true"></span>
-          1 200+ проверенных специалистов. Бесплатная отмена за 2 часа.
+          {doctorsTotal} {pluralizeDoctors(doctorsTotal)} · бесплатная отмена за 2 часа
         </p>
       </header>
 
@@ -348,22 +350,12 @@ const breadcrumbs = {
           </label>
           <label class="dw-pill-field dw-pill-field-div">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
-              <path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/>
-              <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-            </svg>
-            <span class="dw-pill-body">
-              <span class="dw-pill-label">Город</span>
-              <span class="dw-pill-static">Бишкек</span>
-            </span>
-          </label>
-          <label class="dw-pill-field dw-pill-field-div">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
               <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
               <path d="m21 21-4.3-4.3"/>
             </svg>
             <span class="dw-pill-body">
               <span class="dw-pill-label">По имени</span>
-              <input id="dw-search-q" name="q" type="search" placeholder="Например, Соколова" autocomplete="off" class="dw-pill-control" />
+              <input id="dw-search-q" name="q" type="search" placeholder="Имя или специальность" autocomplete="off" class="dw-pill-control" />
             </span>
           </label>
           <button type="submit" class="dw-pill-submit">
@@ -390,7 +382,6 @@ const breadcrumbs = {
             {/* aria-live: см. счётчик мобильной оболочки */}
             <span class="dw-results-count" id="dw-results-count" aria-live="polite">—</span>
             <span class="dw-results-noun" id="dw-results-noun">врачей</span>
-            <span class="dw-results-city"> принимают в Бишкеке</span>
           </div>
         </div>
 
@@ -642,10 +633,10 @@ const breadcrumbs = {
 
         // H1 + document title
         const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
-        let h1Text = "Найти врача в Бишкеке";
+        let h1Text = "Найти врача";
         let crumbText = "Все врачи";
         if (specialtyLabel) {
-          h1Text = specialtyLabel + " в Бишкеке";
+          h1Text = specialtyLabel;
           crumbText = specialtyLabel;
         } else if (state.q) {
           h1Text = "Поиск: «" + state.q + "»";
@@ -654,17 +645,7 @@ const breadcrumbs = {
         h1.textContent = h1Text;
         document.title = h1Text + " — Healthy";
         if (dwCrumb) dwCrumb.textContent = crumbText;
-        // Desktop h1 stays shorter than mobile (no "в Бишкеке" — region lives
-        // in the eyebrow above). Mirrors the editorial pattern from PRODUCT.md.
-        if (dwH1) {
-          if (specialtyLabel) {
-            dwH1.textContent = specialtyLabel;
-          } else if (state.q) {
-            dwH1.textContent = "Поиск: «" + state.q + "»";
-          } else {
-            dwH1.textContent = "Найти врача";
-          }
-        }
+        if (dwH1) dwH1.textContent = h1Text;
 
         // Filter chips (desktop)
         renderChips(state);
@@ -1014,7 +995,7 @@ const breadcrumbs = {
         box-shadow: var(--e-rest);
         /* Дорожек ровно столько, сколько полей плюс кнопка: лишний ребёнок
            уезжает во вторую строку и разрывает форму-пилюлю. */
-        display: grid; grid-template-columns: 1.3fr 1fr 0.8fr 1.3fr auto;
+        display: grid; grid-template-columns: 1.3fr 1fr 1.3fr auto;
         gap: 4px; align-items: center;
       }
       .dw-pill-field {
@@ -1032,7 +1013,7 @@ const breadcrumbs = {
         font-size: 10px; color: var(--n-muted);
         font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
       }
-      .dw-pill-control, .dw-pill-static {
+      .dw-pill-control {
         font-size: 14px; font-weight: 600; color: var(--n-ink);
         margin-top: 1px;
         background: transparent; border: none; outline: none;
@@ -1098,9 +1079,6 @@ const breadcrumbs = {
       .dw-results-noun {
         font-size: 14px; color: var(--n-muted);
         margin-left: 8px;
-      }
-      .dw-results-city {
-        font-size: 14px; color: var(--n-muted);
       }
       /* ── Doctor list + two-column card ───────── */
       .dw-doctor-list {
