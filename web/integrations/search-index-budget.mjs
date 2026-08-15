@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { brotliCompressSync } from 'node:zlib'
+
+import { probeDistRoot } from './dist-root.mjs'
 
 const ISLAND = /<script[^>]*id="search-data"[^>]*>([\s\S]*?)<\/script>/
 const WARN_KB = 20
@@ -9,18 +10,10 @@ const FAIL_KB = 30
 
 const kb = (bytes) => (bytes / 1024).toFixed(1)
 
-// The CF adapter puts static output under dist/ or dist/client/ depending on
-// the version — same probe as prefetch-list.mjs.
-async function readSearchPage(dir) {
-  const fsPath = fileURLToPath(dir)
-  const candidates = [join(fsPath, 'client'), fsPath]
-  const reads = await Promise.all(
-    candidates.map((root) =>
-      readFile(join(root, 'search', 'index.html'), 'utf8').catch(() => null),
-    ),
+const readSearchPage = (dir) =>
+  probeDistRoot(dir, (root) =>
+    readFile(join(root, 'search', 'index.html'), 'utf8').catch(() => null),
   )
-  return reads.find((html) => html !== null) ?? null
-}
 
 // The trade stops paying somewhere around three hundred doctors.
 export default function searchIndexBudget() {
@@ -30,8 +23,13 @@ export default function searchIndexBudget() {
       'astro:build:done': async ({ dir, logger }) => {
         const html = await readSearchPage(dir)
         if (html === null) {
-          logger.warn('No search/index.html in the output — skipping the search index budget.')
-          return
+          // Пропавшая страница скрывает строго больше, чем пропавший островок
+          // ниже, поэтому и здесь молчать нельзя: проверка веса просто
+          // отключилась бы на той сборке, где сломана сама выдача.
+          throw new Error(
+            'No search/index.html in the build output: the search page is gone, or the CF adapter ' +
+              'moved the static root and this budget check no longer measures anything.',
+          )
         }
 
         const island = ISLAND.exec(html)

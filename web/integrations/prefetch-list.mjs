@@ -1,23 +1,16 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+
+import { probeDistRoot } from './dist-root.mjs'
 
 const PLACEHOLDER = '"__HM_PREFETCH_LIST__"'
 
-// Astro CF adapter places static output (HTML + _astro chunks) under
-// either dist/ or dist/client/ depending on the version. Probe both.
-async function findClientRoot(dir) {
-  const fsPath = fileURLToPath(dir)
-  const candidates = [join(fsPath, 'client'), fsPath]
-  const probes = await Promise.all(
-    candidates.map((candidate) =>
-      readdir(join(candidate, '_astro'))
-        .then(() => candidate)
-        .catch(() => null),
-    ),
+const findClientRoot = (dir) =>
+  probeDistRoot(dir, (root) =>
+    readdir(join(root, '_astro'))
+      .then(() => root)
+      .catch(() => null),
   )
-  return probes.find((c) => c !== null) ?? null
-}
 
 async function walkHtml(dir) {
   const entries = await readdir(dir, { withFileTypes: true })
