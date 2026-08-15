@@ -18,8 +18,10 @@ export type {
 export {
   buildLanguageOptions,
   buildSpecialtyOptions,
+  fromSearchIndexWire,
   specialtyKeyOf,
   toSearchIndexItem,
+  toSearchIndexWire,
 } from './model/search-index'
-export type { FilterOption, SearchIndexItem } from './model/search-index'
+export type { FilterOption, SearchIndexItem, SearchIndexWire } from './model/search-index'
 export { formatExperienceLabel, formatPriceKgs } from './lib/doctor-display'

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DoctorProfileView } from './doctor-view'
-import { buildLanguageOptions, buildSpecialtyOptions, toSearchIndexItem } from './search-index'
+import {
+  buildLanguageOptions,
+  buildSpecialtyOptions,
+  fromSearchIndexWire,
+  toSearchIndexItem,
+  toSearchIndexWire,
+} from './search-index'
 
 function profile(overrides: Partial<DoctorProfileView> = {}): DoctorProfileView {
   return {
@@ -139,6 +145,51 @@ describe('toSearchIndexItem', () => {
     const item = toSearchIndexItem(profile(), 'nadtochiy-dmitriy')
 
     expect(item.slug).toBe('nadtochiy-dmitriy')
+  })
+})
+
+describe('toSearchIndexWire / fromSearchIndexWire', () => {
+  it('не везёт в HTML подписи, которые страница уже отправляет словарями', () => {
+    const wire = toSearchIndexWire(toSearchIndexItem(profile(), 'nadtochiy'))
+
+    expect(wire).not.toHaveProperty('specialty')
+    expect(wire).not.toHaveProperty('languages')
+    expect(wire.specialtyKey).toBe('стоматолог')
+    expect(wire.languageCodes).toEqual(['ru', 'ky'])
+  })
+
+  it('собирает запись обратно словарями той же страницы без потерь', () => {
+    // Словари строятся ровно так же, как в frontmatter выдачи: если сборка
+    // подписей и их разбор разойдутся, карточка поедет с чужим словом.
+    //
+    // Языки во враче держатся парой: подписи выводятся из тех же кодов
+    // (toDoctorListItem), и именно на этом стоит обратная сборка.
+    const catalog = [
+      profile(),
+      profile({ specialization: 'Хирург', languages: ['English'], languageCodes: ['en'] }),
+    ]
+    const specialtyLabels = Object.fromEntries(
+      buildSpecialtyOptions(catalog).map((option) => [option.key, option.label]),
+    )
+    const languageLabels = Object.fromEntries(
+      buildLanguageOptions(catalog).map((option) => [option.key, option.label]),
+    )
+
+    for (const doctor of catalog) {
+      const item = toSearchIndexItem(doctor, 'slug')
+
+      expect(fromSearchIndexWire(toSearchIndexWire(item), specialtyLabels, languageLabels)).toEqual(
+        item,
+      )
+    }
+  })
+
+  it('показывает ключ как есть, когда подписи для него не приехало', () => {
+    const item = toSearchIndexItem(profile({ languageCodes: ['de'] }), 'nadtochiy')
+    const restored = fromSearchIndexWire(toSearchIndexWire(item), {}, {})
+
+    expect(restored.specialty).toBe('стоматолог')
+    expect(restored.languages).toEqual(['de'])
   })
 })
 
