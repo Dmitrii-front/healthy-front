@@ -52,16 +52,21 @@ const doctorItems = DOCTOR_MOCKS.map((d) => ({
 
 // Языки, реально встречающиеся у врачей. В следующем MR список приедет из
 // каталога вместе с остальными опциями.
+//
+// Ключ и подпись расходятся: в ссылке живёт нижний регистр, а показываем
+// написание как в данных. Взять подпись из ключа было бы дешевле, но тогда
+// фильтр предлагает «english» рядом с карточкой, где написано «English».
 const languageOptions = Array.from(
   DOCTOR_MOCKS.reduce((acc, d) => {
-    for (const code of d.languages ?? []) {
-      const key = code.toLowerCase();
-      acc.set(key, (acc.get(key) ?? 0) + 1);
+    for (const name of d.languages ?? []) {
+      const key = name.toLowerCase();
+      const seen = acc.get(key);
+      acc.set(key, { label: seen?.label ?? name, count: (seen?.count ?? 0) + 1 });
     }
     return acc;
-  }, new Map<string, number>()),
+  }, new Map<string, { label: string; count: number }>()),
 )
-  .map(([key, count]) => ({ key, label: key, count }))
+  .map(([key, { label, count }]) => ({ key, label, count }))
   .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ru"));
 
 const breadcrumbs = {
