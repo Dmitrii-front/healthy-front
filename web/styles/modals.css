@@ -2,14 +2,9 @@
    Loaded globally via BaseLayout's import — no React, no Tailwind. */
 
 /* Native <dialog> modal. Browser handles focus trap, ARIA, scroll-lock,
-   return focus and Esc; we only style the surface and backdrop.
-
-   Шрифт повторён здесь: окна лежат рядом с корнем страницы, а не внутри него,
-   и .hm-site до них не достаёт — без этой строки окно открывается в базовом
-   шрифте документа поверх страницы в шрифте сайта. */
+   return focus and Esc; we only style the surface and backdrop. */
 .hm-dialog {
   margin: auto;
-  font-family: var(--site-font);
   padding: 0;
   border: 0;
   border-radius: 20px;

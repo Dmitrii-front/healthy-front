@@ -1,4 +1,5 @@
 ---
+import SiteFont from "../components/layout/SiteFont.astro";
 import "@/styles/globals.css";
 import "../styles/modals.css";
 
@@ -71,12 +72,7 @@ const ogImageAlt = "Healthy — запись к врачу онлайн";
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <SiteFont />
 
     {/* Low-priority SPA warm-up. After the SEO page loads, warms the HTTP
         cache for the /app/ shell and every chunk it depends on. The URL
