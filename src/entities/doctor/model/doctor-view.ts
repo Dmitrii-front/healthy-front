@@ -24,6 +24,7 @@ export interface DoctorListItem {
   city: string | null
   priceFrom: number | null
   languages: string[]
+  languageCodes: string[]
   avatarUrl: string | null
 }
 
@@ -67,6 +68,7 @@ export function toDoctorListItem(dto: DoctorSearchItemDto): DoctorListItem {
     city: dto.primary_work_city,
     priceFrom: dto.price_from,
     languages: formatLanguages(dto.languages ?? []),
+    languageCodes: (dto.languages ?? []).map((code) => code.toLowerCase()),
     avatarUrl: dto.avatar_url,
   }
 }
