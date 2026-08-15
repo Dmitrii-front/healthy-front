@@ -25,20 +25,26 @@ const specialtyLabels = Object.fromEntries(
   SPECIALTIES.map((s) => [s.doctorSpecialty, s.label]),
 );
 
-// Search-result projection. Detail-only fields (bio, education, reviews,
-// conditionsTreated, address, phone) live on /doctor/{slug} — keep this list
-// lean to minimise HTML payload size.
+// Форма записи совпадает с будущим поисковым индексом: в следующем MR
+// сменится только источник данных, потребители останутся прежними.
 const doctorItems = DOCTOR_MOCKS.map((d) => ({
-  id: d.id,
   slug: doctorSlug(d),
-  name: d.name,
+  fullName: d.name,
   initials: d.initials,
-  color: d.color,
+  avatarColor: d.color,
+  avatarUrl: null,
   specialty: d.specialty,
-  subspecialty: d.subspecialty ?? null,
-  clinic: d.clinic,
+  specialtyKey: d.specialty.trim().toLowerCase(),
+  subspecializations: d.subspecialty ? [d.subspecialty] : [],
+  city: null,
+  // В моках языки лежат подписями («Русский»), кодов там нет. Пока они же
+  // работают ключами; в следующем MR подписи и коды разъедутся.
+  languages: d.languages ?? [],
+  languageCodes: (d.languages ?? []).map((l) => l.toLowerCase()),
+  priceFrom: null,
   yearsExperience: d.yearsExperience ?? null,
-  languages: (d.languages ?? []).slice(0, 2),
+  workplaces: d.clinic ? [{ name: d.clinic, address: "" }] : [],
+  workplacesTotal: d.clinic ? 1 : 0,
 }));
 
 const breadcrumbs = {
@@ -449,16 +455,21 @@ const breadcrumbs = {
   <script>
     (() => {
       type DoctorItem = {
-        id: string;
         slug: string;
-        name: string;
+        fullName: string;
         initials: string;
-        color: string;
+        avatarColor: string;
+        avatarUrl: string | null;
         specialty: string;
-        subspecialty: string | null;
-        clinic: string;
-        yearsExperience: number | null;
+        specialtyKey: string;
+        subspecializations: string[];
+        city: string | null;
         languages: string[];
+        languageCodes: string[];
+        priceFrom: number | null;
+        yearsExperience: number | null;
+        workplaces: { name: string; address: string }[];
+        workplacesTotal: number;
       };
       type SearchState = { q: string; specialty: string };
       type UiState = "loading" | "results" | "empty" | "error";
@@ -545,8 +556,11 @@ const breadcrumbs = {
       function applyFilters(items: DoctorItem[], state: SearchState) {
         const q = state.q.toLowerCase();
         return items.filter((d) => {
-          if (q && !(d.name + " " + d.specialty + " " + d.clinic).toLowerCase().includes(q)) {
-            return false;
+          if (q) {
+            const haystack = [d.fullName, d.specialty, ...d.subspecializations]
+              .join(" ")
+              .toLowerCase();
+            if (!haystack.includes(q)) return false;
           }
           if (state.specialty && d.specialty !== state.specialty) return false;
           return true;
@@ -690,21 +704,19 @@ const breadcrumbs = {
         const avatar = li.querySelector<HTMLElement>("[data-avatar]");
         if (avatar) {
           avatar.textContent = d.initials;
-          avatar.style.backgroundColor = d.color;
+          avatar.style.backgroundColor = d.avatarColor;
         }
 
         const eyebrow = li.querySelector("[data-eyebrow]");
         if (eyebrow) {
-          eyebrow.textContent = d.subspecialty
-            ? d.specialty + " · " + d.subspecialty
-            : d.specialty;
+          eyebrow.textContent = [d.specialty, ...d.subspecializations].join(" · ");
         }
 
         const name = li.querySelector("[data-name]");
-        if (name) name.textContent = d.name;
+        if (name) name.textContent = d.fullName;
 
         const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = d.clinic;
+        if (clinic) clinic.textContent = d.workplaces[0]?.name ?? "";
 
         const meta = li.querySelector("[data-meta]");
         if (meta) {
@@ -735,13 +747,11 @@ const breadcrumbs = {
 
         // MIDDLE — name, chips, specialty, sections, clinic
         const name = li.querySelector("[data-name]");
-        if (name) name.textContent = d.name;
+        if (name) name.textContent = d.fullName;
 
         const spec = li.querySelector("[data-spec]");
         if (spec) {
-          spec.textContent = d.subspecialty
-            ? d.specialty + " · " + d.subspecialty
-            : d.specialty;
+          spec.textContent = [d.specialty, ...d.subspecializations].join(" · ");
         }
 
         // Experience chip — "Стаж 14 лет"
@@ -764,7 +774,7 @@ const breadcrumbs = {
         }
 
         const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = d.clinic;
+        if (clinic) clinic.textContent = d.workplaces[0]?.name ?? "";
 
         return frag;
       }
