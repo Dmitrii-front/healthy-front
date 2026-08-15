@@ -64,6 +64,18 @@ const BANNERS = [
   },
 ] as const;
 
+// Палитра десктопных карточек специальностей: восемь тонов по кругу.
+const SPEC_CARD_PALETTE = [
+  { bg: "#B9DCE2", icon: "#0E7C8C" },
+  { bg: "#EBDBBE", icon: "#A07842" },
+  { bg: "#C5E2D2", icon: "#3A8E64" },
+  { bg: "#E8D2BC", icon: "#8E5A2E" },
+  { bg: "#C5E0E5", icon: "#2A9DAE" },
+  { bg: "#EFC8C8", icon: "#A93A35" },
+  { bg: "#D2CFE3", icon: "#473D87" },
+  { bg: "#F2D2A8", icon: "#A85518" },
+];
+
 // Tile tints for specialty grid (cycling)
 const TILE_TINTS = [
   "#DCEEF1",
@@ -115,6 +127,30 @@ const SPECIALTY_GLYPHS: Record<string, string[]> = {
 
 const specialtyOptions = buildSpecialtyOptions(doctors);
 const doctorsBySpecialty = new Map(specialtyOptions.map((o) => [o.key, o.count]));
+
+// Ссылка на выдачу и счётчик врачей считаются здесь один раз на обе сетки
+// плиток — мобильную и десктопную. Специальность, которой нет в каталоге,
+// остаётся без счётчика: плитка ведёт в поиск, но врачей не обещает.
+const specialtyTiles = SPECIALTIES.map((specialty) => {
+  const searchKey = specialtyKeyOf(specialty.doctorSpecialty);
+  return {
+    key: specialty.key,
+    label: specialty.label,
+    searchKey,
+    href: `/search?specialty=${encodeURIComponent(searchKey)}`,
+    count: doctorsBySpecialty.get(searchKey),
+  };
+});
+
+// Десктопная сетка — ровно две крупные карточки в ряд, и «популярные» здесь
+// значит «с наибольшим числом врачей»: specialtyOptions уже отсортирован по
+// счётчику, поэтому берём первые совпавшие плитки. Раньше тут стояли два
+// зашитых ключа, и на реальном каталоге обе карточки вели в пустую выдачу.
+const DESKTOP_SPECIALTY_CARDS = 2;
+const tilesBySearchKey = new Map(specialtyTiles.map((tile) => [tile.searchKey, tile]));
+const featuredSpecialties = specialtyOptions
+  .flatMap((option) => tilesBySearchKey.get(option.key) ?? [])
+  .slice(0, DESKTOP_SPECIALTY_CARDS);
 
 const orgJsonLd = {
   "@context": "https://schema.org",
@@ -203,12 +239,11 @@ const websiteJsonLd = {
         <h2>Популярные специальности</h2>
       </div>
       <div class="mw-tile-grid">
-        {SPECIALTIES.map((s, k) => {
+        {specialtyTiles.map((s, k) => {
           const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
-          const count = doctorsBySpecialty.get(specialtyKeyOf(s.doctorSpecialty));
           return (
             <a
-              href={`/search?specialty=${encodeURIComponent(specialtyKeyOf(s.doctorSpecialty))}`}
+              href={s.href}
               class="mw-tile tap"
               style={`background:${TILE_TINTS[k % TILE_TINTS.length]}`}
             >
@@ -218,8 +253,8 @@ const websiteJsonLd = {
                 </svg>
               </span>
               <span class="mw-tile-name">{s.label}</span>
-              {count !== undefined && (
-                <span class="mw-tile-count">{count} {pluralizeDoctors(count)}</span>
+              {s.count !== undefined && (
+                <span class="mw-tile-count">{s.count} {pluralizeDoctors(s.count)}</span>
               )}
             </a>
           );
@@ -395,53 +430,43 @@ const websiteJsonLd = {
     </section>
 
     {/* ── SPECIALTIES (6-col bold pastel) ─────── */}
-    <section class="dw-section dw-specs-section">
-      <div class="dw-section-head">
-        <div>
-          <h2>Популярные специальности</h2>
-          <p>Найдите врача по нужному направлению</p>
+    {featuredSpecialties.length > 0 && (
+      <section class="dw-section dw-specs-section">
+        <div class="dw-section-head">
+          <div>
+            <h2>Популярные специальности</h2>
+            <p>Найдите врача по нужному направлению</p>
+          </div>
+          <a href="/search" class="dw-section-link">
+            Все специальности
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+          </a>
         </div>
-        <a href="/search" class="dw-section-link">
-          Все специальности
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
-        </a>
-      </div>
-      <div class="dw-specs-grid">
-        {SPECIALTIES.filter((s) => s.key === "urgent-care" || s.key === "dentistry").map((s, i) => {
-          const palette = [
-            { bg: "#B9DCE2", icon: "#0E7C8C" },
-            { bg: "#EBDBBE", icon: "#A07842" },
-            { bg: "#C5E2D2", icon: "#3A8E64" },
-            { bg: "#E8D2BC", icon: "#8E5A2E" },
-            { bg: "#C5E0E5", icon: "#2A9DAE" },
-            { bg: "#EFC8C8", icon: "#A93A35" },
-            { bg: "#D2CFE3", icon: "#473D87" },
-            { bg: "#F2D2A8", icon: "#A85518" },
-          ];
-          const c = palette[i % palette.length]!;
-          const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
-          const isLarge = i < 2;
-          const count = doctorsBySpecialty.get(specialtyKeyOf(s.doctorSpecialty));
-          return (
-            <a
-              href={`/search?specialty=${encodeURIComponent(specialtyKeyOf(s.doctorSpecialty))}`}
-              class={`dw-spec-card${isLarge ? " is-large" : ""}`}
-              style={`background:${c.bg}`}
-            >
-              <span class="dw-spec-icon" style={`color:${c.icon}`}>
-                <svg width={isLarge ? "44" : "32"} height={isLarge ? "44" : "32"} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                  {paths.map((d) => <path d={d} />)}
-                </svg>
-              </span>
-              <span class="dw-spec-name">{s.label}</span>
-              {count !== undefined && (
-                <span class="dw-spec-count">{count} {pluralizeDoctors(count)}</span>
-              )}
-            </a>
-          );
-        })}
-      </div>
-    </section>
+        <div class="dw-specs-grid">
+          {featuredSpecialties.map((s, i) => {
+            const c = SPEC_CARD_PALETTE[i % SPEC_CARD_PALETTE.length]!;
+            const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
+            return (
+              <a
+                href={s.href}
+                class="dw-spec-card is-large"
+                style={`background:${c.bg}`}
+              >
+                <span class="dw-spec-icon" style={`color:${c.icon}`}>
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    {paths.map((d) => <path d={d} />)}
+                  </svg>
+                </span>
+                <span class="dw-spec-name">{s.label}</span>
+                {s.count !== undefined && (
+                  <span class="dw-spec-count">{s.count} {pluralizeDoctors(s.count)}</span>
+                )}
+              </a>
+            );
+          })}
+        </div>
+      </section>
+    )}
 
     {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
     <section class="dw-section dw-offline-section">
@@ -629,7 +654,7 @@ const websiteJsonLd = {
       padding: 12px 16px 8px;
     }
     .mw-search-input {
-      flex: 1; display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 10px;
       padding: 12px 16px;
       background: #fff; border: 1px solid var(--n-line);
       border-radius: 999px; box-shadow: 0 1px 0 rgba(15,17,21,0.02);
