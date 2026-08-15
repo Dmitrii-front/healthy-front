@@ -370,15 +370,8 @@ const breadcrumbs = {
 
       {/* Filter chip bar */}
       <section class="dw-chip-bar">
-        <button type="button" class="dw-chip-all" data-action="open-drawer">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/>
-          </svg>
-          Все фильтры
-          <span class="dw-chip-all-count" id="dw-chip-count" hidden>0</span>
-        </button>
         <div class="dw-chip-list" id="dw-chip-list"></div>
-        <button type="button" class="dw-chip-reset" id="dw-chip-reset" data-action="reset-filters" hidden>
+        <button type="button" class="dw-chip-reset" id="dw-chip-reset" hidden>
           Сбросить
         </button>
       </section>
@@ -417,13 +410,6 @@ const breadcrumbs = {
           <p class="dw-empty-desc">Проверьте соединение и попробуйте ещё раз.</p>
           <button type="button" class="dw-empty-retry" id="dw-retry">Повторить</button>
         </div>
-
-        {/* Pagination — visual only for now, single page of mocks */}
-        <nav class="dw-pagination" id="dw-pagination" hidden aria-label="Страницы">
-          <button type="button" class="dw-page-btn" disabled>‹ Назад</button>
-          <button type="button" class="dw-page-btn" data-active="true">1</button>
-          <button type="button" class="dw-page-btn">Дальше ›</button>
-        </nav>
       </section>
     </main>
 
@@ -499,77 +485,11 @@ const breadcrumbs = {
     </li>
   </template>
 
-  {/* ── FILTER DRAWER ─────────────────────────────── */}
-  <div class="filter-drawer-backdrop" id="filter-drawer-backdrop" hidden></div>
-  <aside class="filter-drawer" id="filter-drawer" hidden aria-label="Все фильтры">
-    <div class="filter-drawer-head">
-      <h3>Все фильтры</h3>
-      <button type="button" class="filter-drawer-close" data-action="close-drawer" aria-label="Закрыть">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M18 6 6 18M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-    <div class="filter-drawer-body">
-      <div class="filter-group">
-        <div class="filter-group-label">Формат приёма</div>
-        <div class="filter-group-list">
-          <label class="filter-radio"><input type="radio" name="dw-format" value="" checked /><span>Все</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-format" value="online" /><span>Онлайн-приём</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-format" value="offline" /><span>В клинике</span></label>
-        </div>
-      </div>
-      {/* Фильтра «Город» здесь больше нет: город остался один, а переключатель
-          с единственным вариантом выбора не даёт. Параметр city при этом
-          продолжает читаться из адреса — старые проиндексированные ссылки не
-          должны падать, — но применение фильтров его вычищает. */}
-      <div class="filter-divider"></div>
-      <div class="filter-group">
-        <div class="filter-group-label">Рейтинг</div>
-        <div class="filter-group-list">
-          <label class="filter-radio"><input type="radio" name="dw-rating" value="" checked /><span>Любой</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-rating" value="4.5" /><span>от 4,5</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-rating" value="4.8" /><span>от 4,8</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-rating" value="5.0" /><span>только 5,0</span></label>
-        </div>
-      </div>
-      <div class="filter-divider"></div>
-      <div class="filter-group">
-        <div class="filter-group-label">Стаж</div>
-        <div class="filter-group-list">
-          <label class="filter-radio"><input type="radio" name="dw-exp" value="" checked /><span>Любой</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-exp" value="3" /><span>3 года и более</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-exp" value="5" /><span>5 лет и более</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-exp" value="10" /><span>10 лет и более</span></label>
-          <label class="filter-radio"><input type="radio" name="dw-exp" value="20" /><span>20 лет и более</span></label>
-        </div>
-      </div>
-      <div class="filter-divider"></div>
-      <div class="filter-group">
-        <div class="filter-group-label">Дополнительно</div>
-        <div class="filter-group-list">
-          <label class="filter-check">
-            <input type="checkbox" name="dw-accepting" value="1" />
-            <span>Принимает новых пациентов</span>
-          </label>
-        </div>
-      </div>
-    </div>
-    <div class="filter-drawer-foot">
-      <button type="button" class="filter-drawer-apply" data-action="apply-filters">
-        Показать <span id="filter-drawer-count">—</span>
-      </button>
-      <button type="button" class="filter-drawer-clear" data-action="clear-filters">Сбросить</button>
-    </div>
-  </aside>
-
   <LoginModal />
 
   {/* Client logic. Vanilla JS, no island. Drives both mw + dw shells. */}
   <script is:inline define:vars={{ specialtyLabels, doctorItems }}>
     (() => {
-      const PAGE_LIMIT = 30;
-
       // ── Mobile shell refs ───────────────────────────
       const list = document.getElementById("doctor-list");
       const loading = document.getElementById("loading-state");
@@ -597,13 +517,8 @@ const breadcrumbs = {
       const dwH1 = document.getElementById("dw-h1");
       const dwEmpty = document.getElementById("dw-empty");
       const dwError = document.getElementById("dw-error");
-      const dwPagination = document.getElementById("dw-pagination");
       const dwChipList = document.getElementById("dw-chip-list");
-      const dwChipCount = document.getElementById("dw-chip-count");
       const dwChipReset = document.getElementById("dw-chip-reset");
-      const drawer = document.getElementById("filter-drawer");
-      const drawerBackdrop = document.getElementById("filter-drawer-backdrop");
-      const drawerCount = document.getElementById("filter-drawer-count");
       const dwSkeleton = document.getElementById("dw-doctor-skeleton");
       const dwRetry = document.getElementById("dw-retry");
 
@@ -617,18 +532,11 @@ const breadcrumbs = {
 
       function applyFilters(items, state) {
         const q = state.q.toLowerCase();
-        const minRating = state.rating ? parseFloat(state.rating) : 0;
-        const exact50 = state.rating === "5.0";
-        const minExp = state.exp ? parseInt(state.exp, 10) : 0;
         return items.filter((d) => {
           if (q && !(d.name + " " + d.specialty + " " + d.clinic).toLowerCase().includes(q)) {
             return false;
           }
           if (state.specialty && d.specialty !== state.specialty) return false;
-          if (exact50 && (d.rating ?? 0) < 5) return false;
-          if (!exact50 && minRating && (d.rating ?? 0) < minRating) return false;
-          if (minExp && (d.yearsExperience ?? 0) < minExp) return false;
-          if (state.accepting && d.acceptingNewPatients !== true) return false;
           return true;
         });
       }
@@ -689,11 +597,6 @@ const breadcrumbs = {
         return {
           q: (p.get("q") || "").trim(),
           specialty: p.get("specialty") || "",
-          city: p.get("city") || "",
-          rating: p.get("rating") || "",
-          exp: p.get("exp") || "",
-          format: p.get("format") || "",
-          accepting: p.get("accepting") === "1",
         };
       }
 
@@ -710,7 +613,6 @@ const breadcrumbs = {
         if (dwList) dwList.hidden = s !== "results";
         if (dwEmpty) dwEmpty.hidden = s !== "empty";
         if (dwError) dwError.hidden = s !== "error";
-        if (dwPagination) dwPagination.hidden = s !== "results";
       }
 
       // Single list view — grid was removed in the card-redesign pass since
@@ -757,23 +659,11 @@ const breadcrumbs = {
         if (state.specialty && specialtyLabels[state.specialty]) {
           out.push({ key: "specialty", label: specialtyLabels[state.specialty] });
         }
-        if (state.city) out.push({ key: "city", label: state.city });
-        if (state.format) {
-          out.push({ key: "format", label: state.format === "online" ? "Онлайн" : "В клинике" });
-        }
-        if (state.rating) {
-          const r = state.rating === "5.0" ? "Рейтинг 5,0" : "Рейтинг " + state.rating.replace(".", ",") + "+";
-          out.push({ key: "rating", label: r });
-        }
-        if (state.exp) {
-          out.push({ key: "exp", label: "Стаж " + state.exp + "+ " + pYearsShort(parseInt(state.exp, 10)) });
-        }
-        if (state.accepting) out.push({ key: "accepting", label: "Принимает новых" });
         return out;
       }
 
       function renderChips(state) {
-        if (!dwChipList || !dwChipCount || !dwChipReset) return;
+        if (!dwChipList || !dwChipReset) return;
         const pills = chipPills(state);
         dwChipList.replaceChildren();
         pills.forEach((p) => {
@@ -796,24 +686,12 @@ const breadcrumbs = {
           btn.addEventListener("click", () => removeFilter(p.key));
           dwChipList.appendChild(btn);
         });
-        if (pills.length > 0) {
-          dwChipCount.hidden = false;
-          dwChipCount.textContent = String(pills.length);
-          dwChipReset.hidden = false;
-        } else {
-          dwChipCount.hidden = true;
-          dwChipReset.hidden = true;
-        }
+        dwChipReset.hidden = pills.length === 0;
       }
 
       function removeFilter(key) {
         const next = new URLSearchParams(location.search);
-        if (key === "specialty") next.delete("specialty");
-        else if (key === "city") next.delete("city");
-        else if (key === "format") next.delete("format");
-        else if (key === "rating") next.delete("rating");
-        else if (key === "exp") next.delete("exp");
-        else if (key === "accepting") next.delete("accepting");
+        next.delete(key);
         const qs = next.toString();
         history.pushState({}, "", qs ? "/search?" + qs : "/search");
         load();
@@ -1010,7 +888,6 @@ const breadcrumbs = {
         const state = readState();
         renderMeta(state);
         const filtered = applyFilters(allItems, state);
-        if (drawerCount) drawerCount.textContent = String(filtered.length) + " " + pDoctorsLong(filtered.length);
         if (filtered.length === 0) {
           countEl.textContent = "0";
           nounEl.textContent = pDoctors(0);
@@ -1018,28 +895,22 @@ const breadcrumbs = {
           if (dwNoun) dwNoun.textContent = pDoctorsLong(0);
           setUiState("empty");
         } else {
-          renderResults(filtered.slice(0, PAGE_LIMIT), filtered.length);
+          renderResults(filtered, filtered.length);
           setUiState("results");
         }
       }
 
       // ── Mobile: form submit ─────────────────────────
-      function buildQuery(q, specialty, extra) {
+      function buildQuery(q, specialty) {
         const next = new URLSearchParams();
         if (q) next.set("q", q);
         if (specialty) next.set("specialty", specialty);
-        // Preserve filter params not on this form
-        const cur = new URLSearchParams(location.search);
-        for (const k of ["city", "rating", "exp", "format", "accepting"]) {
-          const v = (extra && k in extra) ? extra[k] : cur.get(k);
-          if (v) next.set(k, v);
-        }
         return next.toString();
       }
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        const qs = buildQuery(qInput.value.trim(), specSelect.value, null);
+        const qs = buildQuery(qInput.value.trim(), specSelect.value);
         history.pushState({}, "", qs ? "/search?" + qs : "/search");
         load();
       });
@@ -1048,189 +919,13 @@ const breadcrumbs = {
       if (dwForm && dwQ && dwSpec) {
         dwForm.addEventListener("submit", (e) => {
           e.preventDefault();
-          const qs = buildQuery(dwQ.value.trim(), dwSpec.value, null);
+          const qs = buildQuery(dwQ.value.trim(), dwSpec.value);
           history.pushState({}, "", qs ? "/search?" + qs : "/search");
           load();
         });
       }
 
-      // ── Desktop: chip bar + drawer ──────────────────
-      document.addEventListener("click", (e) => {
-        const target = e.target;
-        if (!(target instanceof Element)) return;
-
-        // Drawer open/close
-        if (target.closest('[data-action="open-drawer"]')) {
-          openDrawer();
-          return;
-        }
-        if (target.closest('[data-action="close-drawer"]')) {
-          closeDrawer();
-          return;
-        }
-        if (target.closest('[data-action="reset-filters"]')) {
-          resetAllFilters();
-          return;
-        }
-        if (target.closest('[data-action="clear-filters"]')) {
-          // Clear drawer inputs (visual)
-          if (drawer) {
-            drawer.querySelectorAll('input[type="radio"]').forEach((inp) => {
-              if (inp instanceof HTMLInputElement) inp.checked = inp.value === "";
-            });
-            drawer.querySelectorAll('input[type="checkbox"]').forEach((inp) => {
-              if (inp instanceof HTMLInputElement) inp.checked = false;
-            });
-          }
-          updateDrawerCount();
-          return;
-        }
-        if (target.closest('[data-action="apply-filters"]')) {
-          applyDrawer();
-          return;
-        }
-      });
-
-      function readDrawer() {
-        const get = (name) => {
-          if (!drawer) return "";
-          const el = drawer.querySelector('input[name="' + name + '"]:checked');
-          return el instanceof HTMLInputElement ? el.value : "";
-        };
-        const accepting = drawer
-          ? !!drawer.querySelector('input[name="dw-accepting"]:checked')
-          : false;
-        return {
-          format: get("dw-format"),
-          rating: get("dw-rating"),
-          exp: get("dw-exp"),
-          accepting,
-        };
-      }
-
-      function updateDrawerCount() {
-        const cur = readState();
-        const dr = readDrawer();
-        // city не переопределяем: шторка им больше не управляет, и подставить
-        // сюда undefined значило бы уронить счётчик, пока в адресе висит старый
-        // параметр из проиндексированной ссылки.
-        const merged = {
-          ...cur,
-          format: dr.format,
-          rating: dr.rating,
-          exp: dr.exp,
-          accepting: dr.accepting,
-        };
-        const filtered = applyFilters(allItems, merged);
-        if (drawerCount) drawerCount.textContent = String(filtered.length) + " " + pDoctorsLong(filtered.length);
-      }
-
-      function applyDrawer() {
-        const dr = readDrawer();
-        const next = new URLSearchParams(location.search);
-        const setOrDel = (k, v) => { if (v) next.set(k, v); else next.delete(k); };
-        setOrDel("format", dr.format);
-        // Город перестал быть фильтром — вычищаем параметр, если он приехал
-        // из старой ссылки: иначе чип «Алматы» висел бы без способа его вернуть.
-        next.delete("city");
-        setOrDel("rating", dr.rating);
-        setOrDel("exp", dr.exp);
-        if (dr.accepting) next.set("accepting", "1"); else next.delete("accepting");
-        const qs = next.toString();
-        history.pushState({}, "", qs ? "/search?" + qs : "/search");
-        closeDrawer();
-        load();
-      }
-
-      function syncDrawerFromState() {
-        if (!drawer) return;
-        const s = readState();
-        const radio = (name, value) => {
-          const el = drawer.querySelector('input[name="' + name + '"][value="' + value + '"]');
-          if (el instanceof HTMLInputElement) el.checked = true;
-        };
-        radio("dw-format", s.format);
-        radio("dw-rating", s.rating);
-        radio("dw-exp", s.exp);
-        const acc = drawer.querySelector('input[name="dw-accepting"]');
-        if (acc instanceof HTMLInputElement) acc.checked = s.accepting;
-      }
-
-      // Track the element that triggered the drawer so we can restore focus.
-      // Without this, keyboard users get dumped at <body> when the drawer closes,
-      // losing their place in the page.
-      let drawerReturnFocus = null;
-
-      function focusableInDrawer() {
-        if (!drawer) return [];
-        return [...drawer.querySelectorAll(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )].filter((el) => el.offsetParent !== null);
-      }
-
-      function openDrawer() {
-        if (!drawer || !drawerBackdrop) return;
-        drawerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        syncDrawerFromState();
-        updateDrawerCount();
-        drawer.hidden = false;
-        drawerBackdrop.hidden = false;
-        // next paint → trigger transition
-        requestAnimationFrame(() => {
-          drawer.dataset.open = "true";
-          drawerBackdrop.dataset.open = "true";
-          // Move focus inside the drawer on the first focusable element so screen
-          // readers announce drawer content and Tab cycles within.
-          const first = focusableInDrawer()[0];
-          if (first instanceof HTMLElement) first.focus();
-        });
-      }
-
-      function closeDrawer() {
-        if (!drawer || !drawerBackdrop) return;
-        drawer.dataset.open = "false";
-        drawerBackdrop.dataset.open = "false";
-        setTimeout(() => {
-          drawer.hidden = true;
-          drawerBackdrop.hidden = true;
-          // Return focus to the trigger so keyboard users don't lose their place.
-          if (drawerReturnFocus instanceof HTMLElement && document.body.contains(drawerReturnFocus)) {
-            drawerReturnFocus.focus();
-          }
-          drawerReturnFocus = null;
-        }, 220);
-      }
-
-      if (drawer) {
-        drawer.addEventListener("change", updateDrawerCount);
-
-        // Focus trap: Tab/Shift+Tab cycles between first and last focusable inside.
-        drawer.addEventListener("keydown", (e) => {
-          if (e.key !== "Tab" || drawer.dataset.open !== "true") return;
-          const focusable = focusableInDrawer();
-          if (focusable.length === 0) return;
-          const first = focusable[0];
-          const last = focusable[focusable.length - 1];
-          if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            if (last instanceof HTMLElement) last.focus();
-          } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            if (first instanceof HTMLElement) first.focus();
-          }
-        });
-      }
-      if (drawerBackdrop) {
-        drawerBackdrop.addEventListener("click", closeDrawer);
-      }
-
-      // Global Escape — closes drawer regardless of where focus is.
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && drawer && drawer.dataset.open === "true") {
-          e.preventDefault();
-          closeDrawer();
-        }
-      });
+      dwChipReset?.addEventListener("click", resetAllFilters);
 
       retryBtn?.addEventListener("click", () => load());
       dwRetry?.addEventListener("click", () => load());
@@ -1271,96 +966,17 @@ const breadcrumbs = {
       --r-control: 10px;
       --r-chip: 8px;
 
-      /* Elevation ladder — three steps, never more.
-         rest = at-flow surface; hover = lift on interaction;
-         overlay = floats above page (dropdowns, drawer). */
+      /* Elevation ladder — две ступени, больше не заводим.
+         rest = поверхность в потоке; hover = подъём при наведении.
+         Плавающего слоя на странице не осталось. */
       --e-rest: 0 1px 2px rgba(15, 17, 21, 0.04);
       --e-hover: 0 4px 16px rgba(14, 124, 140, 0.08);
-      --e-overlay: 0 12px 32px rgba(10, 31, 37, 0.12);
     }
 
     /* Mobile logo + nav scaffolding (re-uses index.astro classes) */
 
     /* Desktop shell hidden by default; revealed by media query below. */
     .dw-page { display: none; }
-
-    /* Filter drawer (shared) — visible only when opened via JS. */
-    .filter-drawer-backdrop {
-      position: fixed; inset: 0; z-index: 80;
-      background: rgba(15, 17, 21, 0); transition: background .22s ease;
-    }
-    .filter-drawer-backdrop[data-open="true"] {
-      background: rgba(15, 17, 21, 0.42);
-    }
-    .filter-drawer {
-      position: fixed; top: 0; right: 0; bottom: 0; z-index: 90;
-      width: min(380px, 92vw);
-      background: #fff;
-      overflow-y: auto;
-      font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      box-shadow: -12px 0 40px rgba(10, 31, 37, 0.18);
-      transform: translateX(100%);
-      transition: transform .22s ease;
-      display: flex; flex-direction: column;
-    }
-    .filter-drawer[data-open="true"] { transform: translateX(0); }
-    .filter-drawer-head {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 24px 28px 12px;
-    }
-    .filter-drawer-head h3 {
-      margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em;
-      color: var(--n-ink);
-    }
-    .filter-drawer-close {
-      width: 36px; height: 36px; border: none; border-radius: 50%;
-      background: var(--n-line-soft); cursor: pointer; color: var(--n-ink2);
-      display: grid; place-items: center;
-    }
-    .filter-drawer-close:hover { background: var(--n-line); }
-    .filter-drawer-body {
-      flex: 1; padding: 12px 28px 24px;
-    }
-    .filter-group { padding: 8px 0; }
-    .filter-group-label {
-      font-size: 11px; color: var(--n-muted);
-      font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-      margin-bottom: 10px;
-    }
-    .filter-group-list { display: flex; flex-direction: column; gap: 4px; }
-    .filter-radio, .filter-check {
-      display: flex; align-items: center; gap: 10px;
-      padding: 6px 0; cursor: pointer;
-      font-size: 14px; color: var(--n-ink2);
-    }
-    .filter-radio input, .filter-check input {
-      accent-color: var(--teal);
-      width: 16px; height: 16px;
-    }
-    .filter-divider {
-      height: 1px; background: var(--n-line-soft);
-      margin: 12px 0;
-    }
-    .filter-drawer-foot {
-      display: flex; gap: 8px;
-      padding: 16px 28px 24px;
-      border-top: 1px solid var(--n-line-soft);
-    }
-    .filter-drawer-apply {
-      flex: 1; height: 48px;
-      background: var(--teal); color: #fff;
-      border: none; border-radius: var(--r-control);
-      font-family: inherit; font-weight: 700; font-size: 14px;
-      cursor: pointer;
-    }
-    .filter-drawer-apply:hover { background: var(--teal-hover); }
-    .filter-drawer-clear {
-      height: 48px; padding: 0 18px;
-      background: transparent; color: var(--n-ink2);
-      border: 1px solid var(--n-line); border-radius: var(--r-control);
-      cursor: pointer; font-family: inherit; font-weight: 600; font-size: 14px;
-    }
-    .filter-drawer-clear:hover { background: var(--n-line-soft); }
 
     /* ════════════════════════════════════════════════════════════ */
     /*  DESKTOP LAYOUT (≥768px)                                     */
@@ -1489,21 +1105,6 @@ const breadcrumbs = {
       .dw-chip-bar {
         display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         padding: 14px 0 4px;
-      }
-      .dw-chip-all {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 10px 16px; border-radius: var(--r-pill);
-        background: var(--teal); color: #fff;
-        border: none; cursor: pointer;
-        font-family: inherit; font-weight: 600; font-size: 13px;
-        white-space: nowrap;
-        transition: background .15s;
-      }
-      .dw-chip-all:hover { background: var(--teal-hover); }
-      .dw-chip-all-count {
-        padding: 1px 8px; border-radius: var(--r-pill);
-        background: rgba(255, 255, 255, 0.25);
-        font-size: 11px; font-weight: 700;
       }
       .dw-chip-list { display: contents; }
       .dw-chip {
@@ -1803,28 +1404,6 @@ const breadcrumbs = {
         .dw-skel-line, .dw-card-skel-photo { animation: none; }
       }
 
-      /* Pagination */
-      .dw-pagination {
-        display: flex; justify-content: center; align-items: center;
-        gap: 6px; margin-top: 32px;
-      }
-      .dw-page-btn {
-        height: 36px; min-width: 36px; padding: 0 14px;
-        border: 1px solid var(--n-line-soft);
-        background: #fff; color: var(--n-ink2);
-        border-radius: var(--r-control); cursor: pointer;
-        font-family: inherit; font-weight: 600; font-size: 13px;
-      }
-      .dw-page-btn[data-active="true"] {
-        background: var(--teal); color: #fff; border-color: var(--teal);
-      }
-      .dw-page-btn:disabled {
-        opacity: 0.45; cursor: not-allowed;
-      }
-      .dw-page-btn:not(:disabled):not([data-active="true"]):hover {
-        border-color: var(--teal); color: var(--teal);
-      }
-
       /* ── Footer ─────────────────────────────── */
     }
 
@@ -1874,10 +1453,6 @@ const breadcrumbs = {
         border-left: none; padding-left: 0;
         border-top: 1px solid var(--n-line-soft); padding-top: 14px;
       }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .filter-drawer, .filter-drawer-backdrop { transition: none; }
     }
   </style>
 </BaseLayout>
