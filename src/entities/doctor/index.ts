@@ -15,4 +15,12 @@ export type {
   DoctorProfileView,
   DoctorWorkplaceView,
 } from './model/doctor-view'
+export {
+  buildLanguageOptions,
+  buildSpecialtyOptions,
+  SEARCH_INDEX_MAX_WORKPLACES,
+  specialtyKeyOf,
+  toSearchIndexItem,
+} from './model/search-index'
+export type { FilterOption, SearchIndexItem } from './model/search-index'
 export { formatExperienceLabel, formatPriceKgs } from './lib/doctor-display'
