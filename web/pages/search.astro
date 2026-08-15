@@ -442,8 +442,16 @@ const breadcrumbs = {
             <span class="dw-card-exp-chip" data-exp-chip hidden>
               <span data-exp></span>
             </span>
+            <span class="dw-card-price-chip" data-price-chip hidden>
+              <span data-price></span>
+            </span>
           </div>
           <p class="dw-card-spec" data-spec></p>
+
+          <div class="dw-card-section" data-subspecs-section hidden>
+            <span class="dw-card-section-label">Направления</span>
+            <span class="dw-card-section-value" data-subspecs></span>
+          </div>
 
           <div class="dw-card-section" data-langs-section hidden>
             <span class="dw-card-section-label">Языки приёма</span>
@@ -475,8 +483,9 @@ const breadcrumbs = {
   />
 
   <script>
+    import { formatExperienceLabel, formatPriceKgs } from "@/entities/doctor";
     import { filterDoctors } from "../lib/search/filter";
-    import { pluralizeDoctors, pluralizeRu } from "../lib/search/format";
+    import { pluralizeDoctors } from "../lib/search/format";
     import type { SearchState } from "../lib/search/state";
     import { activeChips, buildSearchQuery, readSearchState } from "../lib/search/state";
 
@@ -585,8 +594,24 @@ const breadcrumbs = {
       // синхронно по памяти, без сети и ожидания.
       const allItems = Array.isArray(doctorItems) ? doctorItems : [];
 
-      const pYears = (n: number) => pluralizeRu(n, ["год опыта", "года опыта", "лет опыта"]);
-      const pYearsShort = (n: number) => pluralizeRu(n, ["год", "года", "лет"]);
+      // toLowerCase ради «Стаж менее года»: на числовых подписях он ничего не меняет.
+      function experienceText(years: number | null): string | null {
+        const label = formatExperienceLabel(years);
+        return label === null ? null : "Стаж " + label.toLowerCase();
+      }
+
+      function priceText(priceFrom: number | null): string | null {
+        const price = formatPriceKgs(priceFrom);
+        return price === null ? null : "от " + price;
+      }
+
+      function clinicText(d: DoctorItem): string {
+        const parts: string[] = [];
+        if (d.workplaceName) parts.push(d.workplaceName);
+        if (d.city) parts.push(d.city);
+        if (d.workplacesTotal > 1) parts.push("ещё " + (d.workplacesTotal - 1));
+        return parts.join(" · ");
+      }
 
       function setUiState(s: UiState) {
         // Mobile
@@ -701,23 +726,29 @@ const breadcrumbs = {
           avatar.style.backgroundColor = d.avatarColor;
         }
 
+        // Суб-специализации живут в мета-строке: в truncate-надзаголовке они
+        // съедают саму специальность.
         const eyebrow = li.querySelector("[data-eyebrow]");
-        if (eyebrow) {
-          eyebrow.textContent = [d.specialty, ...d.subspecializations].join(" · ");
-        }
+        if (eyebrow) eyebrow.textContent = d.specialty;
 
         const name = li.querySelector("[data-name]");
         if (name) name.textContent = d.fullName;
 
         const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = d.workplaceName ?? "";
+        if (clinic) clinic.textContent = clinicText(d);
 
         const meta = li.querySelector("[data-meta]");
         if (meta) {
           meta.replaceChildren();
-          if (typeof d.yearsExperience === "number") {
+          const cells = [
+            experienceText(d.yearsExperience),
+            priceText(d.priceFrom),
+            d.subspecializations.join(" · "),
+          ];
+          for (const cell of cells) {
+            if (!cell) continue;
             const s = document.createElement("span");
-            s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
+            s.textContent = cell;
             meta.appendChild(s);
           }
         }
@@ -744,19 +775,29 @@ const breadcrumbs = {
         if (name) name.textContent = d.fullName;
 
         const spec = li.querySelector("[data-spec]");
-        if (spec) {
-          spec.textContent = [d.specialty, ...d.subspecializations].join(" · ");
-        }
+        if (spec) spec.textContent = d.specialty;
 
-        // Experience chip — "Стаж 14 лет"
+        const expLabel = experienceText(d.yearsExperience);
         const expChip = li.querySelector<HTMLElement>("[data-exp-chip]");
-        if (expChip && typeof d.yearsExperience === "number") {
+        if (expChip && expLabel) {
           expChip.hidden = false;
           const exp = expChip.querySelector("[data-exp]");
-          if (exp) {
-            exp.textContent =
-              "Стаж " + d.yearsExperience + " " + pYearsShort(d.yearsExperience);
-          }
+          if (exp) exp.textContent = expLabel;
+        }
+
+        const priceLabel = priceText(d.priceFrom);
+        const priceChip = li.querySelector<HTMLElement>("[data-price-chip]");
+        if (priceChip && priceLabel) {
+          priceChip.hidden = false;
+          const price = priceChip.querySelector("[data-price]");
+          if (price) price.textContent = priceLabel;
+        }
+
+        if (d.subspecializations.length > 0) {
+          const sec = li.querySelector<HTMLElement>("[data-subspecs-section]");
+          if (sec) sec.hidden = false;
+          const subspecs = li.querySelector("[data-subspecs]");
+          if (subspecs) subspecs.textContent = d.subspecializations.join(" · ");
         }
 
         // Languages section
@@ -768,7 +809,7 @@ const breadcrumbs = {
         }
 
         const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = d.workplaceName ?? "";
+        if (clinic) clinic.textContent = clinicText(d);
 
         return frag;
       }
@@ -1110,7 +1151,8 @@ const breadcrumbs = {
         display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         margin-top: 2px;
       }
-      .dw-card-exp-chip {
+      .dw-card-exp-chip,
+      .dw-card-price-chip {
         display: inline-flex; align-items: center;
         padding: 3px 9px; background: var(--n-line-soft);
         border-radius: var(--r-pill);
