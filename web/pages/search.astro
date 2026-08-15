@@ -13,7 +13,6 @@ import {
   toSearchIndexItem,
 } from "@/entities/doctor";
 import { doctorProfileSlug } from "../lib/slug";
-import { pluralizeDoctors } from "../lib/search/format";
 import { serializeForJsonIsland } from "../lib/search/serialize";
 
 // Строка идёт и в мета-описание, и в подзаголовок над формой, поэтому обещает
@@ -29,7 +28,6 @@ const doctorItems = catalog.map((doctor) =>
 );
 const specialtyOptions = buildSpecialtyOptions(catalog);
 const languageOptions = buildLanguageOptions(catalog);
-const doctorsTotal = catalog.length;
 
 // Нижний слой — подписи плиток главной: они ведут на специальности, которых
 // в каталоге может не быть, и без него чип и заголовок теряют слово, по
@@ -299,14 +297,8 @@ const breadcrumbs = {
         <span class="dw-crumb-current" data-crumb-current>Все врачи</span>
       </nav>
       <header class="dw-intro">
-        <div class="dw-intro-text">
-          <span class="dw-intro-eyebrow">Каталог</span>
-          <h1 class="dw-intro-title" id="dw-h1">Найти врача</h1>
-        </div>
-        <p class="dw-intro-trust">
-          <span class="dw-intro-pulse" aria-hidden="true"></span>
-          {doctorsTotal} {pluralizeDoctors(doctorsTotal)} · бесплатная отмена за 2 часа
-        </p>
+        <span class="dw-intro-eyebrow">Каталог</span>
+        <h1 class="dw-intro-title" id="dw-h1">Найти врача</h1>
       </header>
 
       {/* Pill search */}
@@ -932,8 +924,6 @@ const breadcrumbs = {
 
       /* ── Editorial intro ────────────────────── */
       .dw-intro {
-        display: grid; grid-template-columns: 1fr auto;
-        align-items: end; gap: 24px;
         padding: 4px 0 14px;
         margin-bottom: 14px;
       }
@@ -949,26 +939,6 @@ const breadcrumbs = {
         letter-spacing: -0.025em; line-height: 1.1;
         color: var(--n-ink);
       }
-      .dw-intro-trust {
-        display: inline-flex; align-items: center; gap: 8px;
-        margin: 0; padding-bottom: 4px;
-        font-size: 13px; color: var(--n-muted);
-      }
-      .dw-intro-pulse {
-        width: 8px; height: 8px; border-radius: 50%;
-        background: var(--teal);
-        box-shadow: 0 0 0 0 rgba(14, 124, 140, 0.4);
-        animation: dw-pulse 2s ease-out infinite;
-      }
-      @keyframes dw-pulse {
-        0%   { box-shadow: 0 0 0 0 rgba(14, 124, 140, 0.35); }
-        70%  { box-shadow: 0 0 0 8px rgba(14, 124, 140, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(14, 124, 140, 0); }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .dw-intro-pulse { animation: none; }
-      }
-
       /* ── Pill search ────────────────────────── */
       .dw-pill-section { margin: 8px 0 4px; }
       .dw-pill {
@@ -1217,7 +1187,6 @@ const breadcrumbs = {
         padding-right: clamp(20px, 4vw, 40px);
       }
 
-      .dw-intro { grid-template-columns: 1fr; gap: 12px; }
       .dw-intro-title { font-size: 26px; }
 
       .dw-pill {

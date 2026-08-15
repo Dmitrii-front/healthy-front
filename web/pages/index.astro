@@ -45,15 +45,6 @@ const BANNERS = [
     art: "booking",
   },
   {
-    tag: "Видеоконсультация",
-    title: "Онлайн-приём за 5 минут",
-    desc: "Приём по видео прямо из приложения, без очередей.",
-    cta: "Подключить врача",
-    bg: "linear-gradient(135deg, #0A1F25 0%, #0E7C8C 100%)",
-    dark: true,
-    art: "videocall",
-  },
-  {
     tag: "Каталог специалистов",
     title: `${doctors.length} ${pluralizeDoctors(doctors.length)} в одном приложении`,
     desc: "Специальность, стаж, языки приёма и цена видны до записи.",
@@ -552,15 +543,16 @@ const websiteJsonLd = {
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: 100%;
-      animation: mw-hero-cycle 24s infinite;
+      animation: mw-hero-cycle 18s infinite;
     }
     .mw-hero:hover .mw-hero-track,
     .mw-hero:hover .mw-banner-dot { animation-play-state: paused; }
+    /* Слайд держится 5с и уезжает за 1с; проценты считаны от цикла 18с на три
+       баннера. Добавится баннер — цикл и все проценты пересчитывать заново. */
     @keyframes mw-hero-cycle {
-      0%, 21% { transform: translateX(0%); }
-      25%, 46% { transform: translateX(-100%); }
-      50%, 71% { transform: translateX(-200%); }
-      75%, 100% { transform: translateX(-300%); }
+      0%, 27.78% { transform: translateX(0%); }
+      33.33%, 61.11% { transform: translateX(-100%); }
+      66.67%, 100% { transform: translateX(-200%); }
     }
     @media (prefers-reduced-motion: reduce) {
       .mw-hero-track { animation: none; }
@@ -609,15 +601,14 @@ const websiteJsonLd = {
     .mw-banner-dot {
       width: 6px; height: 6px; border-radius: 6px;
       background: rgba(15,17,21,0.18);
-      animation: mw-banner-dot 24s infinite;
+      animation: mw-banner-dot 18s infinite;
     }
     .mw-banner-dot:nth-child(1) { animation-delay: 0s; }
-    .mw-banner-dot:nth-child(2) { animation-delay: -18s; }
-    .mw-banner-dot:nth-child(3) { animation-delay: -12s; }
-    .mw-banner-dot:nth-child(4) { animation-delay: -6s; }
+    .mw-banner-dot:nth-child(2) { animation-delay: -12s; }
+    .mw-banner-dot:nth-child(3) { animation-delay: -6s; }
     @keyframes mw-banner-dot {
-      0%, 21% { width: 18px; background: var(--teal); }
-      25%, 100% { width: 6px; background: rgba(15,17,21,0.18); }
+      0%, 27.78% { width: 18px; background: var(--teal); }
+      33.33%, 100% { width: 6px; background: rgba(15,17,21,0.18); }
     }
 
     /* ── Sticky search ─────────────────── */
@@ -759,8 +750,8 @@ const websiteJsonLd = {
         overflow: hidden;
       }
       .dw-hero-track {
-        --slides: 4;
-        --cycle: 24s;
+        --slides: 3;
+        --cycle: 18s;
         display: grid;
         grid-auto-flow: column;
         grid-auto-columns: 100%;
@@ -769,10 +760,9 @@ const websiteJsonLd = {
       .dw-hero:hover .dw-hero-track,
       .dw-hero:hover .dw-hero-dot { animation-play-state: paused; }
       @keyframes dw-hero-cycle {
-        0%, 21% { transform: translateX(0%); }
-        25%, 46% { transform: translateX(-100%); }
-        50%, 71% { transform: translateX(-200%); }
-        75%, 100% { transform: translateX(-300%); }
+        0%, 27.78% { transform: translateX(0%); }
+        33.33%, 61.11% { transform: translateX(-100%); }
+        66.67%, 100% { transform: translateX(-200%); }
       }
       @media (prefers-reduced-motion: reduce) {
         .dw-hero-track { animation: none; }
@@ -837,15 +827,14 @@ const websiteJsonLd = {
       .dw-hero-dot {
         width: 8px; height: 8px; border-radius: 999px;
         background: rgba(10,31,37,0.22);
-        animation: dw-hero-dot 24s infinite;
+        animation: dw-hero-dot 18s infinite;
       }
       .dw-hero-dot:nth-child(1) { animation-delay: 0s; }
-      .dw-hero-dot:nth-child(2) { animation-delay: -18s; }
-      .dw-hero-dot:nth-child(3) { animation-delay: -12s; }
-      .dw-hero-dot:nth-child(4) { animation-delay: -6s; }
+      .dw-hero-dot:nth-child(2) { animation-delay: -12s; }
+      .dw-hero-dot:nth-child(3) { animation-delay: -6s; }
       @keyframes dw-hero-dot {
-        0%, 21% { width: 28px; background: var(--teal); }
-        25%, 100% { width: 8px; background: rgba(10,31,37,0.22); }
+        0%, 27.78% { width: 28px; background: var(--teal); }
+        33.33%, 100% { width: 8px; background: rgba(10,31,37,0.22); }
       }
 
       /* ── Hero search (5fr / 7fr split) ─────── */

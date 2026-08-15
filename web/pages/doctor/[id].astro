@@ -272,14 +272,6 @@ const breadcrumbs = {
             </div>
 
             <div class="mt-0.5 flex flex-col gap-1.5 text-[13px] text-[#2a2d33]">
-              {/* Верификация без проверки статуса: в каталог попадают только
-                  проверенные врачи, так что доступность врача и есть верификация. */}
-              <span class="hm-chip inline-flex w-fit items-center gap-1.5 rounded-full">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0">
-                  <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z" /><path d="M9 12l2 2 4-4" />
-                </svg>
-                Документы проверены
-              </span>
               {/* Места в столбик: перечисление через запятую сливалось в абзац,
                   по которому не видно, сколько их вообще. Пин приглушённый: строки
                   здесь не кликабельны, а бирюзовый пин теперь стоит у адреса-ссылки
@@ -634,8 +626,6 @@ const breadcrumbs = {
      же карточке залиты бирюзой чипсы времени, главное действие страницы, и вторая
      поверхность спорила бы с ними. Суммарно бирюзы стало меньше, чем было у
      плашки: ушли тонированный фон 36px и обводка, пришли подпись 13px и глиф.
-     Заодно снялась коллизия с некликабельным .hm-chip («Документы проверены»),
-     у которого была ровно та же заливка — ради неё плашке и понадобилась рамка.
 
      44px (Apple HIG) набираются padding'ом, а не ::after { inset: -4px }, как у
      плашки: так цель растёт вместе с системным шрифтом и вместе со второй строкой
@@ -704,18 +694,6 @@ const breadcrumbs = {
     .hm-addr:active { transform: none; }
   }
   .hm-retry { margin-top: 8px; display: inline-block; border-bottom: 1px solid currentColor; color: #0e7c8c; font-weight: 600; cursor: pointer; background: none; border-width: 0 0 1px; padding: 0; }
-  /* Чипы шапки: «Документы проверены» и «N лет стажа», один под другим.
-     Геометрия по спеке DESIGN.md §5 Chips: pill, 34px, padding 0 12px. Размер
-     текста 14px вместо спековых 13 — чтобы совпадать со строкой специализации.
-     Бирюза — действующая база бренда: globals.css фиксирует ребренд
-     clinic-coral → clinic-teal. Текст берёт brick-teal, а не clinic-teal:
-     исходная пара #0e7c8c на #eef6f8 давала 4.48 и не проходила AA, а
-     deep-вариант для текста на этом тоне система и предписывает. */
-  .hm-chip {
-    height: 34px; padding: 0 12px; font-size: 14px; font-weight: 500;
-    background: var(--color-tinted-linen);
-    color: var(--color-brick-teal);
-  }
   /* Пины мест — бирюзой, единственным существующим акцентом. Коралл для этого
      не годится: pivot 2026-05b его снял, токена в теме нет.
      Залитый глиф, а не обводка: на 13px stroke 1.8px читается хуже. Дырка в
