@@ -7,6 +7,7 @@ import SiteFooter from "../components/layout/SiteFooter.astro";
 import { SPECIALTIES } from "@/shared/config";
 import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
 import { doctorSlug } from "../lib/slug";
+import { serializeForJsonIsland } from "../lib/search/serialize";
 
 // SSG. The page ships only the shell — search form, skeleton,
 // empty/error states, and a card <template>. Doctor data is inlined into
@@ -435,30 +436,65 @@ const breadcrumbs = {
 
   <LoginModal />
 
-  {/* Client logic. Vanilla JS, no island. Drives both mw + dw shells. */}
-  <script is:inline define:vars={{ specialtyLabels, doctorItems }}>
+  {/* Данные каталога. Отдельный островок, потому что define:vars механически
+      отменяет бандлинг: Astro снимает по нему флаг hoist, и скрипт остаётся
+      неминифицированным исходником прямо в HTML. */}
+  <script
+    type="application/json"
+    id="search-data"
+    is:inline
+    set:html={serializeForJsonIsland({ specialtyLabels, doctorItems })}
+  />
+
+  <script>
     (() => {
+      type DoctorItem = {
+        id: string;
+        slug: string;
+        name: string;
+        initials: string;
+        color: string;
+        specialty: string;
+        subspecialty: string | null;
+        clinic: string;
+        yearsExperience: number | null;
+        languages: string[];
+      };
+      type SearchState = { q: string; specialty: string };
+      type UiState = "loading" | "results" | "empty" | "error";
+
+      // Данные приезжают островком <script type="application/json"> — см.
+      // разметку выше. Раньше их вносил define:vars, но он несовместим с
+      // бандлингом.
+      const dataEl = document.getElementById("search-data");
+      const payload: {
+        specialtyLabels?: Record<string, string>;
+        doctorItems?: DoctorItem[];
+      } = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : {};
+      const specialtyLabels = payload.specialtyLabels || {};
+      const doctorItems = payload.doctorItems || [];
+
       // ── Mobile shell refs ───────────────────────────
-      const list = document.getElementById("doctor-list");
-      const loading = document.getElementById("loading-state");
-      const empty = document.getElementById("empty-state");
-      const errorEl = document.getElementById("error-state");
-      const resultMeta = document.getElementById("result-meta");
-      const countEl = document.getElementById("result-count");
-      const nounEl = document.getElementById("result-noun");
-      const h1 = document.getElementById("search-h1");
-      const form = document.getElementById("search-form");
-      const qInput = document.getElementById("search-q");
-      const specSelect = document.getElementById("search-specialty");
-      const template = document.getElementById("card-template");
+      const listNode = document.getElementById("doctor-list");
+      const loadingNode = document.getElementById("loading-state");
+      const emptyNode = document.getElementById("empty-state");
+      const errorNode = document.getElementById("error-state");
+      const resultMetaNode = document.getElementById("result-meta");
+      const countNode = document.getElementById("result-count");
+      const nounNode = document.getElementById("result-noun");
+      const h1Node = document.getElementById("search-h1");
+      const formNode = document.getElementById("search-form");
+      const qInputNode = document.querySelector<HTMLInputElement>("#search-q");
+      const specSelectNode = document.querySelector<HTMLSelectElement>("#search-specialty");
+      const templateNode = document.querySelector<HTMLTemplateElement>("#card-template");
       const retryBtn = document.getElementById("retry-btn");
 
       // ── Desktop shell refs ──────────────────────────
       const dwList = document.getElementById("dw-doctor-list");
-      const dwTemplate = document.getElementById("dw-card-template");
+      const dwTemplate = document.querySelector<HTMLTemplateElement>("#dw-card-template");
       const dwForm = document.getElementById("dw-search-form");
-      const dwQ = document.getElementById("dw-search-q");
-      const dwSpec = document.getElementById("dw-search-specialty");
+      const dwQ = document.querySelector<HTMLInputElement>("#dw-search-q");
+      const dwSpec = document.querySelector<HTMLSelectElement>("#dw-search-specialty");
       const dwCount = document.getElementById("dw-results-count");
       const dwNoun = document.getElementById("dw-results-noun");
       const dwCrumb = document.querySelector("[data-crumb-current]");
@@ -470,15 +506,43 @@ const breadcrumbs = {
       const dwSkeleton = document.getElementById("dw-doctor-skeleton");
       const dwRetry = document.getElementById("dw-retry");
 
-      if (!list || !template) return;
+      if (
+        !listNode ||
+        !templateNode ||
+        !loadingNode ||
+        !emptyNode ||
+        !errorNode ||
+        !resultMetaNode ||
+        !countNode ||
+        !nounNode ||
+        !h1Node ||
+        !formNode ||
+        !qInputNode ||
+        !specSelectNode
+      ) {
+        return;
+      }
 
-      // Doctor data is inlined into the HTML by Astro frontmatter
-      // (define:vars). Already in memory before this script runs — zero
-      // network, zero waiting. Filtering happens synchronously against
-      // `doctorItems`.
+      // Сужение до non-null не доходит до тел function-объявлений: они
+      // всплывают выше проверки. Поэтому ниже работаем со вторыми именами.
+      const list = listNode;
+      const loading = loadingNode;
+      const empty = emptyNode;
+      const errorEl = errorNode;
+      const resultMeta = resultMetaNode;
+      const countEl = countNode;
+      const nounEl = nounNode;
+      const h1 = h1Node;
+      const form = formNode;
+      const qInput = qInputNode;
+      const specSelect = specSelectNode;
+      const template = templateNode;
+
+      // Каталог целиком приезжает вместе со страницей — фильтрация идёт
+      // синхронно по памяти, без сети и ожидания.
       const allItems = Array.isArray(doctorItems) ? doctorItems : [];
 
-      function applyFilters(items, state) {
+      function applyFilters(items: DoctorItem[], state: SearchState) {
         const q = state.q.toLowerCase();
         return items.filter((d) => {
           if (q && !(d.name + " " + d.specialty + " " + d.clinic).toLowerCase().includes(q)) {
@@ -489,19 +553,19 @@ const breadcrumbs = {
         });
       }
 
-      function pluralize(n, forms) {
+      function pluralize(n: number, forms: readonly [string, string, string]) {
         const m10 = n % 10, m100 = n % 100;
         if (m100 >= 11 && m100 <= 14) return forms[2];
         if (m10 === 1) return forms[0];
         if (m10 >= 2 && m10 <= 4) return forms[1];
         return forms[2];
       }
-      const pDoctors = (n) => pluralize(n, ["доктор", "доктора", "докторов"]);
-      const pDoctorsLong = (n) => pluralize(n, ["врач", "врача", "врачей"]);
-      const pYears = (n) => pluralize(n, ["год опыта", "года опыта", "лет опыта"]);
-      const pYearsShort = (n) => pluralize(n, ["год", "года", "лет"]);
+      const pDoctors = (n: number) => pluralize(n, ["доктор", "доктора", "докторов"]);
+      const pDoctorsLong = (n: number) => pluralize(n, ["врач", "врача", "врачей"]);
+      const pYears = (n: number) => pluralize(n, ["год опыта", "года опыта", "лет опыта"]);
+      const pYearsShort = (n: number) => pluralize(n, ["год", "года", "лет"]);
 
-      function readState() {
+      function readState(): SearchState {
         const p = new URLSearchParams(location.search);
         return {
           q: (p.get("q") || "").trim(),
@@ -509,7 +573,7 @@ const breadcrumbs = {
         };
       }
 
-      function setUiState(s) {
+      function setUiState(s: UiState) {
         // Mobile
         loading.hidden = s !== "loading";
         list.hidden = s !== "results";
@@ -527,7 +591,7 @@ const breadcrumbs = {
       // Single list view — grid was removed in the card-redesign pass since
       // the three-column rich card needs full row width to breathe.
 
-      function renderMeta(state) {
+      function renderMeta(state: SearchState) {
         // Form prefill — both shells
         qInput.value = state.q;
         specSelect.value = state.specialty;
@@ -535,11 +599,12 @@ const breadcrumbs = {
         if (dwSpec) dwSpec.value = state.specialty;
 
         // H1 + document title
+        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
         let h1Text = "Найти врача в Бишкеке";
         let crumbText = "Все врачи";
-        if (state.specialty && specialtyLabels[state.specialty]) {
-          h1Text = specialtyLabels[state.specialty] + " в Бишкеке";
-          crumbText = specialtyLabels[state.specialty];
+        if (specialtyLabel) {
+          h1Text = specialtyLabel + " в Бишкеке";
+          crumbText = specialtyLabel;
         } else if (state.q) {
           h1Text = "Поиск: «" + state.q + "»";
           crumbText = "Поиск";
@@ -550,8 +615,8 @@ const breadcrumbs = {
         // Desktop h1 stays shorter than mobile (no "в Бишкеке" — region lives
         // in the eyebrow above). Mirrors the editorial pattern from PRODUCT.md.
         if (dwH1) {
-          if (state.specialty && specialtyLabels[state.specialty]) {
-            dwH1.textContent = specialtyLabels[state.specialty];
+          if (specialtyLabel) {
+            dwH1.textContent = specialtyLabel;
           } else if (state.q) {
             dwH1.textContent = "Поиск: «" + state.q + "»";
           } else {
@@ -563,15 +628,16 @@ const breadcrumbs = {
         renderChips(state);
       }
 
-      function chipPills(state) {
-        const out = [];
-        if (state.specialty && specialtyLabels[state.specialty]) {
-          out.push({ key: "specialty", label: specialtyLabels[state.specialty] });
+      function chipPills(state: SearchState) {
+        const out: { key: string; label: string }[] = [];
+        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
+        if (specialtyLabel) {
+          out.push({ key: "specialty", label: specialtyLabel });
         }
         return out;
       }
 
-      function renderChips(state) {
+      function renderChips(state: SearchState) {
         if (!dwChipList || !dwChipReset) return;
         const pills = chipPills(state);
         dwChipList.replaceChildren();
@@ -598,7 +664,7 @@ const breadcrumbs = {
         dwChipReset.hidden = pills.length === 0;
       }
 
-      function removeFilter(key) {
+      function removeFilter(key: string) {
         const next = new URLSearchParams(location.search);
         next.delete(key);
         const qs = next.toString();
@@ -611,72 +677,99 @@ const breadcrumbs = {
         load();
       }
 
-      function renderMobileCard(d) {
-        const frag = template.content.cloneNode(true);
+      // importNode вместо cloneNode: результат тот же, но тип — DocumentFragment,
+      // а не безликий Node, у которого нет querySelector.
+      function renderMobileCard(d: DoctorItem) {
+        const frag = document.importNode(template.content, true);
         const li = frag.querySelector("li");
+        if (!li) return frag;
 
-        li.querySelector("[data-link]").href = "/doctor/" + d.slug;
+        const link = li.querySelector<HTMLAnchorElement>("[data-link]");
+        if (link) link.href = "/doctor/" + d.slug;
 
-        const avatar = li.querySelector("[data-avatar]");
-        avatar.textContent = d.initials;
-        avatar.style.backgroundColor = d.color;
+        const avatar = li.querySelector<HTMLElement>("[data-avatar]");
+        if (avatar) {
+          avatar.textContent = d.initials;
+          avatar.style.backgroundColor = d.color;
+        }
 
-        li.querySelector("[data-eyebrow]").textContent = d.subspecialty
-          ? d.specialty + " · " + d.subspecialty
-          : d.specialty;
+        const eyebrow = li.querySelector("[data-eyebrow]");
+        if (eyebrow) {
+          eyebrow.textContent = d.subspecialty
+            ? d.specialty + " · " + d.subspecialty
+            : d.specialty;
+        }
 
-        li.querySelector("[data-name]").textContent = d.name;
-        li.querySelector("[data-clinic]").textContent = d.clinic;
+        const name = li.querySelector("[data-name]");
+        if (name) name.textContent = d.name;
+
+        const clinic = li.querySelector("[data-clinic]");
+        if (clinic) clinic.textContent = d.clinic;
 
         const meta = li.querySelector("[data-meta]");
-        meta.replaceChildren();
-        if (typeof d.yearsExperience === "number") {
-          const s = document.createElement("span");
-          s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
-          meta.appendChild(s);
+        if (meta) {
+          meta.replaceChildren();
+          if (typeof d.yearsExperience === "number") {
+            const s = document.createElement("span");
+            s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
+            meta.appendChild(s);
+          }
         }
 
         return frag;
       }
 
-      function renderDesktopCard(d) {
+      function renderDesktopCard(d: DoctorItem) {
         if (!dwTemplate) return null;
-        const frag = dwTemplate.content.cloneNode(true);
+        const frag = document.importNode(dwTemplate.content, true);
         const li = frag.querySelector("li");
+        if (!li) return frag;
 
-        li.querySelector("[data-link]").href = "/doctor/" + d.slug;
+        const link = li.querySelector<HTMLAnchorElement>("[data-link]");
+        if (link) link.href = "/doctor/" + d.slug;
 
         // LEFT — initials block. The color from the mock tints the gradient subtly
         // so cards stay visually distinct without becoming a rainbow.
-        li.querySelector("[data-initials]").textContent = d.initials;
+        const initials = li.querySelector("[data-initials]");
+        if (initials) initials.textContent = d.initials;
 
         // MIDDLE — name, chips, specialty, sections, clinic
-        li.querySelector("[data-name]").textContent = d.name;
-        li.querySelector("[data-spec]").textContent = d.subspecialty
-          ? d.specialty + " · " + d.subspecialty
-          : d.specialty;
+        const name = li.querySelector("[data-name]");
+        if (name) name.textContent = d.name;
+
+        const spec = li.querySelector("[data-spec]");
+        if (spec) {
+          spec.textContent = d.subspecialty
+            ? d.specialty + " · " + d.subspecialty
+            : d.specialty;
+        }
 
         // Experience chip — "Стаж 14 лет"
-        const expChip = li.querySelector("[data-exp-chip]");
-        if (typeof d.yearsExperience === "number") {
+        const expChip = li.querySelector<HTMLElement>("[data-exp-chip]");
+        if (expChip && typeof d.yearsExperience === "number") {
           expChip.hidden = false;
-          expChip.querySelector("[data-exp]").textContent =
-            "Стаж " + d.yearsExperience + " " + pYearsShort(d.yearsExperience);
+          const exp = expChip.querySelector("[data-exp]");
+          if (exp) {
+            exp.textContent =
+              "Стаж " + d.yearsExperience + " " + pYearsShort(d.yearsExperience);
+          }
         }
 
         // Languages section
         if (Array.isArray(d.languages) && d.languages.length > 0) {
-          const sec = li.querySelector("[data-langs-section]");
-          sec.hidden = false;
-          li.querySelector("[data-langs]").textContent = d.languages.join(", ");
+          const sec = li.querySelector<HTMLElement>("[data-langs-section]");
+          if (sec) sec.hidden = false;
+          const langs = li.querySelector("[data-langs]");
+          if (langs) langs.textContent = d.languages.join(", ");
         }
 
-        li.querySelector("[data-clinic]").textContent = d.clinic;
+        const clinic = li.querySelector("[data-clinic]");
+        if (clinic) clinic.textContent = d.clinic;
 
         return frag;
       }
 
-      function renderResults(items, total) {
+      function renderResults(items: DoctorItem[], total: number) {
         list.replaceChildren();
         for (const d of items) {
           list.appendChild(renderMobileCard(d));
@@ -712,7 +805,7 @@ const breadcrumbs = {
       }
 
       // ── Mobile: form submit ─────────────────────────
-      function buildQuery(q, specialty) {
+      function buildQuery(q: string, specialty: string) {
         const next = new URLSearchParams();
         if (q) next.set("q", q);
         if (specialty) next.set("specialty", specialty);
