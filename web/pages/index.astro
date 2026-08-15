@@ -14,15 +14,6 @@ import { SPECIALTIES } from "@/shared/config";
 import { pluralizeDoctors } from "../lib/search/format";
 import { doctorProfileSlug } from "../lib/slug";
 
-// ── Design tokens ──────────────────────────────────────────
-const N = {
-  cream: "#FCFBF8",
-  ink: "#0F1115",
-  muted: "#5F636A",
-  line: "#E2E2DF",
-  borderSoft: "#EDEBE6",
-};
-
 // Весь каталог верифицированных врачей, вшивается в HTML на сборке.
 // Одна лента вместо двух: признака «онлайн / в клинике» в данных нет —
 // consultation_formats у всех прод-врачей null, а у сидов приходит
@@ -33,7 +24,6 @@ const doctors = await loadDoctorCatalog();
 
 const HERO_AVATARS = 6;
 
-// ── Hero banners (from design) ─────────────────────────────
 const BANNERS = [
   {
     tag: "Запись к врачу",
@@ -41,7 +31,6 @@ const BANNERS = [
     desc: "Найдите специалиста, выберите слот и подтвердите визит — без звонков и ожидания на линии.",
     cta: "Найти врача",
     bg: "linear-gradient(135deg, #DCEEF1 0%, #EEF6F8 60%, #F1E8E0 100%)",
-    dark: false,
     art: "booking",
   },
   {
@@ -50,7 +39,6 @@ const BANNERS = [
     desc: "Специальность, стаж, языки приёма и цена видны до записи.",
     cta: "Смотреть всех",
     bg: "linear-gradient(135deg, #F6EFE2 0%, #EFE4D0 60%, #DCEEF1 100%)",
-    dark: false,
     art: "catalog",
   },
   {
@@ -59,24 +47,12 @@ const BANNERS = [
     desc: "Прошлые приёмы, назначения и анализы всегда под рукой — для вас и всей семьи.",
     cta: "Открыть медкарту",
     bg: "linear-gradient(135deg, #EEF6F8 0%, #DCEEF1 100%)",
-    dark: false,
     art: "record",
   },
 ] as const;
 
-// Палитра десктопных карточек специальностей: восемь тонов по кругу.
-const SPEC_CARD_PALETTE = [
-  { bg: "#B9DCE2", icon: "#0E7C8C" },
-  { bg: "#EBDBBE", icon: "#A07842" },
-  { bg: "#C5E2D2", icon: "#3A8E64" },
-  { bg: "#E8D2BC", icon: "#8E5A2E" },
-  { bg: "#C5E0E5", icon: "#2A9DAE" },
-  { bg: "#EFC8C8", icon: "#A93A35" },
-  { bg: "#D2CFE3", icon: "#473D87" },
-  { bg: "#F2D2A8", icon: "#A85518" },
-];
-
-// Tile tints for specialty grid (cycling)
+// Два тона на плитку: пастельный — фон в общей сетке, насыщенный — фон крупной
+// карточки на широком экране. Цвет значка один на оба.
 const TILE_TINTS = [
   "#DCEEF1",
   "#F1E8E0",
@@ -88,7 +64,17 @@ const TILE_TINTS = [
   "#E2EBEF",
 ];
 
-// Specialty SVG glyphs (from design, mapped to project specialty labels)
+const SPEC_CARD_PALETTE = [
+  { bg: "#B9DCE2", icon: "#0E7C8C" },
+  { bg: "#EBDBBE", icon: "#A07842" },
+  { bg: "#C5E2D2", icon: "#3A8E64" },
+  { bg: "#E8D2BC", icon: "#8E5A2E" },
+  { bg: "#C5E0E5", icon: "#2A9DAE" },
+  { bg: "#EFC8C8", icon: "#A93A35" },
+  { bg: "#D2CFE3", icon: "#473D87" },
+  { bg: "#F2D2A8", icon: "#A85518" },
+];
+
 const SPECIALTY_GLYPHS: Record<string, string[]> = {
   Семейный: [
     "M6 3v8a4 4 0 0 0 8 0V3",
@@ -128,29 +114,38 @@ const SPECIALTY_GLYPHS: Record<string, string[]> = {
 const specialtyOptions = buildSpecialtyOptions(doctors);
 const doctorsBySpecialty = new Map(specialtyOptions.map((o) => [o.key, o.count]));
 
-// Ссылка на выдачу и счётчик врачей считаются здесь один раз на обе сетки
-// плиток — мобильную и десктопную. Специальность, которой нет в каталоге,
-// остаётся без счётчика: плитка ведёт в поиск, но врачей не обещает.
-const specialtyTiles = SPECIALTIES.map((specialty) => {
+// Ссылка на выдачу, счётчик врачей и оба тона считаются здесь: разметка сетки
+// одна на все размеры экрана. Специальность, которой нет в каталоге, остаётся
+// без счётчика: плитка ведёт в поиск, но врачей не обещает.
+const specialtyTiles = SPECIALTIES.map((specialty, index) => {
   const searchKey = specialtyKeyOf(specialty.doctorSpecialty);
+  const palette = SPEC_CARD_PALETTE[index % SPEC_CARD_PALETTE.length]!;
   return {
     key: specialty.key,
     label: specialty.label,
     searchKey,
     href: `/search?specialty=${encodeURIComponent(searchKey)}`,
     count: doctorsBySpecialty.get(searchKey),
+    tint: TILE_TINTS[index % TILE_TINTS.length]!,
+    tintStrong: palette.bg,
+    glyphColor: palette.icon,
+    paths: SPECIALTY_GLYPHS[specialty.label] ?? SPECIALTY_GLYPHS["Семейный"]!,
   };
 });
 
-// Десктопная сетка — ровно две крупные карточки в ряд, и «популярные» здесь
-// значит «с наибольшим числом врачей»: specialtyOptions уже отсортирован по
-// счётчику, поэтому берём первые совпавшие плитки. Раньше тут стояли два
-// зашитых ключа, и на реальном каталоге обе карточки вели в пустую выдачу.
-const DESKTOP_SPECIALTY_CARDS = 2;
+// «Популярные» здесь значит «с наибольшим числом врачей»: specialtyOptions уже
+// отсортирован по счётчику, поэтому берём первые совпавшие плитки. Раньше тут
+// стояли два зашитых ключа, и на реальном каталоге обе карточки вели в пустую
+// выдачу. Крупными эти две становятся только на широком экране — в общей сетке
+// на телефоне все плитки одного размера.
+const FEATURED_SPECIALTY_CARDS = 2;
 const tilesBySearchKey = new Map(specialtyTiles.map((tile) => [tile.searchKey, tile]));
-const featuredSpecialties = specialtyOptions
-  .flatMap((option) => tilesBySearchKey.get(option.key) ?? [])
-  .slice(0, DESKTOP_SPECIALTY_CARDS);
+const featuredKeys = new Set(
+  specialtyOptions
+    .flatMap((option) => tilesBySearchKey.get(option.key) ?? [])
+    .slice(0, FEATURED_SPECIALTY_CARDS)
+    .map((tile) => tile.searchKey),
+);
 
 const orgJsonLd = {
   "@context": "https://schema.org",
@@ -184,196 +179,59 @@ const websiteJsonLd = {
   title="Healthy — запись к врачу в Бишкеке"
   description="Запись к врачу онлайн в Бишкеке. Специальность, стаж, языки приёма и цена видны до записи."
 >
-  <div class="mw-shell">
-    {/* ── TOP BAR ─────────────────────────── */}
+  {/* Одно адаптивное дерево, как на странице врача.
+      Обе версии обвязки стоят подряд, лишнюю прячет site-chrome.css. Разница
+      между размерами экрана выражена только стилями: разметка баннера, плитки
+      и карточки врача — в единственном экземпляре. */}
+  <div class="min-h-dvh bg-[#faf8f5]">
     <SiteHeader variant="mobile" />
-
-    {/* ── HERO CAROUSEL (pure CSS auto-rotate) ─ */}
-    <section class="mw-hero-wrap">
-      <div class="mw-hero">
-        <div class="mw-hero-track">
-          {BANNERS.map((b) => (
-            <article
-              class={`mw-banner${b.dark ? " mw-banner-dark" : ""}`}
-              style={`background:${b.bg}`}
-            >
-              <div class="mw-banner-art">
-                <img
-                  src={`/illustrations/banner-${b.art}.svg`}
-                  alt=""
-                  width="170"
-                  height="170"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <span class="mw-banner-tag">{b.tag}</span>
-              <h2 class="mw-banner-title">{b.title}</h2>
-              <p class="mw-banner-desc">{b.desc}</p>
-              <a href="/search" class="mw-banner-cta tap">
-                {b.cta}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
-              </a>
-            </article>
-          ))}
-        </div>
-        <div class="mw-banner-dots" aria-hidden="true">
-          {BANNERS.map(() => <span class="mw-banner-dot" />)}
-        </div>
-      </div>
-    </section>
-
-    {/* ── SEARCH + CHIPS ───────────────────── */}
-    <div class="mw-sticky-search" id="mw-sticky-search">
-      <form class="mw-search-row" action="/search" method="get" role="search">
-        <label class="mw-search-input">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/><path d="m21 21-4.3-4.3"/></svg>
-          <input name="q" type="search" placeholder="Имя или специальность" autocomplete="off" />
-        </label>
-      </form>
-    </div>
-
-    {/* ── SPECIALTY GRID ──────────────────── */}
-    <section class="mw-section">
-      <div class="mw-section-head">
-        <h2>Популярные специальности</h2>
-      </div>
-      <div class="mw-tile-grid">
-        {specialtyTiles.map((s, k) => {
-          const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
-          return (
-            <a
-              href={s.href}
-              class="mw-tile tap"
-              style={`background:${TILE_TINTS[k % TILE_TINTS.length]}`}
-            >
-              <span class="mw-tile-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={N.ink} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                  {paths.map((d) => <path d={d} />)}
-                </svg>
-              </span>
-              <span class="mw-tile-name">{s.label}</span>
-              {s.count !== undefined && (
-                <span class="mw-tile-count">{s.count} {pluralizeDoctors(s.count)}</span>
-              )}
-            </a>
-          );
-        })}
-      </div>
-    </section>
-
-    {/* ── DOCTORS RAIL ────────────────────── */}
-    <section class="mw-section">
-      <div class="mw-section-head">
-        <h2>Врачи</h2>
-        <a href="/search" class="mw-section-link">
-          Все врачи
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-        </a>
-      </div>
-      <div class="mw-rail hide-sb">
-        {doctors.map((d) => (
-          <a href={`/doctor/${doctorProfileSlug(d)}`} class="mw-doctor-card tap">
-            <div class="mw-doctor-head">
-              <div class="mw-avatar-wrap">
-                {d.avatarUrl ? (
-                  <img
-                    class="mw-avatar mw-avatar-img"
-                    src={d.avatarUrl}
-                    alt={d.shortName}
-                    loading="lazy"
-                    decoding="async"
-                    width="44"
-                    height="44"
-                  />
-                ) : (
-                  <span class="mw-avatar" style={`background-color:${d.avatarColor}`}>
-                    {d.initials}
-                  </span>
-                )}
-              </div>
-              <div class="mw-doctor-titles">
-                <span class="mw-doctor-name">{d.shortName}</span>
-                <span class="mw-doctor-spec">{d.specialization}</span>
-              </div>
-            </div>
-            {d.city && (
-              <div class="mw-doctor-slot">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-                {d.city}
-              </div>
-            )}
-            <div class="mw-doctor-cta-row">
-              {formatPriceKgs(d.priceFrom)
-                ? <span class="mw-doctor-price">от <strong>{formatPriceKgs(d.priceFrom)}</strong></span>
-                : <span />}
-              <span class="mw-book-btn">Записаться</span>
-            </div>
-          </a>
-        ))}
-      </div>
-    </section>
-
-    {/* ── FOOTER ──────────────────────────── */}
-    <SiteFooter variant="mobile" />
-  </div>
-
-  {/* ════════════════════════════════════════════════════════════ */}
-  {/*  DESKTOP LAYOUT (visible at >= 1024px)                       */}
-  {/* ════════════════════════════════════════════════════════════ */}
-  <div class="dw-page">
-    {/* ── HEADER ─────────────────────────────────── */}
     <SiteHeader variant="desktop" />
 
-    {/* ── HERO CAROUSEL (pure CSS auto-rotate) ─── */}
-    <section class="dw-hero-section">
-      <div class="dw-hero">
-        <div class="dw-hero-track">
-          {BANNERS.map((b) => (
-            <article
-              class={`dw-banner${b.dark ? " dw-banner-dark" : ""}`}
-              style={`background:${b.bg}`}
-            >
-              <div class="dw-banner-text">
-                <span class="dw-banner-tag">{b.tag}</span>
-                <h2 class="dw-banner-title">{b.title}</h2>
-                <p class="dw-banner-desc">{b.desc}</p>
-                <a href="/search" class="dw-banner-cta">
-                  {b.cta}
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
-                </a>
-              </div>
-              <div class="dw-banner-art">
-                <img
-                  src={`/illustrations/banner-${b.art}.svg`}
-                  alt=""
-                  width="320"
-                  height="320"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-            </article>
-          ))}
+    <main>
+      <section class="hm-home-hero hm-home-shell">
+        <div class="hm-home-hero-frame">
+          <div class="hm-home-hero-track">
+            {BANNERS.map((b) => (
+              <article class="hm-home-banner" style={`background:${b.bg}`}>
+                <div class="hm-home-banner-text">
+                  <span class="hm-home-banner-tag">{b.tag}</span>
+                  <h2 class="hm-home-banner-title">{b.title}</h2>
+                  <p class="hm-home-banner-desc">{b.desc}</p>
+                  <a href="/search" class="hm-home-banner-cta tap">
+                    {b.cta}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+                  </a>
+                </div>
+                <div class="hm-home-banner-art">
+                  <img
+                    src={`/illustrations/banner-${b.art}.svg`}
+                    alt=""
+                    width="320"
+                    height="320"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+          <div class="hm-home-hero-dots" aria-hidden="true">
+            {BANNERS.map(() => <span class="hm-home-hero-dot" />)}
+          </div>
         </div>
-        <div class="dw-hero-dots" aria-hidden="true">
-          {BANNERS.map(() => <span class="dw-hero-dot" />)}
-        </div>
-      </div>
-    </section>
+      </section>
 
-    {/* ── HERO SEARCH PILL ───────────────────────── */}
-    <section class="dw-search-hero">
-      <div class="dw-search-hero-inner">
-        {/* LEFT — promise + live availability */}
-        <div class="dw-search-promise">
-          <h2>Найдите своего врача</h2>
-          <p>Выбирайте по специальности, языку приёма и цене — всё это видно до записи.</p>
-          <div class="dw-live-stack">
-            <div class="dw-avatars">
+      <section class="hm-home-find hm-home-shell">
+        <div>
+          <h2 class="hm-home-find-title">Найдите своего врача</h2>
+          <p class="hm-home-find-desc">
+            Выбирайте по специальности, языку приёма и цене — всё это видно до записи.
+          </p>
+          <div class="hm-home-live">
+            <div class="hm-home-avatars" aria-hidden="true">
               {doctors.slice(0, HERO_AVATARS).map((d) => (
                 <span
-                  class="dw-stack-avatar"
+                  class="hm-home-avatar"
                   style={`background-color:${d.avatarColor}`}
                   title={d.fullName}
                 >
@@ -381,150 +239,136 @@ const websiteJsonLd = {
                 </span>
               ))}
               {doctors.length > HERO_AVATARS && (
-                <span class="dw-stack-avatar dw-stack-avatar-more">
+                <span class="hm-home-avatar hm-home-avatar-more">
                   +{doctors.length - HERO_AVATARS}
                 </span>
               )}
             </div>
-            <div class="dw-live-row">
-              <span class="dw-live-pulse" aria-hidden="true" />
+            <p class="hm-home-live-row">
+              <span class="hm-home-pulse" aria-hidden="true" />
               <span>
-                <strong>
-                  {doctors.length} {pluralizeDoctors(doctors.length)}
-                </strong>{" "}
-                в каталоге
+                <strong>{doctors.length} {pluralizeDoctors(doctors.length)}</strong> в каталоге
               </span>
-            </div>
+            </p>
           </div>
         </div>
 
-        {/* RIGHT — stacked search card */}
-        <div class="dw-search-card-wrap">
-          <form class="dw-search-card" action="/search" method="get" role="search">
-            <label class="dw-search-row">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/><path d="m21 21-4.3-4.3"/></svg>
-              <span class="dw-row-body">
-                <span class="dw-row-label">Имя или фамилия</span>
-                <input name="q" type="search" placeholder="Имя или специальность" autocomplete="off" />
-              </span>
-            </label>
-            <label class="dw-search-row dw-search-row-div">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
-              <span class="dw-row-body">
-                <span class="dw-row-label">Специальность</span>
-                <select name="specialty">
-                  <option value="">Все специальности</option>
-                  {SPECIALTIES.map((s) => (
-                    <option value={specialtyKeyOf(s.doctorSpecialty)}>{s.label}</option>
-                  ))}
-                </select>
-              </span>
-            </label>
-            <button type="submit" class="dw-search-submit-wide">
-              Найти {doctors.length} {pluralizeDoctors(doctors.length)}
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
-            </button>
-          </form>
-        </div>
-      </div>
-    </section>
+        <form class="hm-home-find-card" action="/search" method="get" role="search">
+          <label class="hm-home-find-row">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/><path d="m21 21-4.3-4.3"/></svg>
+            <span class="hm-home-find-body">
+              <span class="hm-home-find-label">Имя или фамилия</span>
+              <input name="q" type="search" placeholder="Имя или специальность" autocomplete="off" class="hm-home-find-control" />
+            </span>
+          </label>
+          <label class="hm-home-find-row hm-home-find-row-div">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
+            <span class="hm-home-find-body">
+              <span class="hm-home-find-label">Специальность</span>
+              <select name="specialty" class="hm-home-find-control">
+                <option value="">Все специальности</option>
+                {SPECIALTIES.map((s) => (
+                  <option value={specialtyKeyOf(s.doctorSpecialty)}>{s.label}</option>
+                ))}
+              </select>
+            </span>
+          </label>
+          <button type="submit" class="hm-home-find-submit">
+            Найти {doctors.length} {pluralizeDoctors(doctors.length)}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+          </button>
+        </form>
+      </section>
 
-    {/* ── SPECIALTIES (6-col bold pastel) ─────── */}
-    {featuredSpecialties.length > 0 && (
-      <section class="dw-section dw-specs-section">
-        <div class="dw-section-head">
+      <section class="hm-home-section hm-home-specs hm-home-shell">
+        <div class="hm-home-section-head">
           <div>
             <h2>Популярные специальности</h2>
             <p>Найдите врача по нужному направлению</p>
           </div>
-          <a href="/search" class="dw-section-link">
+          <a href="/search" class="hm-home-section-link">
             Все специальности
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
           </a>
         </div>
-        <div class="dw-specs-grid">
-          {featuredSpecialties.map((s, i) => {
-            const c = SPEC_CARD_PALETTE[i % SPEC_CARD_PALETTE.length]!;
-            const paths = SPECIALTY_GLYPHS[s.label] ?? SPECIALTY_GLYPHS["Семейный"]!;
-            return (
-              <a
-                href={s.href}
-                class="dw-spec-card is-large"
-                style={`background:${c.bg}`}
-              >
-                <span class="dw-spec-icon" style={`color:${c.icon}`}>
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                    {paths.map((d) => <path d={d} />)}
-                  </svg>
-                </span>
-                <span class="dw-spec-name">{s.label}</span>
-                {s.count !== undefined && (
-                  <span class="dw-spec-count">{s.count} {pluralizeDoctors(s.count)}</span>
-                )}
-              </a>
-            );
-          })}
+        <div class="hm-home-spec-grid">
+          {specialtyTiles.map((tile) => (
+            <a
+              href={tile.href}
+              class:list={["hm-home-spec", "tap", featuredKeys.has(tile.searchKey) && "is-featured"]}
+              style={`--tint:${tile.tint};--tint-strong:${tile.tintStrong};--glyph:${tile.glyphColor}`}
+            >
+              <span class="hm-home-spec-glyph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  {tile.paths.map((d) => <path d={d} />)}
+                </svg>
+              </span>
+              <span class="hm-home-spec-name">{tile.label}</span>
+              {tile.count !== undefined && (
+                <span class="hm-home-spec-count">{tile.count} {pluralizeDoctors(tile.count)}</span>
+              )}
+            </a>
+          ))}
         </div>
       </section>
-    )}
 
-    {/* ── OFFLINE DOCTORS (plain grid) ─────────── */}
-    <section class="dw-section dw-offline-section">
-      <div class="dw-section-head">
-        <div>
-          <span class="dw-tag dw-tag-offline">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
-            В клинике
-          </span>
-          <h2>Врачи</h2>
-          <p>Запись с подтверждением, ближайшие даты приёма · {doctors.length} {pluralizeDoctors(doctors.length)}</p>
+      <section class="hm-home-section hm-home-shell">
+        <div class="hm-home-section-head">
+          <div>
+            <h2>Врачи</h2>
+            <p>Запись с подтверждением · {doctors.length} {pluralizeDoctors(doctors.length)}</p>
+          </div>
+          <a href="/search" class="hm-home-section-link">
+            Все врачи
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
         </div>
-        <a href="/search" class="dw-text-link">Все врачи →</a>
-      </div>
-      <div class="dw-carousel">
-        <div class="dw-carousel-track">
+        <div class="hm-home-rail hide-sb">
           {doctors.map((d) => (
-            <a href={`/doctor/${doctorProfileSlug(d)}`} class="dw-doctor dw-doctor-slide">
-              <div class="dw-doctor-head">
+            <a href={`/doctor/${doctorProfileSlug(d)}`} class="hm-home-doc tap">
+              <div class="hm-home-doc-head">
                 {d.avatarUrl ? (
                   <img
-                    class="dw-doctor-avatar dw-doctor-avatar-img"
+                    class="hm-home-doc-avatar hm-home-doc-avatar-img"
                     src={d.avatarUrl}
-                    alt={d.shortName}
+                    alt=""
                     loading="lazy"
                     decoding="async"
                     width="56"
                     height="56"
                   />
                 ) : (
-                  <span class="dw-doctor-avatar" style={`background-color:${d.avatarColor}`}>
+                  /* aria-hidden: инициалы — это отсутствующее фото, а не
+                     содержание. Имя стоит следующим элементом, и без этого
+                     скринридер читает «П А Петров А.И.». */
+                  <span class="hm-home-doc-avatar" style={`background-color:${d.avatarColor}`} aria-hidden="true">
                     {d.initials}
                   </span>
                 )}
-                <div class="dw-doctor-head-body">
-                  <span class="dw-doctor-name">{d.shortName}</span>
-                  <span class="dw-doctor-spec">{d.specialization}</span>
+                <div class="hm-home-doc-titles">
+                  <span class="hm-home-doc-name">{d.shortName}</span>
+                  <span class="hm-home-doc-spec">{d.specialization}</span>
                 </div>
               </div>
-            {d.city && (
-              <div class="dw-doctor-slot">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
-                {d.city}
+              {d.city && (
+                <div class="hm-home-doc-place">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7.6-7-13a7 7 0 1 1 14 0c0 5.4-7 13-7 13z"/><path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+                  {d.city}
+                </div>
+              )}
+              <div class="hm-home-doc-foot">
+                {formatPriceKgs(d.priceFrom) && (
+                  <span class="hm-home-doc-price">от <strong>{formatPriceKgs(d.priceFrom)}</strong></span>
+                )}
+                <span class="hm-home-doc-book">Записаться</span>
               </div>
-            )}
-            <div class="dw-doctor-cta-row">
-              {formatPriceKgs(d.priceFrom)
-                ? <span class="dw-doctor-price">от <strong>{formatPriceKgs(d.priceFrom)}</strong></span>
-                : <span />}
-              <span class="dw-doctor-book">Записаться</span>
-            </div>
-          </a>
-        ))}
+            </a>
+          ))}
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
-    {/* ── DESKTOP FOOTER ────────────────────── */}
+    <SiteFooter variant="mobile" />
     <SiteFooter variant="desktop" />
   </div>
 
@@ -539,8 +383,10 @@ const websiteJsonLd = {
       --teal-softer: #eef6f8;
       --n-cream: #fcfbf8;
       --n-ink: #0f1115;
+      --n-ink2: #2a2d33;
       --n-muted: #5f636a;
       --n-line: #e2e2df;
+      --n-line-soft: #edebe6;
     }
     body {
       background: var(--n-cream);
@@ -552,599 +398,531 @@ const websiteJsonLd = {
     .tap { -webkit-tap-highlight-color: transparent; transition: transform .14s ease, opacity .14s ease; }
     .tap:active { transform: scale(0.98); opacity: 0.9; }
 
-    /* ── Shell ─────────────────────────── */
-    .mw-shell { min-height: 100dvh; background: var(--n-cream); }
+    /* Колонка та же, что у шапки и подвала: главная остаётся широкой
+       страницей — .hm-page с его 960px здесь намеренно не стоит. */
+    .hm-home-shell {
+      max-width: var(--site-max);
+      margin-inline: auto;
+      padding-inline: 16px;
+    }
 
-    /* ── Top bar ───────────────────────── */
-    /* ── Hero ──────────────────────────── */
-    .mw-hero-wrap { padding: 8px 16px 16px; }
-    .mw-hero {
+    /* ── Герой ──────────────────────────────── */
+    /* Только padding-block: сокращённый padding обнулил бы боковое поле,
+       которое секции задаёт .hm-home-shell. */
+    .hm-home-hero { padding-block: 8px 16px; }
+    .hm-home-hero-frame {
       position: relative;
       border-radius: 22px;
       overflow: hidden;
       box-shadow: 0 1px 0 rgba(15,17,21,0.04), 0 18px 40px -28px rgba(15,17,21,0.25);
     }
-    .mw-hero-track {
+    .hm-home-hero-track {
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: 100%;
-      animation: mw-hero-cycle 18s infinite;
+      animation: hm-home-hero-cycle 18s infinite;
     }
-    .mw-hero:hover .mw-hero-track,
-    .mw-hero:hover .mw-banner-dot { animation-play-state: paused; }
+    .hm-home-hero-frame:hover .hm-home-hero-track,
+    .hm-home-hero-frame:hover .hm-home-hero-dot { animation-play-state: paused; }
     /* Слайд держится 5с и уезжает за 1с; проценты считаны от цикла 18с на три
        баннера. Добавится баннер — цикл и все проценты пересчитывать заново. */
-    @keyframes mw-hero-cycle {
+    @keyframes hm-home-hero-cycle {
       0%, 27.78% { transform: translateX(0%); }
       33.33%, 61.11% { transform: translateX(-100%); }
       66.67%, 100% { transform: translateX(-200%); }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .mw-hero-track { animation: none; }
-      .mw-banner-dot { animation: none; }}
-    .mw-banner {
+
+    .hm-home-banner {
       position: relative;
-      padding: 20px 22px 22px;
-      min-height: 220px;
       overflow: hidden;
+      min-height: 220px;
+      padding: 20px 22px 22px;
       color: var(--n-ink);
     }
-    .mw-banner-dark { color: #fff; }
-    .mw-banner-art { position: absolute; right: -14px; top: 8px; width: 160px; height: 160px; opacity: 1; pointer-events: none; }
-    .mw-banner-art img { width: 100%; height: 100%; display: block; }
-    .mw-banner-dark .mw-banner-art { opacity: 0.95; }
-    .mw-banner-tag {
-      display: inline-block; font-size: 11px; font-weight: 700;
-      letter-spacing: 0.3px; text-transform: uppercase;
-      padding: 5px 10px; border-radius: 999px;
-      background: rgba(15,17,21,0.06); color: var(--n-ink);
-      margin-bottom: 12px;
+    .hm-home-banner-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
     }
-    .mw-banner-dark .mw-banner-tag { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.9); }
-    .mw-banner-title {
-      margin: 0; font-size: 22px; line-height: 1.18; font-weight: 800;
-      letter-spacing: -0.2px; max-width: 175px;
+    .hm-home-banner-tag {
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(15,17,21,0.06);
+      color: var(--n-ink);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
     }
-    .mw-banner-desc {
-      margin: 8px 0 16px; font-size: 13.5px; line-height: 1.45;
-      color: var(--n-muted); max-width: 200px;
+    .hm-home-banner-title {
+      margin: 0;
+      max-width: 175px;
+      font-size: 22px;
+      line-height: 1.18;
+      font-weight: 800;
+      letter-spacing: -0.2px;
     }
-    .mw-banner-dark .mw-banner-desc { color: rgba(255,255,255,0.8); }
-    .mw-banner-cta {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 11px 16px; border-radius: 999px;
-      background: var(--teal); color: #fff;
-      font-size: 14px; font-weight: 700;
-      box-shadow: 0 6px 14px -6px rgba(14,124,140,0.55);
-    }
-    .mw-banner-dark .mw-banner-cta { background: #fff; color: var(--teal); box-shadow: none; }
-    .mw-banner-dots {
-      position: absolute; bottom: 12px; right: 14px;
-      display: flex; gap: 6px;
-      z-index: 2;
-    }
-    .mw-banner-dot {
-      width: 6px; height: 6px; border-radius: 6px;
-      background: rgba(15,17,21,0.18);
-      animation: mw-banner-dot 18s infinite;
-    }
-    .mw-banner-dot:nth-child(1) { animation-delay: 0s; }
-    .mw-banner-dot:nth-child(2) { animation-delay: -12s; }
-    .mw-banner-dot:nth-child(3) { animation-delay: -6s; }
-    @keyframes mw-banner-dot {
-      0%, 27.78% { width: 18px; background: var(--teal); }
-      33.33%, 100% { width: 6px; background: rgba(15,17,21,0.18); }
-    }
-
-    /* ── Sticky search ─────────────────── */
-    .mw-sticky-search {
-      position: sticky; top: calc(env(safe-area-inset-top, 0px) + 52px);
-      z-index: 20;
-      background: var(--n-cream);
-      border-bottom: 1px solid transparent;
-      transition: background .18s ease, border-color .18s ease;
-    }
-    .mw-sticky-search.is-scrolled {
-      background: rgba(252,251,248,0.92);
-      backdrop-filter: saturate(160%) blur(18px);
-      -webkit-backdrop-filter: saturate(160%) blur(18px);
-      border-bottom-color: var(--n-line);
-    }
-    .mw-search-row {
-      padding: 12px 16px 8px;
-    }
-    .mw-search-input {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 16px;
-      background: #fff; border: 1px solid var(--n-line);
-      border-radius: 999px; box-shadow: 0 1px 0 rgba(15,17,21,0.02);
+    .hm-home-banner-desc {
+      margin: 0;
+      max-width: 200px;
+      font-size: 13.5px;
+      line-height: 1.45;
       color: var(--n-muted);
     }
-    .mw-search-input input {
-      flex: 1; border: none; outline: none; background: transparent;
-      font-size: 14.5px; color: var(--n-ink); min-width: 0; font-family: inherit;
+    .hm-home-banner-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      padding: 11px 16px;
+      border-radius: 999px;
+      background: var(--teal);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 6px 14px -6px rgba(14,124,140,0.55);
+    }
+    .hm-home-banner-art {
+      position: absolute;
+      right: -14px;
+      top: 8px;
+      width: 160px;
+      height: 160px;
+      pointer-events: none;
+    }
+    .hm-home-banner-art img { width: 100%; height: 100%; display: block; }
+
+    .hm-home-hero-dots {
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      z-index: 2;
+      display: flex;
+      gap: 6px;
+    }
+    /* Размер точки вынесен в переменные: кадры анимации одни на оба размера
+       экрана, а меняется в них только ширина. */
+    .hm-home-hero-dot {
+      --dot: 6px;
+      --dot-on: 18px;
+      width: var(--dot);
+      height: var(--dot);
+      border-radius: 999px;
+      background: rgba(15,17,21,0.18);
+      animation: hm-home-dot 18s infinite;
+    }
+    .hm-home-hero-dot:nth-child(1) { animation-delay: 0s; }
+    .hm-home-hero-dot:nth-child(2) { animation-delay: -12s; }
+    .hm-home-hero-dot:nth-child(3) { animation-delay: -6s; }
+    @keyframes hm-home-dot {
+      0%, 27.78% { width: var(--dot-on); background: var(--teal); }
+      33.33%, 100% { width: var(--dot); background: rgba(15,17,21,0.18); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hm-home-hero-track,
+      .hm-home-hero-dot,
+      .hm-home-pulse { animation: none; }
     }
 
-    /* ── Section heads ─────────────────── */
-    .mw-section { margin-bottom: 32px; }
-    .mw-section-head {
-      display: flex; align-items: baseline; justify-content: space-between;
-      padding: 0 16px; margin-bottom: 12px;
+    /* ── Поиск ──────────────────────────────── */
+    .hm-home-find { display: grid; gap: 24px; padding-bottom: 28px; }
+    .hm-home-find-title {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
     }
-    .mw-section-head h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
-    .mw-section-link {
-      color: var(--teal); font-size: 13px; font-weight: 700;
-      display: inline-flex; align-items: center; gap: 4px;
+    .hm-home-find-desc {
+      margin: 10px 0 0;
+      max-width: 380px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--n-muted);
+    }
+    .hm-home-live { margin-top: 18px; }
+    .hm-home-avatars { display: flex; align-items: center; }
+    .hm-home-avatar {
+      width: 34px;
+      height: 34px;
+      margin-left: -10px;
+      border: 2px solid var(--n-cream);
+      border-radius: 50%;
+      background-color: var(--teal-softer);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--n-ink);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .hm-home-avatar:first-child { margin-left: 0; }
+    .hm-home-avatar-more { background: var(--teal-softer); color: var(--teal); font-size: 11px; letter-spacing: -0.02em; }
+    .hm-home-live-row {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--n-ink2);
+    }
+    .hm-home-live-row strong { color: var(--n-ink); font-weight: 700; }
+    .hm-home-pulse {
+      width: 8px;
+      height: 8px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: hm-home-pulse 1.6s ease-out infinite;
+    }
+    @keyframes hm-home-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+      70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
     }
 
-    /* ── Specialty tiles ───────────────── */
-    .mw-tile-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-      padding: 0 16px;
+    .hm-home-find-card {
+      background: #fff;
+      border: 1px solid var(--n-line);
+      border-radius: 18px;
+      box-shadow: 0 2px 8px rgba(10,31,37,0.05);
+      overflow: hidden;
     }
-    .mw-tile {
-      min-width: 0; min-height: 110px;
-      display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-      padding: 14px; border-radius: 16px;
+    .hm-home-find-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      color: var(--n-muted);
+    }
+    .hm-home-find-row-div { border-top: 1px solid var(--n-line-soft); }
+    .hm-home-find-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .hm-home-find-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--n-muted);
+    }
+    .hm-home-find-control {
+      margin-top: 1px;
+      padding: 0;
+      border: none;
+      outline: none;
+      width: 100%;
+      appearance: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--n-ink);
+      cursor: pointer;
+    }
+    .hm-home-find-submit {
+      margin: 14px;
+      width: calc(100% - 28px);
+      height: 50px;
+      padding: 0 24px;
+      border: none;
+      border-radius: 14px;
+      background: var(--teal);
+      color: #fff;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(14,124,140,0.22);
+      transition: background 0.15s;
+    }
+    .hm-home-find-submit:hover { background: var(--teal-hover); }
+
+    /* ── Секции ─────────────────────────────── */
+    .hm-home-section { padding-bottom: 32px; }
+    .hm-home-section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .hm-home-section-head h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
+    .hm-home-section-head p { margin: 6px 0 0; font-size: 12.5px; color: var(--n-muted); }
+    .hm-home-section-link {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--teal);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* ── Специальности ──────────────────────── */
+    .hm-home-spec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .hm-home-spec {
+      min-width: 0;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 16px;
+      background: var(--tint);
       color: var(--n-ink);
     }
-    .mw-tile-icon {
-      width: 36px; height: 36px; border-radius: 10px;
+    .hm-home-spec-glyph {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
       background: rgba(255,255,255,0.6);
-      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--glyph);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .mw-tile-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
-    .mw-tile-count { font-size: 11.5px; color: var(--n-muted); margin-top: auto; }
+    .hm-home-spec-glyph svg { width: 22px; height: 22px; }
+    /* Подпись растянута на всю плитку и переносится по слогам: в три колонки
+       на телефоне «Стоматология» и «Кардиология» шире плитки, а колонка
+       выровнена по левому краю — без обоих свойств длинное слово вылезает за
+       край. */
+    .hm-home-spec-name {
+      align-self: stretch;
+      -webkit-hyphens: auto;
+      hyphens: auto;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .hm-home-spec-count { margin-top: auto; font-size: 11.5px; color: var(--n-muted); }
 
-    /* ── Doctor rail ───────────────────── */
-    .mw-rail {
-      display: flex; gap: 12px;
-      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    /* ── Лента врачей ───────────────────────── */
+    /* Отрицательное поле гасит боковой отступ колонки, padding возвращает его
+       первой и последней карточке: лента доезжает до края экрана, а заголовок
+       секции остаётся в полях. */
+    .hm-home-rail {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       scroll-snap-type: x mandatory;
       scroll-padding: 0 16px;
+      margin-inline: -16px;
       padding: 0 16px 4px;
     }
-    .mw-doctor-card {
-      flex: 0 0 268px; scroll-snap-align: start;
-      background: #fff; border-radius: 18px;
-      border: 1px solid var(--n-line);
+    .hm-home-doc {
+      flex: 0 0 268px;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       padding: 14px;
-      display: flex; flex-direction: column; gap: 12px;
+      background: #fff;
+      border: 1px solid var(--n-line);
+      border-radius: 18px;
       color: var(--n-ink);
     }
-    .mw-doctor-head { display: flex; align-items: center; gap: 12px; }
-    .mw-avatar-wrap { position: relative; }
-    .mw-avatar {
-      width: 48px; height: 48px; border-radius: 24px;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 700; color: var(--n-ink);
+    .hm-home-doc-head { display: flex; align-items: center; gap: 12px; }
+    .hm-home-doc-avatar {
+      width: 48px;
+      height: 48px;
       flex: 0 0 auto;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--n-ink);
     }
-    .mw-avatar-img { object-fit: cover; background-color: var(--n-line); }
-    .mw-doctor-titles { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .mw-doctor-name {
-      font-size: 14px; font-weight: 700; line-height: 1.2;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    .hm-home-doc-avatar-img { object-fit: cover; background-color: var(--n-line); }
+    .hm-home-doc-titles { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .hm-home-doc-name {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .mw-doctor-spec {
-      font-size: 12px; color: var(--n-muted);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    .hm-home-doc-spec {
+      font-size: 12px;
+      color: var(--n-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .mw-doctor-slot {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12px; color: var(--n-muted); font-weight: 600;
+    .hm-home-doc-place {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--n-muted);
     }
-    .mw-doctor-cta-row {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-top: 2px;
-    }
-    .mw-doctor-price { font-size: 11px; color: var(--n-muted); }
-    .mw-doctor-price strong { color: var(--n-ink); font-size: 14px; font-weight: 800; margin-left: 2px; }
-    .mw-book-btn {
-      padding: 8px 14px; border-radius: 999px;
-      background: var(--teal); color: #fff;
-      font-size: 12.5px; font-weight: 700;
+    .hm-home-doc-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; }
+    .hm-home-doc-price { font-size: 11px; color: var(--n-muted); }
+    .hm-home-doc-price strong { margin-left: 2px; font-size: 14px; font-weight: 800; color: var(--n-ink); }
+    .hm-home-doc-book {
+      margin-left: auto;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--teal);
+      color: #fff;
+      font-size: 12.5px;
+      font-weight: 700;
     }
 
-    /* ── Footer ─────────────────────────── */
     /* ════════════════════════════════════════════════════════════ */
-    /*  DESKTOP LAYOUT (>= 1024px)                                  */
+    /*  ≥768px — тот же DOM, другая подача                          */
     /* ════════════════════════════════════════════════════════════ */
-    .dw-page { display: none; }
-
     @media (min-width: 768px) {
-      body {
-        background: var(--n-cream);
-      }
-      .mw-shell { display: none !important; }
-      .dw-page {
-        display: block;
-        font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-        color: var(--n-ink);
-      }
+      .hm-home-shell { padding-inline: var(--site-gutter-md); }
 
-      /* ── Header ─────────────────────────────── */
-      /* ── Hero ──────────────────────────────── */
-      .dw-hero-section {
-        max-width: 1440px; margin: 0 auto;
-        padding: 24px 64px 0;
-      }
-      .dw-hero {
-        position: relative;
-        border-radius: 28px;
-        overflow: hidden;
-      }
-      .dw-hero-track {
-        --slides: 3;
-        --cycle: 18s;
+      .hm-home-hero { padding-block: 24px 0; }
+      .hm-home-hero-frame { border-radius: 28px; box-shadow: none; }
+      .hm-home-banner {
         display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: 100%;
-        animation: dw-hero-cycle var(--cycle) infinite;
-      }
-      .dw-hero:hover .dw-hero-track,
-      .dw-hero:hover .dw-hero-dot { animation-play-state: paused; }
-      @keyframes dw-hero-cycle {
-        0%, 27.78% { transform: translateX(0%); }
-        33.33%, 61.11% { transform: translateX(-100%); }
-        66.67%, 100% { transform: translateX(-200%); }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .dw-hero-track { animation: none; }
-        .dw-hero-dot { animation: none; }}
-      .dw-banner {
-        display: grid;
-        grid-template-columns: 1.4fr 1fr;
-        min-height: 444px;
-        padding: 44px 56px;
-        color: var(--n-ink);
+        grid-template-columns: 1.5fr 1fr;
         align-items: center;
-        gap: 40px;
+        gap: 24px;
+        min-height: 360px;
+        padding: 32px;
       }
-      .dw-banner-dark { color: #fff; }
-      .dw-banner-text { display: flex; flex-direction: column; gap: 14px; }
-      .dw-banner-tag {
-        display: inline-block; align-self: flex-start;
-        padding: 6px 14px; border-radius: 999px;
-        background: rgba(255,255,255,0.85); color: var(--teal);
-        font-size: 12px; font-weight: 700;
-        letter-spacing: 0.02em; text-transform: uppercase;
+      .hm-home-banner-text { gap: 14px; }
+      .hm-home-banner-tag {
+        padding: 6px 14px;
+        background: rgba(255,255,255,0.85);
+        color: var(--teal);
+        font-size: 12px;
+        letter-spacing: 0.02em;
       }
-      .dw-banner-dark .dw-banner-tag {
-        background: rgba(255,255,255,0.15); color: #fff;
-      }
-      .dw-banner-title {
-        margin: 0;
-        font-size: 48px; line-height: 1.05;
-        letter-spacing: -0.03em; font-weight: 700;
-      }
-      .dw-banner-desc {
-        margin: 0;
-        font-size: 16px; line-height: 1.5;
-        color: #2A2D33; max-width: 480px;
-      }
-      .dw-banner-dark .dw-banner-desc { color: rgba(255,255,255,0.8); }
-      .dw-banner-cta {
-        align-self: flex-start; margin-top: 14px;
-        height: 52px; padding: 0 26px;
-        background: var(--teal); color: #fff;
-        border-radius: 999px;
-        font-size: 15px; font-weight: 600;
-        display: inline-flex; align-items: center; gap: 8px;
-        transition: background .15s, transform .08s;
-      }
-      .dw-banner-cta:hover { background: var(--teal-hover); transform: translateY(-1px); }
-      .dw-banner-dark .dw-banner-cta { background: #fff; color: var(--teal); }
-      .dw-banner-dark .dw-banner-cta:hover { background: rgba(255,255,255,0.92); }
-      .dw-banner-art {
-        height: 100%; min-height: 240px;
-        display: grid; place-items: center;
-      }
-      .dw-banner-art img {
-        width: 100%; max-width: 360px; height: auto;
-        display: block;
-      }
-      .dw-hero-dots {
-        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-        display: flex; gap: 8px;
-        z-index: 2;
-      }
-      .dw-hero-dot {
-        width: 8px; height: 8px; border-radius: 999px;
-        background: rgba(10,31,37,0.22);
-        animation: dw-hero-dot 18s infinite;
-      }
-      .dw-hero-dot:nth-child(1) { animation-delay: 0s; }
-      .dw-hero-dot:nth-child(2) { animation-delay: -12s; }
-      .dw-hero-dot:nth-child(3) { animation-delay: -6s; }
-      @keyframes dw-hero-dot {
-        0%, 27.78% { width: 28px; background: var(--teal); }
-        33.33%, 100% { width: 8px; background: rgba(10,31,37,0.22); }
-      }
-
-      /* ── Hero search (5fr / 7fr split) ─────── */
-      .dw-search-hero {
-        max-width: 1440px; margin: 0 auto;
-        padding: 56px 64px;
-      }
-      .dw-search-hero-inner {
-        display: grid; grid-template-columns: 5fr 7fr;
-        gap: 56px; align-items: center;
-      }
-      .dw-search-promise h2 {
-        margin: 0; font-size: 44px; font-weight: 700;
-        letter-spacing: -0.025em; color: var(--n-ink); line-height: 1.05;
-      }
-      .dw-search-promise p {
-        margin: 18px 0 0; font-size: 17px; color: var(--n-muted);
-        line-height: 1.5; max-width: 380px;
-      }
-      .dw-live-stack { margin-top: 36px; }
-      .dw-avatars { display: flex; align-items: center; }
-      .dw-stack-avatar {
-        width: 40px; height: 40px; border-radius: 50%;
-        margin-left: -12px;
-        border: 2px solid var(--n-cream);
-        background-color: var(--teal-softer);
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 13px; font-weight: 700; color: var(--n-ink);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-      }
-      .dw-stack-avatar:first-child { margin-left: 0; }
-      .dw-stack-avatar-more {
-        background: var(--teal-softer); color: var(--teal);
-        font-size: 12px; letter-spacing: -0.02em;
-      }
-      .dw-live-row {
+      .hm-home-banner-title { max-width: none; font-size: 36px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 700; }
+      .hm-home-banner-desc { max-width: 480px; font-size: 15px; color: var(--n-ink2); }
+      .hm-home-banner-cta {
+        height: 52px;
         margin-top: 14px;
-        display: flex; align-items: center; gap: 10px;
-        font-size: 14px; color: #2A2D33;
+        padding: 0 26px;
+        font-size: 15px;
+        font-weight: 600;
+        transition: background 0.15s, transform 0.08s;
       }
-      .dw-live-row strong { color: var(--n-ink); font-weight: 700; }
-      .dw-live-pulse {
-        width: 8px; height: 8px; border-radius: 50%;
-        background: #22C55E; display: inline-block;
-        animation: dwLivePulse 1.6s ease-out infinite;
+      .hm-home-banner-cta:hover { background: var(--teal-hover); transform: translateY(-1px); }
+      .hm-home-banner-art {
+        position: static;
+        width: auto;
+        height: 100%;
+        min-height: 240px;
+        display: grid;
+        place-items: center;
       }
-      @keyframes dwLivePulse {
-        0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
-        70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
-        100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-      }
+      .hm-home-banner-art img { width: 100%; max-width: 360px; height: auto; }
 
-      .dw-search-card {
-        background: #fff; border: 1px solid var(--n-line);
-        border-radius: 24px;
-        box-shadow: 0 2px 8px rgba(10,31,37,0.05);
-        overflow: hidden;
-      }
-      .dw-search-row {
-        display: flex; align-items: center; gap: 14px;
-        padding: 16px 20px;
-        color: var(--n-muted);
-      }
-      .dw-search-row-div { border-top: 1px solid var(--borderSoft, #EDEBE6); }
-      .dw-row-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-      .dw-row-label {
-        font-size: 11px; color: var(--n-muted);
-        font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase;
-      }
-      .dw-search-row input,
-      .dw-search-row select {
-        border: none; outline: none; padding: 0; margin: 0;
-        font-family: inherit; font-size: 15px; font-weight: 600; color: var(--n-ink);
-        background: transparent; width: 100%; appearance: none;
-        cursor: pointer;
-      }
-      .dw-search-submit-wide {
-        margin: 16px; width: calc(100% - 32px); height: 56px; padding: 0 24px;
-        background: var(--teal); color: #fff; border: none;
-        border-radius: 16px;
-        font-family: inherit; font-weight: 600; font-size: 16px;
-        cursor: pointer;
-        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-        box-shadow: 0 2px 8px rgba(14,124,140,0.22);
-        transition: background .15s, transform .08s;
-      }
-      .dw-search-submit-wide:hover { background: var(--teal-hover); transform: translateY(-1px); }
+      .hm-home-hero-dots { bottom: 20px; right: auto; left: 50%; transform: translateX(-50%); gap: 8px; }
+      .hm-home-hero-dot { --dot: 8px; --dot-on: 28px; background: rgba(10,31,37,0.22); }
 
-      /* ── Section heads ─────────────────────── */
-      .dw-section { max-width: 1440px; margin: 0 auto; padding: 48px 64px; }
-      .dw-section + .dw-section { padding-top: 0; }
-      .dw-search-hero + .dw-section { padding-top: 0; }
-      .dw-specs-section { border-top: 1px solid var(--borderSoft, #EDEBE6); }
-      .dw-section-head {
-        display: flex; justify-content: space-between; align-items: flex-end;
-        gap: 24px; margin-bottom: 32px;
-      }
-      .dw-section-head h2 {
-        margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
-      }
-      .dw-section-head p {
-        margin: 8px 0 0; font-size: 15px; color: var(--n-muted);
-      }
-      .dw-section-link {
-        display: inline-flex; align-items: center; gap: 6px;
-        color: var(--teal); font-size: 14px; font-weight: 600;
-        text-decoration: none;
-      }
-      .dw-section-link:hover { color: var(--teal-hover); }
+      .hm-home-find { padding-block: 40px; gap: 32px; }
+      .hm-home-find-title { font-size: 32px; letter-spacing: -0.025em; }
+      .hm-home-find-desc { margin-top: 16px; font-size: 16px; }
+      .hm-home-live { margin-top: 30px; }
+      .hm-home-avatar { width: 40px; height: 40px; margin-left: -12px; font-size: 13px; }
+      .hm-home-avatar-more { font-size: 12px; }
+      .hm-home-live-row { margin-top: 14px; font-size: 14px; }
+      .hm-home-find-card { border-radius: 24px; }
+      .hm-home-find-row { gap: 14px; padding: 16px 20px; }
+      .hm-home-find-submit { margin: 16px; width: calc(100% - 32px); height: 56px; border-radius: 16px; font-size: 16px; }
 
-      /* ── Specialty grid ────────────────────── */
-      .dw-specs-grid {
-        display: grid; grid-template-columns: repeat(6, 1fr);
+      .hm-home-section { padding-bottom: 48px; }
+      .hm-home-specs { margin-top: 40px; padding-top: 40px; border-top: 1px solid var(--n-line-soft); }
+      .hm-home-section-head { align-items: flex-end; gap: 24px; margin-bottom: 32px; }
+      .hm-home-section-head h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+      .hm-home-section-head p { margin-top: 8px; font-size: 15px; }
+      .hm-home-section-link { font-size: 14px; font-weight: 600; }
+      .hm-home-section-link:hover { color: var(--teal-hover); }
+
+      .hm-home-spec-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      .hm-home-spec {
+        min-height: 130px;
+        padding: 18px;
+        border-radius: 18px;
         gap: 12px;
+        transition: transform 0.15s, box-shadow 0.2s;
       }
-      .dw-spec-card {
-        display: flex; flex-direction: column; gap: 12px;
-        padding: 24px;
-        border-radius: 18px;
-        text-decoration: none; color: var(--n-ink);
-        transition: transform .15s, box-shadow .2s;
-        min-height: 140px;
+      .hm-home-spec-glyph { width: 56px; height: 56px; border-radius: 14px; }
+      .hm-home-spec-glyph svg { width: 30px; height: 30px; }
+      .hm-home-spec-name { font-size: 16px; }
+      .hm-home-spec-count { font-size: 12.5px; }
+      /* Две самые населённые специальности идут первыми и крупными. Порядок
+         задан здесь, а не в разметке: в общей сетке на телефоне плитки стоят
+         в порядке каталога. */
+      .hm-home-spec.is-featured {
+        order: -1;
+        grid-column: span 2;
+        min-height: 170px;
+        background: var(--tint-strong);
       }
-      .dw-spec-card.is-large {
-        grid-column: span 3;
-        min-height: 200px;
-      }
-      .dw-spec-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 28px rgba(10,31,37,0.08);
-      }
-      .dw-spec-icon {
-        width: 56px; height: 56px; border-radius: 14px;
-        background: rgba(255,255,255,0.6);
-        display: inline-flex; align-items: center; justify-content: center;
-      }
-      .dw-spec-card.is-large .dw-spec-icon { width: 64px; height: 64px; }
-      .dw-spec-name {
-        font-size: 16px; font-weight: 700; line-height: 1.2;
-        margin-top: auto;
-      }
-      .dw-spec-card.is-large .dw-spec-name { font-size: 22px; letter-spacing: -0.01em; }
-      .dw-spec-count { font-size: 12.5px; color: var(--n-muted); }
+      .hm-home-spec.is-featured .hm-home-spec-glyph { width: 64px; height: 64px; }
+      .hm-home-spec.is-featured .hm-home-spec-glyph svg { width: 36px; height: 36px; }
+      .hm-home-spec.is-featured .hm-home-spec-name { font-size: 22px; letter-spacing: -0.01em; }
 
-      /* ── Tags (online / offline) ───────────── */
-      .dw-tag {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 6px 12px; border-radius: 999px;
-        font-size: 12px; font-weight: 700;
-        letter-spacing: 0.02em; text-transform: uppercase;
-        margin-bottom: 12px;
-      }
-      .dw-tag-offline {
-        background: #F6EFE2; color: #7A5A2E;
-      }
-      .dw-text-link {
-        font-size: 14px; color: var(--n-ink);
-        text-decoration: underline; text-underline-offset: 4px;
-        font-weight: 500; white-space: nowrap;
-      }
-
-      /* ── Offline doctors ────────────────────── */
-      .dw-offline-section { max-width: 1440px; margin: 0 auto; padding: 32px 64px; }
-
-      /* ── Carousel (horizontal scroll snap) ───── */
-      .dw-carousel { position: relative; }
-      .dw-carousel-track {
-        display: grid; grid-auto-flow: column; grid-auto-columns: 280px;
-        gap: 16px; overflow-x: auto; overflow-y: visible;
-        scroll-snap-type: x mandatory;
-        scroll-behavior: smooth;
-        scrollbar-width: none;
-        padding: 4px 4px 8px;
-        margin: -4px -4px -8px;
-      }
-      .dw-carousel-track::-webkit-scrollbar { display: none; }
-      .dw-doctor-slide { scroll-snap-align: start; min-width: 0; }
-
-      /* ── Doctor card (shared) ───────────────── */
-      .dw-doctor {
-        background: #fff;
-        border: 1px solid var(--n-line);
-        border-radius: 18px;
+      /* Отрицательное поле здесь — под подъём карточки при наведении, чтобы
+         тень не срезалась краем ленты. */
+      .hm-home-rail { gap: 16px; scroll-padding: 0; margin-inline: -4px; padding: 4px 4px 8px; }
+      .hm-home-doc {
+        flex-basis: 280px;
+        gap: 14px;
         padding: 20px;
-        display: flex; flex-direction: column; gap: 14px;
-        text-decoration: none; color: var(--n-ink);
-        transition: transform .15s, box-shadow .2s, border-color .15s;
+        transition: transform 0.15s, box-shadow 0.2s, border-color 0.15s;
       }
-      .dw-doctor:hover {
+      .hm-home-doc-avatar { width: 56px; height: 56px; font-size: 16px; }
+      .hm-home-doc-name { font-size: 15px; }
+      .hm-home-doc-spec { font-size: 13px; }
+      .hm-home-doc-place { font-size: 13px; }
+      .hm-home-doc-price { font-size: 12px; }
+      .hm-home-doc-price strong { margin-left: 4px; font-size: 15px; }
+      .hm-home-doc-book { padding: 9px 16px; font-size: 13px; }
+    }
+
+    /* Подъём при наведении — только там, где есть курсор: на тач-экране его
+       нечем отменить, и он остаётся висеть после касания, конфликтуя с .tap. */
+    @media (min-width: 768px) and (hover: hover) {
+      .hm-home-spec:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(10,31,37,0.08); }
+      .hm-home-doc:hover {
         transform: translateY(-2px);
         box-shadow: 0 12px 28px rgba(10,31,37,0.08);
         border-color: var(--teal);
       }
-      .dw-doctor-head { display: flex; align-items: center; gap: 12px; }
-      .dw-doctor-avatar {
-        width: 56px; height: 56px; border-radius: 28px;
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 16px; font-weight: 700; color: var(--n-ink);
-        flex-shrink: 0;
-      }
-      .dw-doctor-avatar-img {
-        object-fit: cover; background-color: var(--n-line);
-      }
-      .dw-doctor-head-body { min-width: 0; flex: 1; }
-      .dw-doctor-name {
-        display: block;
-        font-size: 15px; font-weight: 700; line-height: 1.2;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      .dw-doctor-spec {
-        display: block;
-        font-size: 13px; color: var(--n-muted); margin-top: 4px;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      .dw-doctor-cta-row {
-        display: flex; justify-content: space-between; align-items: center;
-        margin-top: auto;
-      }
-      .dw-doctor-price { font-size: 12px; color: var(--n-muted); }
-      .dw-doctor-price strong { color: var(--n-ink); font-size: 15px; font-weight: 800; margin-left: 4px; }
-      .dw-doctor-book {
-        padding: 9px 16px; border-radius: 999px;
-        background: var(--teal); color: #fff;
-        font-size: 13px; font-weight: 700;
-      }
-
-      /* ── Desktop footer ─────────────────────── */
     }
 
-    @media (max-width: 767.98px) {
-      .dw-page { display: none !important; }}
+    @media (min-width: 1024px) {
+      .hm-home-shell { padding-inline: var(--site-gutter); }
 
-    /* ── Tablet & narrow desktop (768–1023) ─────────────────── */
-    @media (min-width: 768px) and (max-width: 1023.98px) {
-      .dw-hero-section,
-      .dw-search-hero,
-      .dw-section,
-      .dw-offline-section {
-        padding-left: clamp(20px, 4vw, 40px);
-        padding-right: clamp(20px, 4vw, 40px);
+      .hm-home-banner { grid-template-columns: 1.4fr 1fr; gap: 40px; min-height: 444px; padding: 44px 56px; }
+      .hm-home-banner-title { font-size: 48px; }
+      .hm-home-banner-desc { font-size: 16px; }
+
+      .hm-home-find {
+        grid-template-columns: 5fr 7fr;
+        align-items: center;
+        gap: 56px;
+        padding-block: 56px;
       }
-      .dw-section { padding-top: 32px; padding-bottom: 32px; }
-      .dw-search-hero { padding-top: 36px; padding-bottom: 36px; }
-      .dw-offline-section { padding-top: 24px; padding-bottom: 24px; }
+      .hm-home-find-title { font-size: 44px; }
+      .hm-home-find-desc { margin-top: 18px; font-size: 17px; }
 
-      /* Header — tighter nav, hide some links to avoid overflow */
-      /* Hero — shorter min-height, smaller title, art is decorative */
-      .dw-banner {
-        padding: 32px 32px;
-        min-height: 360px;
-        grid-template-columns: 1.5fr 1fr;
-        gap: 24px;
-      }
-      .dw-banner-title { font-size: 36px; }
-      .dw-banner-desc { font-size: 15px; }
-      .dw-banner-art > svg { width: 220px; height: 220px; }
-
-      /* Search hero — stack promise + form vertically; card grows full width */
-      .dw-search-hero-inner {
-        grid-template-columns: 1fr;
-        gap: 32px;
-      }
-      .dw-search-promise h2 { font-size: 32px; }
-      .dw-search-card-wrap { width: 100%; }
-
-      /* Specialty grid — 3 cols, large takes a full row */
-      .dw-specs-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
-      .dw-spec-card.is-large { grid-column: span 3; min-height: 140px; }
-      .dw-spec-card { min-height: 130px; padding: 18px; }
-      .dw-section-head h2 { font-size: 26px; }
-
-      /* Footer — collapse to 2 columns; brand spans full row */
-    }</style>
-
-  <script>
-    // ── Sticky bg blur on scroll ─────────────────────────
-    // The top bar moved into <SiteHeader> and brought its own handler along.
-    (() => {
-      const stickySearch = document.getElementById("mw-sticky-search");
-      if (!stickySearch) return;
-      const onScroll = () => stickySearch.classList.toggle("is-scrolled", window.scrollY > 240);
-      window.addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-    })();
-  </script>
+      .hm-home-section-head h2 { font-size: 32px; }
+      .hm-home-spec-grid { grid-template-columns: repeat(6, 1fr); }
+      .hm-home-spec { min-height: 140px; padding: 24px; }
+      .hm-home-spec.is-featured { grid-column: span 3; min-height: 200px; }
+    }
+  </style>
 
   <LoginModal />
 </BaseLayout>
