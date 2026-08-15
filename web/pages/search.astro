@@ -25,8 +25,8 @@ const specialtyLabels = Object.fromEntries(
 );
 
 // Search-result projection. Detail-only fields (bio, education, reviews,
-// languages, conditionsTreated, address, phone) live on /doctor/{slug} —
-// keep this list lean to minimise HTML payload size.
+// conditionsTreated, address, phone) live on /doctor/{slug} — keep this list
+// lean to minimise HTML payload size.
 const doctorItems = DOCTOR_MOCKS.map((d) => ({
   id: d.id,
   slug: doctorSlug(d),
@@ -36,15 +36,7 @@ const doctorItems = DOCTOR_MOCKS.map((d) => ({
   specialty: d.specialty,
   subspecialty: d.subspecialty ?? null,
   clinic: d.clinic,
-  rating: d.rating ?? null,
-  ratingCount: d.ratingCount ?? null,
-  distance: d.distance ?? null,
   yearsExperience: d.yearsExperience ?? null,
-  acceptingNewPatients: d.acceptingNewPatients ?? null,
-  nextAvailable: d.nextAvailable ?? null,
-  // Detail-richness fields surfaced in the desktop list card (Yandex.Health-style).
-  // Trimmed at projection time: first 3 conditions / first 2 languages.
-  conditions: (d.conditionsTreated ?? []).slice(0, 3),
   languages: (d.languages ?? []).slice(0, 2),
 }));
 
@@ -130,7 +122,9 @@ const breadcrumbs = {
       </button>
     </form>
 
-    <p class="mt-6 text-[12.5px] text-distant-graphite" id="result-meta" hidden>
+    {/* aria-live: выдача перерисовывается целиком, и без объявления счётчика
+        смена числа совпадений для скринридера проходит беззвучно. */}
+    <p class="mt-6 text-[12.5px] text-distant-graphite" id="result-meta" aria-live="polite" hidden>
       <span id="result-count" class="font-medium text-soft-graphite">—</span>
       {" "}
       <span id="result-noun">докторов</span>
@@ -250,17 +244,10 @@ const breadcrumbs = {
               aria-hidden="true"
             ></span>
             <div class="min-w-0 flex-1">
-              <div class="flex items-baseline justify-between gap-2">
-                <p
-                  data-eyebrow
-                  class="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-distant-graphite"
-                ></p>
-                <span
-                  data-new-patients
-                  hidden
-                  class="shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-confirmed-sage"
-                >принимает новых</span>
-              </div>
+              <p
+                data-eyebrow
+                class="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-distant-graphite"
+              ></p>
               <p
                 data-name
                 class="mt-1 text-[15.5px] font-medium leading-tight tracking-[-0.008em] text-graphite"
@@ -271,15 +258,6 @@ const breadcrumbs = {
                 class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] tabular-nums text-distant-graphite"
               ></div>
             </div>
-          </div>
-          <div class="mt-3 flex items-baseline gap-2 border-t border-hairline pt-3">
-            <span class="text-[10px] font-semibold uppercase tracking-[0.12em] text-distant-graphite">
-              Ближайший слот
-            </span>
-            <span
-              data-slot
-              class="truncate text-[13px] font-medium tabular-nums text-brick-teal"
-            ></span>
           </div>
         </a>
       </li>
@@ -380,7 +358,8 @@ const breadcrumbs = {
       <section class="dw-results-section">
         <div class="dw-results-bar">
           <div class="dw-results-heading">
-            <span class="dw-results-count" id="dw-results-count">—</span>
+            {/* aria-live: см. счётчик мобильной оболочки */}
+            <span class="dw-results-count" id="dw-results-count" aria-live="polite">—</span>
             <span class="dw-results-noun" id="dw-results-noun">врачей</span>
             <span class="dw-results-city"> принимают в Бишкеке</span>
           </div>
@@ -390,9 +369,9 @@ const breadcrumbs = {
             this block; once the script flips `setUiState("results")` it hides.
             Matches mobile shell parity so SSR/SSG paint isn't blank chrome. */}
         <ul class="dw-doctor-list" id="dw-doctor-skeleton" aria-hidden="true">
-          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span><span class="dw-card-skel-book"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
-          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span><span class="dw-card-skel-book"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
-          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span><span class="dw-card-skel-book"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
         </ul>
 
         <ul class="dw-doctor-list" id="dw-doctor-list" hidden></ul>
@@ -417,7 +396,7 @@ const breadcrumbs = {
     <SiteFooter variant="desktop" />
   </div>
 
-  {/* Desktop card template — three-column rich layout: avatar | info | booking.
+  {/* Desktop card template — two-column layout: avatar | info.
       Cloned per doctor by JS. NO JSX comments inside this <template>; Astro's
       compiler can leak them as live DOM (bit us once). All inline comments live
       out here. */}
@@ -426,30 +405,16 @@ const breadcrumbs = {
       <a class="dw-card-link" data-link>
         <div class="dw-card-photo">
           <span class="dw-card-photo-initials" data-initials></span>
-          <span class="dw-card-photo-dot" data-online hidden aria-label="Принимает новых"></span>
         </div>
 
         <div class="dw-card-info">
           <h3 class="dw-card-name" data-name></h3>
           <div class="dw-card-chips">
-            <span class="dw-card-rating-chip" data-rating-block hidden>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="#E8B96A">
-                <path d="M12 2.5l3 6.4 7 1-5 4.9 1.2 7L12 18.4 5.8 21.8 7 14.8 2 9.9l7-1z"/>
-              </svg>
-              <span class="dw-card-rating-val" data-rating></span>
-              <span class="dw-card-rating-count" data-rating-count></span>
-            </span>
             <span class="dw-card-exp-chip" data-exp-chip hidden>
               <span data-exp></span>
             </span>
-            <span class="dw-card-accepting-chip" data-accepting hidden>Принимает новых</span>
           </div>
           <p class="dw-card-spec" data-spec></p>
-
-          <div class="dw-card-section" data-conditions-section hidden>
-            <span class="dw-card-section-label">Чаще всего обращаются</span>
-            <span class="dw-card-section-value" data-conditions></span>
-          </div>
 
           <div class="dw-card-section" data-langs-section hidden>
             <span class="dw-card-section-label">Языки приёма</span>
@@ -462,24 +427,7 @@ const breadcrumbs = {
               <path d="M10 9h4"/><path d="M10 13h4"/><path d="M10 17h4"/>
             </svg>
             <span data-clinic></span>
-            <span class="dw-card-distance" data-distance hidden></span>
           </div>
-        </div>
-
-        <div class="dw-card-booking">
-          <div class="dw-card-week" data-week aria-hidden="true"></div>
-          <div class="dw-card-booking-label">
-            <span class="dw-card-booking-eyebrow">Ближайший приём</span>
-            <span class="dw-card-booking-day" data-day></span>
-          </div>
-          <span class="dw-card-book-cta" data-slot-cta>
-            <span class="dw-card-book-time" data-slot></span>
-            <span class="dw-card-book-arrow" aria-hidden="true">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
-              </svg>
-            </span>
-          </span>
         </div>
       </a>
     </li>
@@ -552,45 +500,6 @@ const breadcrumbs = {
       const pDoctorsLong = (n) => pluralize(n, ["врач", "врача", "врачей"]);
       const pYears = (n) => pluralize(n, ["год опыта", "года опыта", "лет опыта"]);
       const pYearsShort = (n) => pluralize(n, ["год", "года", "лет"]);
-      const pReviews = (n) => pluralize(n, ["отзыв", "отзыва", "отзывов"]);
-
-      const RU_MONTHS = ["янв","фев","мар","апр","мая","июня","июля","авг","сен","окт","ноя","дек"];
-      const RU_WEEKDAYS = ["вс","пн","вт","ср","чт","пт","сб"];
-      const dayMs = 86400000;
-
-      function formatSlot(iso) {
-        if (!iso) return "Свяжитесь с клиникой";
-        const date = new Date(iso);
-        if (Number.isNaN(date.getTime())) return iso;
-        const now = new Date();
-        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-        const diff = Math.round((startDate - startToday) / dayMs);
-        const time = String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
-        if (diff === 0) return "Сегодня · " + time;
-        if (diff === 1) return "Завтра · " + time;
-        return RU_WEEKDAYS[date.getDay()] + ", " + date.getDate() + " " + RU_MONTHS[date.getMonth()] + " · " + time;
-      }
-
-      function formatDayLabel(iso) {
-        if (!iso) return "";
-        const date = new Date(iso);
-        if (Number.isNaN(date.getTime())) return "";
-        const now = new Date();
-        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-        const diff = Math.round((startDate - startToday) / dayMs);
-        if (diff === 0) return "сегодня";
-        if (diff === 1) return "завтра";
-        return RU_WEEKDAYS[date.getDay()] + " " + date.getDate() + " " + RU_MONTHS[date.getMonth()];
-      }
-
-      function formatSlotTimeOnly(iso) {
-        if (!iso) return "Связь с клиникой";
-        const date = new Date(iso);
-        if (Number.isNaN(date.getTime())) return iso;
-        return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
-      }
 
       function readState() {
         const p = new URLSearchParams(location.search);
@@ -716,75 +625,18 @@ const breadcrumbs = {
           ? d.specialty + " · " + d.subspecialty
           : d.specialty;
 
-        li.querySelector("[data-new-patients]").hidden = d.acceptingNewPatients !== true;
-
         li.querySelector("[data-name]").textContent = d.name;
         li.querySelector("[data-clinic]").textContent = d.clinic;
 
         const meta = li.querySelector("[data-meta]");
         meta.replaceChildren();
-        if (d.distance) {
-          const s = document.createElement("span");
-          s.textContent = d.distance;
-          meta.appendChild(s);
-        }
         if (typeof d.yearsExperience === "number") {
           const s = document.createElement("span");
           s.textContent = d.yearsExperience + " " + pYears(d.yearsExperience);
           meta.appendChild(s);
         }
-        if (typeof d.rating === "number") {
-          const s = document.createElement("span");
-          s.textContent = d.rating.toFixed(1);
-          if (typeof d.ratingCount === "number") {
-            const tail = document.createElement("span");
-            tail.className = "text-mist-graphite";
-            tail.textContent = " · " + d.ratingCount + " " + pReviews(d.ratingCount);
-            s.appendChild(tail);
-          }
-          meta.appendChild(s);
-        }
 
-        li.querySelector("[data-slot]").textContent = formatSlot(d.nextAvailable);
         return frag;
-      }
-
-      // Build a 7-day week strip (Mon→Sun) anchored on the WEEK of the doctor's
-      // next available slot, so the active day is always visible inside the strip.
-      // If no slot data, anchor on the current week. The matched day is highlighted;
-      // past days are dimmed. Non-interactive — pure visual signal.
-      function buildWeekStrip(parent, nextAvailable) {
-        const WD = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const target = nextAvailable ? new Date(nextAvailable) : null;
-        const validTarget = target && !Number.isNaN(target.getTime()) ? target : now;
-        const anchorDayIdx = (validTarget.getDay() + 6) % 7; // 0 = Mon
-        const monday = new Date(validTarget);
-        monday.setDate(validTarget.getDate() - anchorDayIdx);
-        const targetStart = target && !Number.isNaN(target.getTime())
-          ? new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime()
-          : null;
-
-        parent.replaceChildren();
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(monday);
-          date.setDate(monday.getDate() + i);
-          const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-          const cell = document.createElement("span");
-          cell.className = "dw-card-week-cell";
-          if (dayStart === targetStart) cell.dataset.state = "active";
-          else if (dayStart < todayStart) cell.dataset.state = "past";
-          const wd = document.createElement("span");
-          wd.className = "dw-card-week-cell-wd";
-          wd.textContent = WD[i];
-          const dn = document.createElement("span");
-          dn.className = "dw-card-week-cell-d";
-          dn.textContent = String(date.getDate());
-          cell.appendChild(wd);
-          cell.appendChild(dn);
-          parent.appendChild(cell);
-        }
       }
 
       function renderDesktopCard(d) {
@@ -797,8 +649,6 @@ const breadcrumbs = {
         // LEFT — initials block. The color from the mock tints the gradient subtly
         // so cards stay visually distinct without becoming a rainbow.
         li.querySelector("[data-initials]").textContent = d.initials;
-        const photoDot = li.querySelector("[data-online]");
-        photoDot.hidden = d.acceptingNewPatients !== true;
 
         // MIDDLE — name, chips, specialty, sections, clinic
         li.querySelector("[data-name]").textContent = d.name;
@@ -806,15 +656,6 @@ const breadcrumbs = {
           ? d.specialty + " · " + d.subspecialty
           : d.specialty;
 
-        // Rating chip with pluralized review count
-        if (typeof d.rating === "number") {
-          li.querySelector("[data-rating-block]").hidden = false;
-          li.querySelector("[data-rating]").textContent = d.rating.toFixed(1);
-          if (typeof d.ratingCount === "number") {
-            li.querySelector("[data-rating-count]").textContent =
-              "· " + d.ratingCount + " " + pReviews(d.ratingCount);
-          }
-        }
         // Experience chip — "Стаж 14 лет"
         const expChip = li.querySelector("[data-exp-chip]");
         if (typeof d.yearsExperience === "number") {
@@ -822,14 +663,7 @@ const breadcrumbs = {
           expChip.querySelector("[data-exp]").textContent =
             "Стаж " + d.yearsExperience + " " + pYearsShort(d.yearsExperience);
         }
-        li.querySelector("[data-accepting]").hidden = d.acceptingNewPatients !== true;
 
-        // Conditions section — "Чаще всего обращаются: A · B · C"
-        if (Array.isArray(d.conditions) && d.conditions.length > 0) {
-          const sec = li.querySelector("[data-conditions-section]");
-          sec.hidden = false;
-          li.querySelector("[data-conditions]").textContent = d.conditions.join(" · ");
-        }
         // Languages section
         if (Array.isArray(d.languages) && d.languages.length > 0) {
           const sec = li.querySelector("[data-langs-section]");
@@ -838,29 +672,6 @@ const breadcrumbs = {
         }
 
         li.querySelector("[data-clinic]").textContent = d.clinic;
-        const dist = li.querySelector("[data-distance]");
-        if (d.distance) {
-          dist.hidden = false;
-          dist.textContent = d.distance + " от центра";
-        }
-
-        // RIGHT — week strip + booking CTA
-        buildWeekStrip(li.querySelector("[data-week]"), d.nextAvailable);
-        const dayLabel = formatDayLabel(d.nextAvailable);
-        const slotEl = li.querySelector("[data-slot]");
-        const dayEl = li.querySelector("[data-day]");
-        const cta = li.querySelector("[data-slot-cta]");
-        if (d.nextAvailable && dayLabel) {
-          dayEl.textContent = "Запись на " + dayLabel;
-          slotEl.textContent = "Записаться · " + formatSlotTimeOnly(d.nextAvailable);
-        } else {
-          // Honest fallback when we have no slot data: quieter outline CTA, no
-          // fake time. Still navigates to the doctor profile (whole card is the
-          // link), where the user can request a callback.
-          cta.dataset.empty = "true";
-          dayEl.textContent = "По запросу";
-          slotEl.textContent = "Связаться с клиникой";
-        }
 
         return frag;
       }
@@ -1150,7 +961,7 @@ const breadcrumbs = {
       .dw-results-city {
         font-size: 14px; color: var(--n-muted);
       }
-      /* ── Doctor list + three-column card ─────── */
+      /* ── Doctor list + two-column card ───────── */
       .dw-doctor-list {
         list-style: none; padding: 0; margin: 0;
         display: flex; flex-direction: column; gap: 12px;
@@ -1158,7 +969,7 @@ const breadcrumbs = {
       .dw-card { display: block; }
       .dw-card-link {
         display: grid;
-        grid-template-columns: 120px minmax(0, 1fr) 280px;
+        grid-template-columns: 120px minmax(0, 1fr);
         gap: 24px;
         background: #fff; border-radius: var(--r-card);
         border: 1px solid var(--n-line-soft);
@@ -1173,7 +984,6 @@ const breadcrumbs = {
 
       /* LEFT — initials block (no photo data in mocks; would be <img> in prod) */
       .dw-card-photo {
-        position: relative;
         width: 120px; height: 140px;
         border-radius: var(--r-card);
         display: grid; place-items: center;
@@ -1187,12 +997,6 @@ const breadcrumbs = {
         font-size: 44px;
         line-height: 1;
       }
-      .dw-card-photo-dot {
-        position: absolute; right: 10px; bottom: 10px;
-        width: 14px; height: 14px; border-radius: 50%;
-        background: var(--n-green); border: 2.5px solid #fff;
-      }
-
       /* MIDDLE — name, chips, specialty, sections, clinic */
       .dw-card-info {
         min-width: 0;
@@ -1206,24 +1010,11 @@ const breadcrumbs = {
         display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         margin-top: 2px;
       }
-      .dw-card-rating-chip {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 3px 9px; background: #f6efe2;
-        border-radius: var(--r-pill); font-size: 13px;
-      }
-      .dw-card-rating-val { font-weight: 700; color: #7a5a2e; }
-      .dw-card-rating-count { color: #a38658; font-weight: 500; font-size: 12px; }
       .dw-card-exp-chip {
         display: inline-flex; align-items: center;
         padding: 3px 9px; background: var(--n-line-soft);
         border-radius: var(--r-pill);
         font-size: 12px; font-weight: 600; color: var(--n-ink2);
-      }
-      .dw-card-accepting-chip {
-        display: inline-flex; align-items: center;
-        padding: 3px 9px; background: #e5f2ec; color: var(--n-green);
-        border-radius: var(--r-pill);
-        font-size: 12px; font-weight: 600;
       }
       .dw-card-spec {
         margin: 2px 0 0; font-size: 14px; color: var(--n-ink2);
@@ -1247,92 +1038,8 @@ const breadcrumbs = {
         font-size: 13px; color: var(--n-ink2);
       }
       .dw-card-clinic > svg { color: var(--n-muted); flex: none; }
-      .dw-card-clinic > span:not(.dw-card-distance) {
+      .dw-card-clinic > span {
         font-weight: 600; color: var(--n-ink);
-      }
-      .dw-card-distance {
-        font-size: 12px; color: var(--n-muted); font-weight: 500;
-      }
-      .dw-card-distance::before { content: '·'; margin-right: 8px; color: var(--n-muted2); }
-
-      /* RIGHT — week strip + CTA */
-      .dw-card-booking {
-        display: flex; flex-direction: column; gap: 10px;
-        padding-left: 24px;
-        border-left: 1px solid var(--n-line-soft);
-      }
-      .dw-card-week {
-        display: grid; grid-template-columns: repeat(7, 1fr);
-        gap: 2px;
-      }
-      .dw-card-week-cell {
-        display: flex; flex-direction: column; align-items: center;
-        padding: 4px 0 6px;
-        border-radius: var(--r-chip);
-        font-family: inherit;
-        line-height: 1;
-      }
-      .dw-card-week-cell-wd {
-        font-size: 10px; font-weight: 600;
-        color: var(--n-muted2);
-        letter-spacing: 0.04em;
-        margin-bottom: 4px;
-        text-transform: lowercase;
-      }
-      .dw-card-week-cell-d {
-        font-size: 13px; font-weight: 600;
-        color: var(--n-ink2);
-        font-variant-numeric: tabular-nums;
-      }
-      .dw-card-week-cell[data-state="past"] .dw-card-week-cell-d,
-      .dw-card-week-cell[data-state="past"] .dw-card-week-cell-wd {
-        color: var(--n-muted2);
-      }
-      .dw-card-week-cell[data-state="active"] {
-        background: var(--teal);
-      }
-      .dw-card-week-cell[data-state="active"] .dw-card-week-cell-wd,
-      .dw-card-week-cell[data-state="active"] .dw-card-week-cell-d {
-        color: #fff;
-      }
-      .dw-card-booking-label {
-        display: flex; flex-direction: column; gap: 2px;
-        margin-top: 2px;
-      }
-      .dw-card-booking-eyebrow {
-        font-size: 11px; font-weight: 700;
-        letter-spacing: 0.08em; text-transform: uppercase;
-        color: var(--n-muted);
-      }
-      .dw-card-booking-day {
-        font-size: 13px; color: var(--n-ink2); font-weight: 600;
-      }
-      /* Single honest primary CTA: time + arrow. Whole card is the link, so
-         this span doesn't need to be a button — it visually anchors the booking
-         intent without lying that it's a slot picker. */
-      .dw-card-book-cta {
-        display: inline-flex; align-items: center; justify-content: space-between;
-        gap: 8px;
-        margin-top: auto;
-        padding: 10px 14px 10px 16px;
-        background: var(--teal); color: #fff;
-        border-radius: var(--r-control);
-        font-family: inherit; font-weight: 700; font-size: 15px;
-        font-variant-numeric: tabular-nums;
-        transition: background .15s, transform .08s;
-      }
-      .dw-card-link:hover .dw-card-book-cta { background: var(--teal-hover); }
-      .dw-card-book-time { letter-spacing: -0.01em; }
-      .dw-card-book-arrow {
-        display: inline-flex; opacity: 0.85;
-        transition: transform .15s;
-      }
-      .dw-card-link:hover .dw-card-book-arrow { transform: translateX(2px); }
-      /* When there's no slot data, CTA falls back to a quieter outline style */
-      .dw-card-book-cta[data-empty="true"] {
-        background: transparent; color: var(--teal);
-        border: 1px solid var(--n-line);
-        font-size: 13px;
       }
 
       /* Empty / error blocks */
@@ -1366,7 +1073,7 @@ const breadcrumbs = {
         border-radius: var(--r-card);
         padding: 20px 24px;
         display: grid;
-        grid-template-columns: 120px minmax(0, 1fr) 280px;
+        grid-template-columns: 120px minmax(0, 1fr);
         gap: 24px;
         align-items: stretch;
         min-height: 180px;
@@ -1383,13 +1090,6 @@ const breadcrumbs = {
       .dw-card-skel-info .dw-skel-line:nth-child(2) { width: 35%; height: 12px; }
       .dw-card-skel-info .dw-skel-line:nth-child(3) { width: 80%; height: 12px; }
       .dw-card-skel-info .dw-skel-line:nth-child(4) { width: 60%; height: 12px; margin-top: auto; }
-      .dw-card-skel-book {
-        display: flex; flex-direction: column; gap: 10px;
-        padding-left: 24px; border-left: 1px solid var(--n-line-soft);
-      }
-      .dw-card-skel-book .dw-skel-line:first-child { width: 100%; height: 28px; }
-      .dw-card-skel-book .dw-skel-line:nth-child(2) { width: 60%; height: 12px; }
-      .dw-card-skel-book .dw-skel-line:last-child { width: 100%; height: 40px; margin-top: auto; }
       .dw-skel-line {
         display: block; border-radius: var(--r-chip);
         background: linear-gradient(90deg, var(--n-line-soft) 0%, #f3f0eb 50%, var(--n-line-soft) 100%);
@@ -1426,33 +1126,14 @@ const breadcrumbs = {
       .dw-pill-field-div { border-left: none; border-top: 1px solid var(--n-line-soft); }
       .dw-pill-submit { width: 100%; border-radius: var(--r-control); }
 
-      /* On tablet, collapse the three-column card to two stacked rows:
-         (photo + info) on top, booking column underneath. */
+      /* На планшете колонка с инициалами ужимается, чтобы тексту осталась ширина. */
       .dw-card-link,
       .dw-card-skel {
         grid-template-columns: 80px minmax(0, 1fr);
       }
       .dw-card-photo { width: 80px; height: 96px; }
       .dw-card-photo-initials { font-size: 32px; }
-      .dw-card-booking {
-        grid-column: 1 / -1;
-        flex-direction: row; align-items: center; flex-wrap: wrap; gap: 14px;
-        padding-left: 0;
-        padding-top: 14px;
-        border-left: none;
-        border-top: 1px solid var(--n-line-soft);
-      }
-      .dw-card-week { flex: 1; min-width: 200px; }
-      .dw-card-booking-label { flex: 0 1 auto; }
-      .dw-card-book-cta { flex: 0 0 auto; margin-top: 0; }
-
       .dw-card-skel-photo { height: 96px; }
-      .dw-card-skel-book {
-        grid-column: 1 / -1;
-        flex-direction: row;
-        border-left: none; padding-left: 0;
-        border-top: 1px solid var(--n-line-soft); padding-top: 14px;
-      }
     }
   </style>
 </BaseLayout>
