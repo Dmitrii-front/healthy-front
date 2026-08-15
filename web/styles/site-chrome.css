@@ -12,8 +12,9 @@
  * Страница врача — колонка 960px, поэтому переопределяет оба: иначе логотип
  * ушёл бы к краю экрана, а хлебные крошки под ним остались бы по центру.
  *
- * Шрифт задан явно на каждом блоке: базовый шрифт страниц другой (Inter из
- * globals.css), и без этой строки обвязка выглядела бы из чужого макета.
+ * Шрифт обвязка не задаёт: наследует его от .hm-site на корне страницы. Класс
+ * там обязателен — базовый шрифт документа другой (--font-sans из globals.css),
+ * и без него обвязка окажется из чужого макета.
  *
  * Видимость блоки держат сами: страницы построены одним адаптивным деревом,
  * обе версии стоят в нём подряд, и обёрток .mw-shell / .dw-page больше нет.
@@ -29,6 +30,13 @@
      иначе уезжают под неё. 10 + 38.5 (кнопка «Войти» — самый высокий элемент,
      логотип ниже) + 10, округлено вверх. */
   --site-header-h: calc(env(safe-area-inset-top, 0px) + 59px);
+}
+
+/* Корневой блок каждой страницы сайта. Шрифт стоит здесь, а не на body:
+   BaseLayout обслуживает ещё 404 и страницы почтовых ссылок, у которых своей
+   обвязки нет и которые остаются в базовом шрифте документа. */
+.hm-site {
+  font-family: var(--site-font);
 }
 
 /* Страницы с узкой колонкой помечают корневой блок классом .hm-page: контент
@@ -60,26 +68,12 @@
   place-items: center;
   font-weight: 700;
   font-size: 18px;
-  font-family:
-    'Manrope',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    system-ui,
-    sans-serif;
 }
 .mw-logo-text {
   font-weight: 700;
   font-size: 18px;
   color: #0f1115;
   letter-spacing: -0.01em;
-  font-family:
-    'Manrope',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    system-ui,
-    sans-serif;
 }
 
 /* ── Мобильная шапка ────────────────────────────────────────────── */
@@ -96,13 +90,6 @@
     background 0.18s ease,
     border-color 0.18s ease;
   border-bottom: 1px solid transparent;
-  font-family:
-    'Manrope',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    system-ui,
-    sans-serif;
 }
 /* Фон появляется только после начала прокрутки: у самого верха баннер и
    логотип читаются на кремовом фоне страницы без подложки. */
@@ -131,13 +118,6 @@
   padding: 28px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
   background: #0a1f25;
   color: rgba(255, 255, 255, 0.7);
-  font-family:
-    'Manrope',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    system-ui,
-    sans-serif;
 }
 /* Логотип на тёмной подложке подвала — обе версии. */
 .mw-footer .mw-logo,
@@ -221,13 +201,6 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-bottom: 1px solid #edebe6;
-    font-family:
-      'Manrope',
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      system-ui,
-      sans-serif;
     color: #0f1115;
   }
   .dw-header-inner {
@@ -275,13 +248,6 @@
     background: #0a1f25;
     color: rgba(255, 255, 255, 0.7);
     padding: 64px 0 32px;
-    font-family:
-      'Manrope',
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      system-ui,
-      sans-serif;
   }
   .dw-footer-inner {
     max-width: var(--site-max);
