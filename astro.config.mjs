@@ -10,6 +10,7 @@ import { defineConfig } from 'astro/config'
 
 import cfWranglerMirror from './web/integrations/cf-wrangler-mirror.mjs'
 import prefetchList from './web/integrations/prefetch-list.mjs'
+import searchIndexBudget from './web/integrations/search-index-budget.mjs'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -25,6 +26,7 @@ export default defineConfig({
     sitemap({ filter: (page) => !page.includes('/app/') }),
     prefetchList(),
     cfWranglerMirror(),
+    searchIndexBudget(),
   ],
   vite: {
     plugins: [tailwindcss()],
