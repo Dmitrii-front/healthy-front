@@ -59,404 +59,152 @@ const breadcrumbs = {
 };
 ---
 
-<BaseLayout
-  title="Найти врача — Healthy"
-  description={description}
->
-  {/* ════════════════════════════════════════════════ */}
-  {/*  MOBILE SHELL (<768px)                            */}
-  {/* ════════════════════════════════════════════════ */}
-  <SiteHeader variant="mobile" />
-  <main class="mw-shell mx-auto max-w-screen-md px-4 pb-10 pt-8">
-    <nav class="mb-4 text-[12.5px] text-distant-graphite">
-      <a href="/" class="hover:text-soft-graphite">Главная</a> ·
-      <span>Поиск врача</span>
-    </nav>
-
-    <header>
-      <h1
-        id="search-h1"
-        class="text-[28px] font-medium leading-[1.1] tracking-[-0.022em] text-graphite"
-      >
-        Найти врача
-      </h1>
-      <p class="mt-3 max-w-lg text-[15px] leading-relaxed text-soft-graphite">
-        {description}
-      </p>
-    </header>
-
-    {/* Regular GET form: degrades to a page reload without JS. With JS, the
-        submit handler intercepts and re-runs the fetch in place. */}
-    <form
-      id="search-form"
-      action="/search"
-      method="get"
-      role="search"
-      class="mt-6 flex flex-col gap-2 sm:flex-row"
-    >
-      <label class="flex flex-1 items-center gap-2 rounded-[14px] border border-hairline-strong bg-card-white px-3.5 py-2.5 focus-within:border-soft-graphite">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="text-distant-graphite">
-          <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
-          <path d="m21 21-4.3-4.3"/>
-        </svg>
-        <input
-          id="search-q"
-          name="q"
-          type="search"
-          placeholder="Имя или специальность"
-          autocomplete="off"
-          class="w-full bg-transparent text-[14px] text-graphite outline-none placeholder:text-mist-graphite"
-        />
-      </label>
-      <label class="flex items-center gap-2 rounded-[14px] border border-hairline-strong bg-card-white px-3.5 py-2.5">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="text-distant-graphite">
-          <path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
-        </svg>
-        <select
-          id="search-specialty"
-          name="specialty"
-          class="bg-transparent text-[14px] text-graphite outline-none"
-        >
-          <option value="">Все специальности</option>
-          {specialtyOptions.map((option) => (
-            <option value={option.key}>{option.label} ({option.count})</option>
-          ))}
-        </select>
-      </label>
-      <label class="flex items-center gap-2 rounded-[14px] border border-hairline-strong bg-card-white px-3.5 py-2.5">
-        <select
-          id="search-lang"
-          name="lang"
-          class="bg-transparent text-[14px] text-graphite outline-none"
-          aria-label="Язык приёма"
-        >
-          <option value="">Любой язык</option>
-          {languageOptions.map((option) => (
-            <option value={option.key}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="submit"
-        class="inline-flex h-11 items-center justify-center rounded-pill bg-clinic-teal px-6 text-[14px] font-medium text-card-white hover:bg-brick-teal"
-      >
-        Найти
-      </button>
-    </form>
-
-    {/* aria-live: выдача перерисовывается целиком, и без объявления счётчика
-        смена числа совпадений для скринридера проходит беззвучно. */}
-    <p class="mt-6 text-[12.5px] text-distant-graphite" id="result-meta" aria-live="polite" hidden>
-      <span id="result-count" class="font-medium text-soft-graphite">—</span>
-      {" "}
-      <span id="result-noun">докторов</span>
-    </p>
-
-    {/* Loading skeleton — visible while a fetch is in flight. Four rows match
-        the average viewport before doctors arrive. */}
-    <div id="loading-state" class="mt-4 flex flex-col gap-2" aria-busy="true" aria-label="Загрузка">
-      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
-        <div class="flex gap-3">
-          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
-          <div class="min-w-0 flex-1">
-            <div class="h-[10px] w-24 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[15px] w-3/4 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[12px] w-1/2 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-1.5 h-[11px] w-2/5 animate-pulse rounded-xs bg-linen-shade"></div>
-          </div>
-        </div>
-        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
-          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
-          <div class="h-[13px] w-28 animate-pulse rounded-xs bg-linen-shade"></div>
-        </div>
-      </div>
-      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
-        <div class="flex gap-3">
-          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
-          <div class="min-w-0 flex-1">
-            <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[15px] w-2/3 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[12px] w-3/5 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-1.5 h-[11px] w-1/3 animate-pulse rounded-xs bg-linen-shade"></div>
-          </div>
-        </div>
-        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
-          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
-          <div class="h-[13px] w-24 animate-pulse rounded-xs bg-linen-shade"></div>
-        </div>
-      </div>
-      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
-        <div class="flex gap-3">
-          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
-          <div class="min-w-0 flex-1">
-            <div class="h-[10px] w-28 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[15px] w-4/5 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[12px] w-1/2 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-1.5 h-[11px] w-2/5 animate-pulse rounded-xs bg-linen-shade"></div>
-          </div>
-        </div>
-        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
-          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
-          <div class="h-[13px] w-32 animate-pulse rounded-xs bg-linen-shade"></div>
-        </div>
-      </div>
-      <div class="rounded-[18px] border border-hairline bg-card-white p-3.5">
-        <div class="flex gap-3">
-          <div class="size-12 shrink-0 animate-pulse rounded-pill bg-linen-shade"></div>
-          <div class="min-w-0 flex-1">
-            <div class="h-[10px] w-24 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[15px] w-3/4 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-2 h-[12px] w-2/5 animate-pulse rounded-xs bg-linen-shade"></div>
-            <div class="mt-1.5 h-[11px] w-1/3 animate-pulse rounded-xs bg-linen-shade"></div>
-          </div>
-        </div>
-        <div class="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
-          <div class="h-[10px] w-20 animate-pulse rounded-xs bg-linen-shade"></div>
-          <div class="h-[13px] w-28 animate-pulse rounded-xs bg-linen-shade"></div>
-        </div>
-      </div>
-    </div>
-
-    <ul id="doctor-list" class="mt-4 flex flex-col gap-2" hidden></ul>
-
-    <div
-      id="empty-state"
-      hidden
-      class="mt-4 rounded-[18px] border border-dashed border-hairline-strong bg-card-white px-5 py-7"
-    >
-      <p class="text-[15px] font-medium text-graphite">Пока никого не нашли.</p>
-      <p class="mt-1 text-[13px] text-distant-graphite">
-        Попробуйте сбросить запрос или посмотрите{" "}
-        <a href="/search" class="text-brick-teal underline-offset-2 hover:underline">
-          все специальности
-        </a>.
-      </p>
-    </div>
-
-    <div
-      id="error-state"
-      hidden
-      class="mt-4 rounded-[18px] border border-dashed border-hairline-strong bg-card-white px-5 py-7"
-    >
-      <p class="text-[15px] font-medium text-graphite">Не удалось загрузить.</p>
-      <p class="mt-1 text-[13px] text-distant-graphite">
-        Проверьте соединение и попробуйте ещё раз.
-      </p>
-      <button
-        id="retry-btn"
-        type="button"
-        class="mt-3 inline-flex h-9 items-center rounded-pill border border-hairline-strong bg-card-white px-4 text-[13px] font-medium text-graphite hover:bg-linen-shade"
-      >
-        Повторить
-      </button>
-    </div>
-
-    {/* Mobile card template — cloned per doctor. textContent for every user
-        string keeps backend data injection-safe. */}
-    <template id="card-template">
-      <li>
-        <a
-          data-link
-          class="block rounded-xl border border-hairline bg-card-white p-3.5 transition-colors hover:border-soft-graphite"
-        >
-          <div class="flex gap-3">
-            <span
-              data-avatar
-              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-pill text-[14px] font-semibold text-graphite"
-              aria-hidden="true"
-            ></span>
-            <div class="min-w-0 flex-1">
-              <p
-                data-eyebrow
-                class="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-distant-graphite"
-              ></p>
-              <p
-                data-name
-                class="mt-1 text-[15.5px] font-medium leading-tight tracking-[-0.008em] text-graphite"
-              ></p>
-              <p data-clinic class="mt-1 truncate text-[13px] text-soft-graphite"></p>
-              <div
-                data-meta
-                class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] tabular-nums text-distant-graphite"
-              ></div>
-            </div>
-          </div>
-        </a>
-      </li>
-    </template>
-  </main>
-  <SiteFooter variant="mobile" />
-
-  {/* ════════════════════════════════════════════════ */}
-  {/*  DESKTOP SHELL (≥768px) — matches design          */}
-  {/* ════════════════════════════════════════════════ */}
-  <div class="dw-page">
-    {/* ── HEADER ─────────────────────────────────── */}
+<BaseLayout title="Найти врача — Healthy" description={description}>
+  {/* Одно адаптивное дерево, как на странице врача, а не пара .mw-shell/.dw-page.
+      Обе версии обвязки стоят подряд, лишнюю прячет site-chrome.css. Разница
+      между размерами экрана выражена только стилями: разметка, шаблон карточки
+      и скрипт — в единственном экземпляре. */}
+  <div class="hm-page min-h-dvh bg-[#faf8f5]">
+    <SiteHeader variant="mobile" />
     <SiteHeader variant="desktop" />
 
-    {/* ── MAIN ───────────────────────────────────── */}
-    <main class="dw-main">
-      {/* Breadcrumbs + editorial intro (replaces marketing promo banner — quieter, content-first) */}
-      <nav class="dw-crumbs">
+    <main class="mx-auto max-w-[960px] px-4 pb-10 pt-5 sm:px-8">
+      <nav class="hm-crumbs">
         <a href="/">Главная</a>
-        <span class="dw-crumb-sep">›</span>
+        <span class="hm-crumb-sep">›</span>
         <a href="/search">Найти врача</a>
-        <span class="dw-crumb-sep">›</span>
-        <span class="dw-crumb-current" data-crumb-current>Все врачи</span>
+        <span class="hm-crumb-sep">›</span>
+        <span class="hm-crumb-current" data-crumb-current>Все врачи</span>
       </nav>
-      <header class="dw-intro">
-        <span class="dw-intro-eyebrow">Каталог</span>
-        <h1 class="dw-intro-title" id="dw-h1">Найти врача</h1>
+
+      <header class="hm-intro">
+        <span class="hm-intro-eyebrow">Каталог</span>
+        <h1 class="hm-intro-title" id="search-h1">Найти врача</h1>
+        <p class="hm-intro-desc">{description}</p>
       </header>
 
-      {/* Pill search */}
-      <section class="dw-pill-section">
-        <form
-          id="dw-search-form"
-          action="/search"
-          method="get"
-          role="search"
-          class="dw-pill"
-        >
-          <label class="dw-pill-field">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
-              <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
-              <path d="m21 21-4.3-4.3"/>
-            </svg>
-            <span class="dw-pill-body">
-              <span class="dw-pill-label">Специальность</span>
-              <select id="dw-search-specialty" name="specialty" class="dw-pill-control">
-                <option value="">Все специальности</option>
-                {specialtyOptions.map((option) => (
-                  <option value={option.key}>{option.label} ({option.count})</option>
-                ))}
-              </select>
-            </span>
-          </label>
-          <label class="dw-pill-field dw-pill-field-div">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
-              <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/>
-              <path d="M3 12h18"/>
-              <path d="M12 3c2.5 2.7 2.5 15.3 0 18-2.5-2.7-2.5-15.3 0-18z"/>
-            </svg>
-            <span class="dw-pill-body">
-              <span class="dw-pill-label">Язык приёма</span>
-              <select id="dw-search-lang" name="lang" class="dw-pill-control">
-                <option value="">Любой язык</option>
-                {languageOptions.map((option) => (
-                  <option value={option.key}>{option.label}</option>
-                ))}
-              </select>
-            </span>
-          </label>
-          <label class="dw-pill-field dw-pill-field-div">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="dw-pill-icon">
-              <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
-              <path d="m21 21-4.3-4.3"/>
-            </svg>
-            <span class="dw-pill-body">
-              <span class="dw-pill-label">По имени</span>
-              <input id="dw-search-q" name="q" type="search" placeholder="Имя или специальность" autocomplete="off" class="dw-pill-control" />
-            </span>
-          </label>
-          <button type="submit" class="dw-pill-submit">
-            Найти
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
-            </svg>
-          </button>
-        </form>
-      </section>
+      {/* Обычная GET-форма: без JS уходит перезагрузкой страницы, с JS обработчик
+          перехватывает отправку и перерисовывает выдачу на месте. */}
+      <form id="search-form" action="/search" method="get" role="search" class="hm-pill">
+        <label class="hm-pill-field">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="hm-pill-icon">
+            <path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+          </svg>
+          <span class="hm-pill-body">
+            <span class="hm-pill-label">Специальность</span>
+            <select id="search-specialty" name="specialty" class="hm-pill-control">
+              <option value="">Все специальности</option>
+              {specialtyOptions.map((option) => (
+                <option value={option.key}>{option.label} ({option.count})</option>
+              ))}
+            </select>
+          </span>
+        </label>
 
-      {/* Filter chip bar */}
-      <section class="dw-chip-bar">
-        <div class="dw-chip-list" id="dw-chip-list"></div>
-        <button type="button" class="dw-chip-reset" id="dw-chip-reset" hidden>
-          Сбросить
+        <label class="hm-pill-field hm-pill-field-div">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="hm-pill-icon">
+            <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/>
+            <path d="M3 12h18"/>
+            <path d="M12 3c2.5 2.7 2.5 15.3 0 18-2.5-2.7-2.5-15.3 0-18z"/>
+          </svg>
+          <span class="hm-pill-body">
+            <span class="hm-pill-label">Язык приёма</span>
+            <select id="search-lang" name="lang" class="hm-pill-control" aria-label="Язык приёма">
+              <option value="">Любой язык</option>
+              {languageOptions.map((option) => (
+                <option value={option.key}>{option.label}</option>
+              ))}
+            </select>
+          </span>
+        </label>
+
+        <label class="hm-pill-field hm-pill-field-div">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="hm-pill-icon">
+            <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
+            <path d="m21 21-4.3-4.3"/>
+          </svg>
+          <span class="hm-pill-body">
+            <span class="hm-pill-label">По имени</span>
+            <input id="search-q" name="q" type="search" placeholder="Имя или специальность" autocomplete="off" class="hm-pill-control" />
+          </span>
+        </label>
+
+        <button type="submit" class="hm-pill-submit">
+          Найти
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+          </svg>
         </button>
+      </form>
+
+      <section class="hm-chip-bar">
+        <div class="hm-chip-list" id="chip-list"></div>
+        <button type="button" class="hm-chip-reset" id="chip-reset" hidden>Сбросить</button>
       </section>
 
-      {/* Результаты */}
-      <section class="dw-results-section">
-        <div class="dw-results-bar">
-          <div class="dw-results-heading">
-            {/* aria-live: см. счётчик мобильной оболочки */}
-            <span class="dw-results-count" id="dw-results-count" aria-live="polite">—</span>
-            <span class="dw-results-noun" id="dw-results-noun">врачей</span>
-          </div>
-        </div>
+      <section class="hm-results">
+        {/* aria-live: выдача перерисовывается целиком, и без объявления счётчика
+            смена числа совпадений для скринридера проходит беззвучно. */}
+        <p class="hm-results-bar" id="result-meta" aria-live="polite" hidden>
+          <span class="hm-results-count" id="result-count">—</span>
+          <span class="hm-results-noun" id="result-noun">врачей</span>
+        </p>
 
-        {/* Loading skeleton — visible until the inline script runs. SSG renders
-            this block; once the script flips `setUiState("results")` it hides.
-            Matches mobile shell parity so SSR/SSG paint isn't blank chrome. */}
-        <ul class="dw-doctor-list" id="dw-doctor-skeleton" aria-hidden="true">
-          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
-          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
-          <li class="dw-card dw-card-skel"><span class="dw-card-skel-photo"></span><span class="dw-card-skel-info"><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span><span class="dw-skel-line"></span></span></li>
+        {/* Виден до первого прохода скрипта: страница собирается на сборке, и без
+            скелета читатель успевает увидеть голую обвязку. */}
+        <ul class="hm-card-list" id="loading-state" aria-hidden="true">
+          <li class="hm-card hm-card-skel"><span class="hm-card-skel-photo"></span><span class="hm-card-skel-info"><span class="hm-skel-line"></span><span class="hm-skel-line"></span><span class="hm-skel-line"></span><span class="hm-skel-line"></span></span></li>
+          <li class="hm-card hm-card-skel"><span class="hm-card-skel-photo"></span><span class="hm-card-skel-info"><span class="hm-skel-line"></span><span class="hm-skel-line"></span><span class="hm-skel-line"></span><span class="hm-skel-line"></span></span></li>
+          <li class="hm-card hm-card-skel"><span class="hm-card-skel-photo"></span><span class="hm-card-skel-info"><span class="hm-skel-line"></span><span class="hm-skel-line"></span><span class="hm-skel-line"></span><span class="hm-skel-line"></span></span></li>
         </ul>
 
-        <ul class="dw-doctor-list" id="dw-doctor-list" hidden></ul>
+        <ul class="hm-card-list" id="doctor-list" hidden></ul>
 
-        <div class="dw-empty" id="dw-empty" hidden>
-          <p class="dw-empty-title">Пока никого не нашли.</p>
-          <p class="dw-empty-desc">
+        <div class="hm-empty" id="empty-state" hidden>
+          <p class="hm-empty-title">Пока никого не нашли.</p>
+          <p class="hm-empty-desc">
             Попробуйте сбросить запрос или посмотрите{" "}
             <a href="/search">все специальности</a>.
           </p>
         </div>
 
-        <div class="dw-empty" id="dw-error" hidden>
-          <p class="dw-empty-title">Не удалось загрузить.</p>
-          <p class="dw-empty-desc">Проверьте соединение и попробуйте ещё раз.</p>
-          <button type="button" class="dw-empty-retry" id="dw-retry">Повторить</button>
+        <div class="hm-empty" id="error-state" hidden>
+          <p class="hm-empty-title">Не удалось загрузить.</p>
+          <p class="hm-empty-desc">Проверьте соединение и попробуйте ещё раз.</p>
+          <button type="button" class="hm-empty-retry" id="retry-btn">Повторить</button>
         </div>
       </section>
     </main>
 
-    {/* ── FOOTER ─────────────────────────────────── */}
+    <SiteFooter variant="mobile" />
     <SiteFooter variant="desktop" />
   </div>
 
-  {/* Desktop card template — two-column layout: avatar | info.
-      Cloned per doctor by JS. NO JSX comments inside this <template>; Astro's
-      compiler can leak them as live DOM (bit us once). All inline comments live
-      out here. */}
-  <template id="dw-card-template">
-    <li class="dw-card">
-      <a class="dw-card-link" data-link>
-        <div class="dw-card-photo">
-          <span class="dw-card-photo-initials" data-initials></span>
-        </div>
-
-        <div class="dw-card-info">
-          <h3 class="dw-card-name" data-name></h3>
-          <div class="dw-card-chips">
-            <span class="dw-card-exp-chip" data-exp-chip hidden>
-              <span data-exp></span>
+  {/* Единственный шаблон карточки на оба размера экрана. Комментарии внутри
+      <template> запрещены: компилятор Astro умеет утечь ими в живой DOM. */}
+  <template id="card-template">
+    <li>
+      <a class="hm-card hm-card-link" data-link>
+        <span class="hm-card-photo" data-avatar aria-hidden="true"></span>
+        <div class="hm-card-info">
+          <p class="hm-card-eyebrow" data-eyebrow></p>
+          <h3 class="hm-card-name" data-name></h3>
+          <p class="hm-card-spec" data-spec></p>
+          <div class="hm-card-facts">
+            <span class="hm-card-chips">
+              <span class="hm-card-chip" data-exp-chip hidden><span data-exp></span></span>
+              <span class="hm-card-chip" data-price-chip hidden><span data-price></span></span>
             </span>
-            <span class="dw-card-price-chip" data-price-chip hidden>
-              <span data-price></span>
+            <span class="hm-card-section" data-subspecs-section hidden>
+              <span class="hm-card-section-label">Направления</span>
+              <span class="hm-card-section-value" data-subspecs></span>
+            </span>
+            <span class="hm-card-section" data-langs-section hidden>
+              <span class="hm-card-section-label">Языки приёма</span>
+              <span class="hm-card-section-value" data-langs></span>
             </span>
           </div>
-          <p class="dw-card-spec" data-spec></p>
-
-          <div class="dw-card-section" data-subspecs-section hidden>
-            <span class="dw-card-section-label">Направления</span>
-            <span class="dw-card-section-value" data-subspecs></span>
-          </div>
-
-          <div class="dw-card-section" data-langs-section hidden>
-            <span class="dw-card-section-label">Языки приёма</span>
-            <span class="dw-card-section-value" data-langs></span>
-          </div>
-
-          <div class="dw-card-clinic">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>
-              <path d="M10 9h4"/><path d="M10 13h4"/><path d="M10 17h4"/>
-            </svg>
-            <span data-clinic></span>
-          </div>
+          <p class="hm-card-clinic" data-clinic></p>
         </div>
       </a>
     </li>
@@ -503,7 +251,6 @@ const breadcrumbs = {
       const languageLabels = payload.languageLabels || {};
       const doctorItems = payload.doctorItems || [];
 
-      // ── Mobile shell refs ───────────────────────────
       const listNode = document.getElementById("doctor-list");
       const loadingNode = document.getElementById("loading-state");
       const emptyNode = document.getElementById("empty-state");
@@ -517,25 +264,11 @@ const breadcrumbs = {
       const specSelectNode = document.querySelector<HTMLSelectElement>("#search-specialty");
       const langSelectNode = document.querySelector<HTMLSelectElement>("#search-lang");
       const templateNode = document.querySelector<HTMLTemplateElement>("#card-template");
-      const retryBtn = document.getElementById("retry-btn");
 
-      // ── Desktop shell refs ──────────────────────────
-      const dwList = document.getElementById("dw-doctor-list");
-      const dwTemplate = document.querySelector<HTMLTemplateElement>("#dw-card-template");
-      const dwForm = document.getElementById("dw-search-form");
-      const dwQ = document.querySelector<HTMLInputElement>("#dw-search-q");
-      const dwSpec = document.querySelector<HTMLSelectElement>("#dw-search-specialty");
-      const dwLang = document.querySelector<HTMLSelectElement>("#dw-search-lang");
-      const dwCount = document.getElementById("dw-results-count");
-      const dwNoun = document.getElementById("dw-results-noun");
-      const dwCrumb = document.querySelector("[data-crumb-current]");
-      const dwH1 = document.getElementById("dw-h1");
-      const dwEmpty = document.getElementById("dw-empty");
-      const dwError = document.getElementById("dw-error");
-      const dwChipList = document.getElementById("dw-chip-list");
-      const dwChipReset = document.getElementById("dw-chip-reset");
-      const dwSkeleton = document.getElementById("dw-doctor-skeleton");
-      const dwRetry = document.getElementById("dw-retry");
+      const crumbCurrent = document.querySelector("[data-crumb-current]");
+      const chipList = document.getElementById("chip-list");
+      const chipReset = document.getElementById("chip-reset");
+      const retryBtn = document.getElementById("retry-btn");
 
       if (
         !listNode ||
@@ -599,69 +332,28 @@ const breadcrumbs = {
 
       // Опциональные блоки карточки лежат в шаблоне скрытыми: пустое поле
       // оставляет блок скрытым, непустое — открывает его и заполняет.
-      //
-      // Узел значения ищется внутри своей секции, а не по всей карточке: иначе
-      // одноимённый data-атрибут, появившийся в шаблоне снаружи, перехватил бы
-      // текст, а раскрытая секция осталась бы пустой.
       function reveal(li: Element, section: string, value: string, text: string | null) {
         if (!text) return;
         const sectionEl = li.querySelector<HTMLElement>(section);
-        if (!sectionEl) return;
-        sectionEl.hidden = false;
-        const valueEl = sectionEl.querySelector(value);
+        if (sectionEl) sectionEl.hidden = false;
+        const valueEl = li.querySelector(value);
         if (valueEl) valueEl.textContent = text;
       }
 
       function setUiState(s: UiState) {
-        // Mobile
         loading.hidden = s !== "loading";
         list.hidden = s !== "results";
         empty.hidden = s !== "empty";
         errorEl.hidden = s !== "error";
         resultMeta.hidden = s !== "results" && s !== "empty";
-
-        // Desktop — skeleton hides as soon as real state lands.
-        if (dwSkeleton) dwSkeleton.hidden = s !== "loading";
-        if (dwList) dwList.hidden = s !== "results";
-        if (dwEmpty) dwEmpty.hidden = s !== "empty";
-        if (dwError) dwError.hidden = s !== "error";
-      }
-
-      // Опции селектов собраны из каталога, а ссылка может нести специальность
-      // или язык, которых в каталоге нет: плитки главной ведут на все восемь
-      // специальностей. Без подставленной опции контрол остаётся ни на чём —
-      // selectedIndex = -1, поле пустое при заполненном чипе, а следующая
-      // отправка формы молча теряет фильтр, с которым пришёл пользователь.
-      function syncSelect(select: HTMLSelectElement, value: string, label: string) {
-        select.querySelectorAll("option[data-absent]").forEach((option) => option.remove());
-        select.value = value;
-        if (select.value === value) return;
-
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        option.dataset.absent = "";
-        select.append(option);
-        select.value = value;
       }
 
       function renderMeta(state: SearchState) {
-        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
-
-        // Form prefill — both shells. Ноль в подписи не украшение: у каждой
-        // опции списка стоит число врачей, и подставленная обязана читаться
-        // так же. У языков счётчика в списке нет — там только подпись.
-        const absentSpecialty = (specialtyLabel ?? state.specialty) + " (0)";
-        const absentLang = languageLabels[state.lang] ?? state.lang;
-
         qInput.value = state.q;
-        syncSelect(specSelect, state.specialty, absentSpecialty);
-        syncSelect(langSelect, state.lang, absentLang);
-        if (dwQ) dwQ.value = state.q;
-        if (dwSpec) syncSelect(dwSpec, state.specialty, absentSpecialty);
-        if (dwLang) syncSelect(dwLang, state.lang, absentLang);
+        specSelect.value = state.specialty;
+        langSelect.value = state.lang;
 
-        // H1 + document title
+        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
         let h1Text = "Найти врача";
         let crumbText = "Все врачи";
         if (specialtyLabel) {
@@ -673,24 +365,21 @@ const breadcrumbs = {
         }
         h1.textContent = h1Text;
         document.title = h1Text + " — Healthy";
-        if (dwCrumb) dwCrumb.textContent = crumbText;
-        if (dwH1) dwH1.textContent = h1Text;
+        if (crumbCurrent) crumbCurrent.textContent = crumbText;
 
-        // Filter chips (desktop)
         renderChips(state);
       }
 
       function renderChips(state: SearchState) {
-        if (!dwChipList || !dwChipReset) return;
+        if (!chipList || !chipReset) return;
         const pills = activeChips(state, specialtyLabels, languageLabels);
-        dwChipList.replaceChildren();
+        chipList.replaceChildren();
         pills.forEach((p) => {
           const btn = document.createElement("button");
           btn.type = "button";
-          btn.className = "dw-chip";
+          btn.className = "hm-chip";
           btn.dataset.chipKey = p.key;
-          const text = document.createTextNode(p.label);
-          btn.appendChild(text);
+          btn.appendChild(document.createTextNode(p.label));
           const x = document.createElementNS("http://www.w3.org/2000/svg", "svg");
           x.setAttribute("width", "11");
           x.setAttribute("height", "11");
@@ -702,9 +391,9 @@ const breadcrumbs = {
           x.innerHTML = '<path d="M18 6 6 18M6 6l12 12"/>';
           btn.appendChild(x);
           btn.addEventListener("click", () => removeFilter(p.key));
-          dwChipList.appendChild(btn);
+          chipList.appendChild(btn);
         });
-        dwChipReset.hidden = pills.length === 0;
+        chipReset.hidden = pills.length === 0;
       }
 
       function removeFilter(key: keyof SearchState) {
@@ -722,7 +411,7 @@ const breadcrumbs = {
 
       // importNode вместо cloneNode: результат тот же, но тип — DocumentFragment,
       // а не безликий Node, у которого нет querySelector.
-      function renderMobileCard(d: DoctorItem) {
+      function renderCard(d: DoctorItem) {
         const frag = document.importNode(template.content, true);
         const li = frag.querySelector("li");
         if (!li) return frag;
@@ -736,53 +425,17 @@ const breadcrumbs = {
           avatar.style.backgroundColor = d.avatarColor;
         }
 
-        // Суб-специализации живут в мета-строке: в truncate-надзаголовке они
-        // съедают саму специальность.
+        // Специальность стоит в разметке дважды: надзаголовком над именем и
+        // строкой под ним. Видна всегда ровно одна — какая, решает ширина
+        // экрана в стилях. Заполняем обе, иначе на смене размера окна текст
+        // пропадёт.
         const eyebrow = li.querySelector("[data-eyebrow]");
         if (eyebrow) eyebrow.textContent = d.specialty;
-
-        const name = li.querySelector("[data-name]");
-        if (name) name.textContent = d.fullName;
-
-        const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = clinicText(d);
-
-        const meta = li.querySelector("[data-meta]");
-        if (meta) {
-          meta.replaceChildren();
-          const cells = [
-            experienceText(d.yearsExperience),
-            priceText(d.priceFrom),
-            d.subspecializations.join(" · "),
-          ];
-          for (const cell of cells) {
-            if (!cell) continue;
-            const s = document.createElement("span");
-            s.textContent = cell;
-            meta.appendChild(s);
-          }
-        }
-
-        return frag;
-      }
-
-      function renderDesktopCard(d: DoctorItem) {
-        if (!dwTemplate) return null;
-        const frag = document.importNode(dwTemplate.content, true);
-        const li = frag.querySelector("li");
-        if (!li) return frag;
-
-        const link = li.querySelector<HTMLAnchorElement>("[data-link]");
-        if (link) link.href = "/doctor/" + d.slug;
-
-        const initials = li.querySelector("[data-initials]");
-        if (initials) initials.textContent = d.initials;
-
-        const name = li.querySelector("[data-name]");
-        if (name) name.textContent = d.fullName;
-
         const spec = li.querySelector("[data-spec]");
         if (spec) spec.textContent = d.specialty;
+
+        const name = li.querySelector("[data-name]");
+        if (name) name.textContent = d.fullName;
 
         reveal(li, "[data-exp-chip]", "[data-exp]", experienceText(d.yearsExperience));
         reveal(li, "[data-price-chip]", "[data-price]", priceText(d.priceFrom));
@@ -797,21 +450,9 @@ const breadcrumbs = {
 
       function renderResults(items: DoctorItem[], total: number) {
         list.replaceChildren();
-        for (const d of items) {
-          list.appendChild(renderMobileCard(d));
-        }
+        for (const d of items) list.appendChild(renderCard(d));
         countEl.textContent = String(total);
         nounEl.textContent = pluralizeDoctors(total);
-
-        if (dwList) {
-          dwList.replaceChildren();
-          for (const d of items) {
-            const frag = renderDesktopCard(d);
-            if (frag) dwList.appendChild(frag);
-          }
-        }
-        if (dwCount) dwCount.textContent = String(total);
-        if (dwNoun) dwNoun.textContent = pluralizeDoctors(total);
       }
 
       function load() {
@@ -821,8 +462,6 @@ const breadcrumbs = {
         if (filtered.length === 0) {
           countEl.textContent = "0";
           nounEl.textContent = pluralizeDoctors(0);
-          if (dwCount) dwCount.textContent = "0";
-          if (dwNoun) dwNoun.textContent = pluralizeDoctors(0);
           setUiState("empty");
         } else {
           renderResults(filtered, filtered.length);
@@ -845,32 +484,14 @@ const breadcrumbs = {
         });
       });
 
-      if (dwForm && dwQ && dwSpec) {
-        dwForm.addEventListener("submit", (e) => {
-          e.preventDefault();
-          submitState({
-            q: dwQ.value.trim(),
-            specialty: dwSpec.value,
-            lang: dwLang ? dwLang.value : "",
-          });
-        });
-      }
-
-      dwChipReset?.addEventListener("click", resetAllFilters);
-
+      chipReset?.addEventListener("click", resetAllFilters);
       retryBtn?.addEventListener("click", () => load());
-      dwRetry?.addEventListener("click", () => load());
       addEventListener("popstate", load);
 
       load();
     })();
   </script>
 
-  <JsonLd data={breadcrumbs} />
-
-  {/* ════════════════════════════════════════════════ */}
-  {/*  STYLES                                           */}
-  {/* ════════════════════════════════════════════════ */}
   <style is:global>
     :root {
       --teal: #0e7c8c;
@@ -878,7 +499,6 @@ const breadcrumbs = {
       --teal-soft: #dceef1;
       --teal-softer: #eef6f8;
       --teal-deep: #0a1f25;
-      --n-cream: #fcfbf8;
       --n-bg: #faf8f5;
       --n-ink: #0f1115;
       --n-ink2: #2a2d33;
@@ -886,8 +506,6 @@ const breadcrumbs = {
       --n-muted2: #b5b8bd;
       --n-line: #e2e2df;
       --n-line-soft: #edebe6;
-      --n-green: #3a8e64;
-      --n-red: #c25450;
 
       /* Geometry ladder — each radius encodes a role, no free-form values.
          pill = anything fully-rounded; card = top-level container;
@@ -895,342 +513,391 @@ const breadcrumbs = {
       --r-pill: 999px;
       --r-card: 14px;
       --r-control: 10px;
-      --r-chip: 8px;
 
       /* Elevation ladder — две ступени, больше не заводим.
-         rest = поверхность в потоке; hover = подъём при наведении.
-         Плавающего слоя на странице не осталось. */
+         rest = поверхность в потоке; hover = подъём при наведении. */
       --e-rest: 0 1px 2px rgba(15, 17, 21, 0.04);
       --e-hover: 0 4px 16px rgba(14, 124, 140, 0.08);
     }
 
-    /* Mobile logo + nav scaffolding (re-uses index.astro classes) */
+    /* Собственных правил на .hm-page здесь нет намеренно: стили страниц
+       склеиваются в общий бандл и грузятся на всех страницах сразу, так что
+       объявление отсюда переопределило бы .hm-page на странице врача. Фон
+       задаёт утилита на самом элементе, цвет каждый блок берёт себе сам. */
 
-    /* Desktop shell hidden by default; revealed by media query below. */
-    .dw-page { display: none; }
+    /* ── Крошки ─────────────────────────────── */
+    .hm-crumbs {
+      font-size: 12.5px;
+      color: var(--n-muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .hm-crumbs a { color: inherit; text-decoration: none; }
+    .hm-crumbs a:hover { color: var(--n-ink2); }
+    .hm-crumb-sep { color: var(--n-muted2); }
+    .hm-crumb-current { color: var(--n-ink2); }
+
+    /* ── Заголовок ──────────────────────────── */
+    .hm-intro { padding: 14px 0 16px; }
+    .hm-intro-eyebrow {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--n-muted);
+    }
+    .hm-intro-title {
+      margin-top: 6px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      color: var(--n-ink);
+      text-wrap: balance;
+    }
+    .hm-intro-desc {
+      margin-top: 8px;
+      max-width: 34rem;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--n-ink2);
+    }
+
+    /* ── Форма ──────────────────────────────── */
+    .hm-pill {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid var(--n-line);
+      border-radius: var(--r-card);
+      box-shadow: var(--e-rest);
+    }
+    .hm-pill-field {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--r-control);
+      min-width: 0;
+    }
+    .hm-pill-field:focus-within { background: var(--teal-softer); }
+    .hm-pill-icon { color: var(--n-muted); flex-shrink: 0; }
+    .hm-pill-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .hm-pill-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--n-muted);
+    }
+    .hm-pill-control {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--n-ink);
+      margin-top: 1px;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      width: 100%;
+    }
+    .hm-pill-control[type="search"]::placeholder {
+      color: var(--n-muted2);
+      font-weight: 500;
+    }
+    .hm-pill-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 44px;
+      padding: 0 22px;
+      border: none;
+      border-radius: var(--r-pill);
+      background: var(--teal);
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .hm-pill-submit:hover { background: var(--teal-hover); }
+
+    /* ── Чипы активных фильтров ─────────────── */
+    .hm-chip-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 14px 0 0;
+    }
+    .hm-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .hm-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px 7px 13px;
+      border-radius: var(--r-pill);
+      background: #fff;
+      border: 1px solid var(--n-line-soft);
+      color: var(--n-ink);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .hm-chip:hover { border-color: var(--teal); color: var(--teal); }
+    .hm-chip-reset {
+      background: none;
+      border: none;
+      padding: 4px;
+      color: var(--n-muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .hm-chip-reset:hover { color: var(--n-ink); }
+
+    /* ── Выдача ─────────────────────────────── */
+    .hm-results { padding-top: 18px; }
+    .hm-results-bar {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      padding-bottom: 12px;
+      font-size: 12.5px;
+      color: var(--n-muted);
+    }
+    .hm-results-count { font-weight: 700; color: var(--n-ink); }
+
+    .hm-card-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .hm-card {
+      display: flex;
+      gap: 14px;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid var(--n-line-soft);
+      border-radius: var(--r-card);
+      box-shadow: var(--e-rest);
+    }
+    .hm-card-link { text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+    .hm-card-link:hover { border-color: var(--teal); box-shadow: var(--e-hover); }
+
+    .hm-card-photo {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-pill);
+      color: var(--teal-deep);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .hm-card-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+
+    .hm-card-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--n-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hm-card-name {
+      margin-top: 3px;
+      font-size: 15.5px;
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      color: var(--n-ink);
+    }
+    /* Специальность под именем — десктопная подача; на телефоне её роль играет
+       надзаголовок выше. */
+    .hm-card-spec { display: none; }
+
+    .hm-card-clinic {
+      margin-top: 3px;
+      font-size: 13px;
+      color: var(--n-ink2);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Стаж, цена и направления на телефоне идут одной перетекающей строкой —
+       без капсул и подписей, как обычный мета-текст. */
+    .hm-card-facts {
+      margin-top: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2px 12px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--n-muted);
+    }
+    /* display:contents — капсулы на телефоне встают в общий поток мета-строки,
+       а на широком экране собираются в собственный ряд. Без него они либо
+       ломают строку на телефоне, либо уходят в столбик на десктопе. */
+    .hm-card-chips { display: contents; }
+    .hm-card-section-label { display: none; }
+    .hm-card-section[data-langs-section] { display: none; }
+
+    /* ── Скелет ─────────────────────────────── */
+    .hm-card-skel { align-items: stretch; }
+    .hm-card-skel-photo {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      border-radius: var(--r-pill);
+      background: var(--n-line-soft);
+    }
+    .hm-card-skel-info { display: flex; flex-direction: column; gap: 8px; flex: 1; padding: 4px 0; }
+    .hm-skel-line { height: 10px; border-radius: 4px; background: var(--n-line-soft); }
+    .hm-skel-line:nth-child(1) { width: 30%; }
+    .hm-skel-line:nth-child(2) { width: 65%; }
+    .hm-skel-line:nth-child(3) { width: 45%; }
+    .hm-skel-line:nth-child(4) { width: 55%; }
+    .hm-card-skel-photo,
+    .hm-skel-line { animation: hm-pulse 1.4s ease-in-out infinite; }
+    @keyframes hm-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hm-card-skel-photo,
+      .hm-skel-line { animation: none; }
+    }
+
+    /* ── Пустые состояния ───────────────────── */
+    .hm-empty {
+      padding: 28px 20px;
+      background: #fff;
+      border: 1px dashed var(--n-line);
+      border-radius: var(--r-card);
+      text-align: center;
+    }
+    .hm-empty-title { font-size: 15px; font-weight: 600; color: var(--n-ink); }
+    .hm-empty-desc { margin-top: 6px; font-size: 13px; color: var(--n-muted); }
+    .hm-empty-desc a { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; }
+    .hm-empty-retry {
+      margin-top: 14px;
+      height: 36px;
+      padding: 0 18px;
+      border: 1px solid var(--n-line);
+      border-radius: var(--r-pill);
+      background: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--n-ink);
+      cursor: pointer;
+    }
+    .hm-empty-retry:hover { background: var(--teal); border-color: var(--teal); color: #fff; }
 
     /* ════════════════════════════════════════════════════════════ */
-    /*  DESKTOP LAYOUT (≥768px)                                     */
+    /*  ≥768px — тот же DOM, другая подача                          */
     /* ════════════════════════════════════════════════════════════ */
     @media (min-width: 768px) {
-      body {
-        background: var(--n-bg);
-      }
-      .mw-shell { display: none !important; }
-      .dw-page {
-        display: block;
-        font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-        color: var(--n-ink);
-        min-height: 100vh;
-        /* Поле контента здесь 56px, а не 64px как на главной, — обвязка
-           равняется по нему, иначе логотип не встанет над результатами. */
-        --site-gutter: 56px;
-      }
+      .hm-intro { padding: 22px 0 20px; }
+      .hm-intro-title { font-size: 40px; letter-spacing: -0.035em; }
+      .hm-intro-desc { font-size: 15px; }
 
-      /* ── Header ─────────────────────────────── */
-
-      /* ── Main ───────────────────────────────── */
-      .dw-main {
-        max-width: 1440px; margin: 0 auto;
-        padding: 16px 56px 80px;
-      }
-
-      /* Breadcrumbs */
-      .dw-crumbs {
-        font-size: 12px; color: var(--n-muted);
-        margin-bottom: 8px;
-      }
-      .dw-crumbs a {
-        color: inherit; text-decoration: none;
-      }
-      .dw-crumbs a:hover { color: var(--n-ink2); }
-      .dw-crumb-sep { margin: 0 6px; }
-      .dw-crumb-current { color: var(--n-ink2); }
-
-      /* ── Editorial intro ────────────────────── */
-      .dw-intro {
-        padding: 4px 0 14px;
-        margin-bottom: 14px;
-      }
-      .dw-intro-eyebrow {
-        display: block;
-        font-size: 11px; font-weight: 700;
-        letter-spacing: 0.12em; text-transform: uppercase;
-        color: var(--n-muted);
-      }
-      .dw-intro-title {
-        margin: 6px 0 0;
-        font-size: 32px; font-weight: 700;
-        letter-spacing: -0.025em; line-height: 1.1;
-        color: var(--n-ink);
-      }
-      /* ── Pill search ────────────────────────── */
-      .dw-pill-section { margin: 8px 0 4px; }
-      .dw-pill {
-        padding: 6px;
-        background: #fff; border: 1px solid var(--n-line);
-        border-radius: var(--r-pill);
-        box-shadow: var(--e-rest);
-        /* Дорожек ровно столько, сколько полей плюс кнопка: лишний ребёнок
-           уезжает во вторую строку и разрывает форму-пилюлю. */
-        display: grid; grid-template-columns: 1.3fr 1fr 1.3fr auto;
-        gap: 4px; align-items: center;
-      }
-      .dw-pill-field {
-        display: flex; align-items: center; gap: 12px;
-        padding: 8px 16px;
-        cursor: text;
-      }
-      .dw-pill-field-div { border-left: 1px solid var(--n-line-soft); }
-      .dw-pill-icon { color: var(--n-muted); flex: none; }
-      .dw-pill-body {
-        display: flex; flex-direction: column;
-        flex: 1; min-width: 0;
-      }
-      .dw-pill-label {
-        font-size: 10px; color: var(--n-muted);
-        font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
-      }
-      .dw-pill-control {
-        font-size: 14px; font-weight: 600; color: var(--n-ink);
-        margin-top: 1px;
-        background: transparent; border: none; outline: none;
-        font-family: inherit; width: 100%;
-      }
-      .dw-pill-control[type="search"]::placeholder {
-        color: var(--n-muted2); font-weight: 500;
-      }
-      .dw-pill-submit {
-        height: 48px; padding: 0 22px;
-        background: var(--teal); color: #fff;
-        border: none; border-radius: var(--r-pill);
-        font-family: inherit; font-weight: 600; font-size: 14px;
-        cursor: pointer;
-        display: inline-flex; align-items: center; gap: 8px;
-        box-shadow: 0 2px 8px rgba(14, 124, 140, 0.2);
-        transition: background .15s, transform .08s;
-      }
-      .dw-pill-submit:hover { background: var(--teal-hover); transform: translateY(-1px); }
-
-      /* ── Filter chip bar ────────────────────── */
-      .dw-chip-bar {
-        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        padding: 14px 0 4px;
-      }
-      .dw-chip-list { display: contents; }
-      .dw-chip {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 8px 12px 8px 14px; border-radius: var(--r-pill);
-        background: #fff; border: 1px solid var(--n-line-soft);
-        color: var(--n-ink);
-        font-family: inherit; font-weight: 600; font-size: 13px;
-        white-space: nowrap;
-        cursor: pointer;
-        transition: border-color .15s, color .15s;
-      }
-      .dw-chip:hover { border-color: var(--teal); color: var(--teal); }
-      .dw-chip svg { opacity: 0.55; }
-      .dw-chip-reset {
-        background: none; border: none;
-        color: var(--n-muted);
-        font-family: inherit; font-size: 13px; font-weight: 600;
-        text-decoration: underline; text-underline-offset: 3px;
-        cursor: pointer;
-      }
-      .dw-chip-reset:hover { color: var(--n-ink2); }
-
-      /* ── Results bar ────────────────────────── */
-      .dw-results-section { margin-top: 12px; }
-      .dw-results-bar {
-        display: flex; justify-content: space-between; align-items: center;
-        margin-bottom: 14px;
-        padding-top: 12px;
-        border-top: 1px solid var(--n-line-soft);
-      }
-      .dw-results-heading {
-        font-family: inherit;
-      }
-      .dw-results-count {
-        font-size: 22px; font-weight: 700;
-        color: var(--n-ink); letter-spacing: -0.02em;
-      }
-      .dw-results-noun {
-        font-size: 14px; color: var(--n-muted);
-        margin-left: 8px;
-      }
-      /* ── Doctor list + two-column card ───────── */
-      .dw-doctor-list {
-        list-style: none; padding: 0; margin: 0;
-        display: flex; flex-direction: column; gap: 12px;
-      }
-      .dw-card { display: block; }
-      .dw-card-link {
-        display: grid;
-        grid-template-columns: 120px minmax(0, 1fr);
-        gap: 24px;
-        background: #fff; border-radius: var(--r-card);
-        border: 1px solid var(--n-line-soft);
-        padding: 20px 24px;
-        text-decoration: none; color: inherit;
-        transition: border-color .15s, box-shadow .15s, transform .15s;
-      }
-      .dw-card-link:hover {
-        border-color: var(--teal);
-        box-shadow: var(--e-hover);
-      }
-
-      /* Инициалы, а не фото: фотография есть у одного врача каталога из семи,
-         и лента из шести подложек и одного снимка выглядит сломанной. */
-      .dw-card-photo {
-        width: 120px; height: 140px;
-        border-radius: var(--r-card);
-        display: grid; place-items: center;
-        background: linear-gradient(160deg, var(--teal-soft), var(--teal-softer));
-        color: var(--teal-deep);
-        font-weight: 700;
-        letter-spacing: -0.03em;
-        overflow: hidden;
-      }
-      .dw-card-photo-initials {
-        font-size: 44px;
-        line-height: 1;
-      }
-      .dw-card-info {
-        min-width: 0;
-        display: flex; flex-direction: column; gap: 8px;
-      }
-      .dw-card-name {
-        margin: 0; font-size: 18px; font-weight: 700;
-        color: var(--n-ink); letter-spacing: -0.015em; line-height: 1.2;
-      }
-      .dw-card-chips {
-        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        margin-top: 2px;
-      }
-      .dw-card-exp-chip,
-      .dw-card-price-chip {
-        display: inline-flex; align-items: center;
-        padding: 3px 9px; background: var(--n-line-soft);
-        border-radius: var(--r-pill);
-        font-size: 12px; font-weight: 600; color: var(--n-ink2);
-      }
-      .dw-card-spec {
-        margin: 2px 0 0; font-size: 14px; color: var(--n-ink2);
-        font-weight: 500;
-      }
-      .dw-card-section {
-        display: flex; flex-direction: column; gap: 3px;
-        margin-top: 4px;
-      }
-      .dw-card-section-label {
-        font-size: 11px; color: var(--n-muted);
-        font-weight: 600; letter-spacing: 0.04em;
-      }
-      .dw-card-section-value {
-        font-size: 13px; color: var(--n-ink2); line-height: 1.45;
-      }
-      .dw-card-clinic {
-        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        margin-top: auto;
-        padding-top: 10px;
-        font-size: 13px; color: var(--n-ink2);
-      }
-      .dw-card-clinic > svg { color: var(--n-muted); flex: none; }
-      .dw-card-clinic > span {
-        font-weight: 600; color: var(--n-ink);
-      }
-
-      /* Empty / error blocks */
-      .dw-empty {
-        padding: 32px 28px;
-        background: #fff; border-radius: var(--r-card);
-        border: 1px dashed var(--n-line);
-        text-align: center;
-      }
-      .dw-empty-title {
-        margin: 0; font-size: 16px; font-weight: 600;
-        color: var(--n-ink);
-      }
-      .dw-empty-desc {
-        margin: 6px 0 0; font-size: 13px; color: var(--n-muted);
-      }
-      .dw-empty-desc a { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; }
-      .dw-empty-retry {
-        margin-top: 14px; padding: 0 18px; height: 38px;
-        background: var(--teal); color: #fff;
-        border: none; border-radius: var(--r-control);
-        font-family: inherit; font-weight: 600; font-size: 13px;
-        cursor: pointer;
-      }
-      .dw-empty-retry:hover { background: var(--teal-hover); }
-
-      /* Loading skeleton — non-interactive, low-saturation. Just enough shape
-         to hint card geometry before the inline script renders real cards. */
-      .dw-card-skel {
-        background: #fff; border: 1px solid var(--n-line-soft);
-        border-radius: var(--r-card);
-        padding: 20px 24px;
-        display: grid;
-        grid-template-columns: 120px minmax(0, 1fr);
-        gap: 24px;
-        align-items: stretch;
-        min-height: 180px;
-      }
-      .dw-card-skel-photo {
-        height: 140px; border-radius: var(--r-card);
-        background: var(--n-line-soft);
-        animation: dw-skel 1.4s ease-in-out infinite;
-      }
-      .dw-card-skel-info {
-        display: flex; flex-direction: column; gap: 10px;
-      }
-      .dw-card-skel-info .dw-skel-line:first-child { width: 50%; height: 18px; }
-      .dw-card-skel-info .dw-skel-line:nth-child(2) { width: 35%; height: 12px; }
-      .dw-card-skel-info .dw-skel-line:nth-child(3) { width: 80%; height: 12px; }
-      .dw-card-skel-info .dw-skel-line:nth-child(4) { width: 60%; height: 12px; margin-top: auto; }
-      .dw-skel-line {
-        display: block; border-radius: var(--r-chip);
-        background: linear-gradient(90deg, var(--n-line-soft) 0%, #f3f0eb 50%, var(--n-line-soft) 100%);
-        background-size: 200% 100%;
-        animation: dw-skel 1.4s ease-in-out infinite;
-      }
-      @keyframes dw-skel {
-        0%   { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .dw-skel-line, .dw-card-skel-photo { animation: none; }
-      }
-
-      /* ── Footer ─────────────────────────────── */
-    }
-
-    /* ── Tablet & narrow desktop (768–1023) ──────────────────── */
-    @media (min-width: 768px) and (max-width: 1023.98px) {
-      .dw-main {
-        padding-left: clamp(20px, 4vw, 40px);
-        padding-right: clamp(20px, 4vw, 40px);
-      }
-
-      .dw-intro-title { font-size: 26px; }
-
-      .dw-pill {
-        grid-template-columns: 1fr;
-        border-radius: var(--r-card);
-        padding: 10px;
+      /* Дорожек ровно столько, сколько полей плюс кнопка: лишний ребёнок
+         уезжает во вторую строку и разрывает форму-пилюлю. */
+      .hm-pill {
+        grid-template-columns: 1.3fr 1fr 1.3fr auto;
         gap: 4px;
+        padding: 6px;
+        border-radius: var(--r-pill);
+        align-items: center;
       }
-      .dw-pill-field-div { border-left: none; border-top: 1px solid var(--n-line-soft); }
-      .dw-pill-submit { width: 100%; border-radius: var(--r-control); }
+      .hm-pill-field { padding: 8px 14px; }
+      .hm-pill-field-div { border-left: 1px solid var(--n-line-soft); }
+      .hm-pill-submit { height: 48px; padding: 0 26px; }
 
-      /* На планшете колонка с инициалами ужимается, чтобы тексту осталась ширина. */
-      .dw-card-link,
-      .dw-card-skel {
-        grid-template-columns: 80px minmax(0, 1fr);
+      .hm-chip-bar { padding-top: 18px; }
+      .hm-results { padding-top: 22px; }
+      .hm-results-bar { font-size: 13px; padding-bottom: 14px; }
+
+      .hm-card-list { gap: 14px; }
+      .hm-card { gap: 20px; padding: 20px; }
+
+      .hm-card-photo {
+        width: 120px;
+        height: 140px;
+        border-radius: var(--r-card);
+        font-size: 30px;
+        /* Инициалы на десктопе лежат на фирменной подложке, а не на цвете
+           врача: плитка крупная, и случайный цвет на ней читается как ошибка
+           вёрстки. Цвет с карточки остаётся инлайновым фоном под градиентом. */
+        background-image: linear-gradient(160deg, var(--teal-soft), var(--teal-softer));
       }
-      .dw-card-photo { width: 80px; height: 96px; }
-      .dw-card-photo-initials { font-size: 32px; }
-      .dw-card-skel-photo { height: 96px; }
+
+      .hm-card-eyebrow { display: none; }
+      .hm-card-name { margin-top: 0; font-size: 19px; letter-spacing: -0.02em; }
+      .hm-card-spec {
+        display: block;
+        margin-top: 4px;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--n-ink2);
+      }
+
+      .hm-card-facts {
+        margin-top: 12px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--n-ink2);
+      }
+      /* Капсулы стоят рядом, а подписанные разделы — каждый со своей строки. */
+      .hm-card-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .hm-card-chip {
+        padding: 5px 11px;
+        border-radius: var(--r-pill);
+        background: var(--teal-softer);
+        color: var(--teal-hover);
+        font-weight: 700;
+        font-size: 12px;
+      }
+      .hm-card-section { display: flex; gap: 8px; align-items: baseline; }
+      .hm-card-section-label {
+        display: block;
+        flex-shrink: 0;
+        width: 118px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--n-muted);
+      }
+      .hm-card-section[data-langs-section] { display: flex; }
+
+      .hm-card-clinic { margin-top: 12px; font-size: 13px; color: var(--n-muted); }
+
+      .hm-card-skel-photo { width: 120px; height: 140px; border-radius: var(--r-card); }
+      .hm-empty { padding: 44px 24px; }
     }
   </style>
+
+  <JsonLd data={breadcrumbs} />
 </BaseLayout>
