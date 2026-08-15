@@ -5,18 +5,14 @@ import LoginModal from "../components/auth/LoginModal.astro";
 import SiteHeader from "../components/layout/SiteHeader.astro";
 import SiteFooter from "../components/layout/SiteFooter.astro";
 import { SPECIALTIES } from "@/shared/config";
-import { DOCTOR_MOCKS } from "@/entities/doctor/mock/doctors.mock";
-import { doctorSlug } from "../lib/slug";
+import {
+  buildLanguageOptions,
+  buildSpecialtyOptions,
+  loadDoctorCatalog,
+  toSearchIndexItem,
+} from "@/entities/doctor";
+import { doctorProfileSlug } from "../lib/slug";
 import { serializeForJsonIsland } from "../lib/search/serialize";
-
-// SSG. The page ships only the shell — search form, skeleton,
-// empty/error states, and a card <template>. Doctor data is inlined into
-// the HTML at build time (DOCTOR_MOCKS → search-projection → define:vars).
-// No `/api/doctors.json` fetch, no Worker invocation, no extra HTTP round
-// trip on navigation. When the NestJS backend lands, swap this block for
-// a server-side `fetch(api).then(json)` call inside Astro frontmatter and
-// keep the same `doctorItems` variable name — the client script doesn't
-// care where the data came from.
 
 // Строка идёт и в мета-описание, и в подзаголовок над формой, поэтому обещает
 // ровно то, что страница делает: по клинике поиск сознательно не ходит, а
@@ -24,53 +20,25 @@ import { serializeForJsonIsland } from "../lib/search/serialize";
 const description =
   "Поиск врачей по имени и специальности. Проверенные клиники, запись без звонков.";
 
-// Ключом служит специальность в нижнем регистре: то же значение уходит в
-// адресную строку и лежит в specialtyKey проекции, так что подпись находится
-// и для чипа, и для заголовка.
-const specialtyLabels = Object.fromEntries(
-  SPECIALTIES.map((s) => [s.doctorSpecialty.toLowerCase(), s.label]),
+const catalog = await loadDoctorCatalog();
+
+const doctorItems = catalog.map((doctor) =>
+  toSearchIndexItem(doctor, doctorProfileSlug(doctor)),
 );
+const specialtyOptions = buildSpecialtyOptions(catalog);
+const languageOptions = buildLanguageOptions(catalog);
 
-// Форма записи совпадает с будущим поисковым индексом: в следующем MR
-// сменится только источник данных, потребители останутся прежними.
-const doctorItems = DOCTOR_MOCKS.map((d) => ({
-  slug: doctorSlug(d),
-  fullName: d.name,
-  initials: d.initials,
-  avatarColor: d.color,
-  avatarUrl: null,
-  specialty: d.specialty,
-  specialtyKey: d.specialty.trim().toLowerCase(),
-  subspecializations: d.subspecialty ? [d.subspecialty] : [],
-  city: null,
-  // В моках языки лежат подписями («Русский»), кодов там нет. Пока они же
-  // работают ключами; в следующем MR подписи и коды разъедутся.
-  languages: d.languages ?? [],
-  languageCodes: (d.languages ?? []).map((l) => l.toLowerCase()),
-  priceFrom: null,
-  yearsExperience: d.yearsExperience ?? null,
-  workplaces: d.clinic ? [{ name: d.clinic, address: "" }] : [],
-  workplacesTotal: d.clinic ? 1 : 0,
-}));
+// Нижний слой — подписи плиток главной: они ведут на специальности, которых
+// в каталоге может не быть, и без него чип и заголовок теряют слово, по
+// которому пользователь пришёл, а пустая выдача выглядит необъяснимой.
+const specialtyLabels: Record<string, string> = {
+  ...Object.fromEntries(SPECIALTIES.map((s) => [s.doctorSpecialty.toLowerCase(), s.label])),
+  ...Object.fromEntries(specialtyOptions.map((option) => [option.key, option.label])),
+};
 
-// Языки, реально встречающиеся у врачей. В следующем MR список приедет из
-// каталога вместе с остальными опциями.
-//
-// Ключ и подпись расходятся: в ссылке живёт нижний регистр, а показываем
-// написание как в данных. Взять подпись из ключа было бы дешевле, но тогда
-// фильтр предлагает «english» рядом с карточкой, где написано «English».
-const languageOptions = Array.from(
-  DOCTOR_MOCKS.reduce((acc, d) => {
-    for (const name of d.languages ?? []) {
-      const key = name.toLowerCase();
-      const seen = acc.get(key);
-      acc.set(key, { label: seen?.label ?? name, count: (seen?.count ?? 0) + 1 });
-    }
-    return acc;
-  }, new Map<string, { label: string; count: number }>()),
-)
-  .map(([key, { label, count }]) => ({ key, label, count }))
-  .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ru"));
+const languageLabels: Record<string, string> = Object.fromEntries(
+  languageOptions.map((option) => [option.key, option.label]),
+);
 
 const breadcrumbs = {
   "@context": "https://schema.org",
@@ -141,8 +109,8 @@ const breadcrumbs = {
           class="bg-transparent text-[14px] text-graphite outline-none"
         >
           <option value="">Все специальности</option>
-          {SPECIALTIES.map((s) => (
-            <option value={s.doctorSpecialty.toLowerCase()}>{s.label}</option>
+          {specialtyOptions.map((option) => (
+            <option value={option.key}>{option.label} ({option.count})</option>
           ))}
         </select>
       </label>
@@ -356,8 +324,8 @@ const breadcrumbs = {
               <span class="dw-pill-label">Специальность</span>
               <select id="dw-search-specialty" name="specialty" class="dw-pill-control">
                 <option value="">Все специальности</option>
-                {SPECIALTIES.map((s) => (
-                  <option value={s.doctorSpecialty.toLowerCase()}>{s.label}</option>
+                {specialtyOptions.map((option) => (
+                  <option value={option.key}>{option.label} ({option.count})</option>
                 ))}
               </select>
             </span>
@@ -503,7 +471,7 @@ const breadcrumbs = {
     type="application/json"
     id="search-data"
     is:inline
-    set:html={serializeForJsonIsland({ specialtyLabels, doctorItems, languageOptions })}
+    set:html={serializeForJsonIsland({ specialtyLabels, languageLabels, doctorItems })}
   />
 
   <script>
@@ -527,7 +495,7 @@ const breadcrumbs = {
         languageCodes: string[];
         priceFrom: number | null;
         yearsExperience: number | null;
-        workplaces: { name: string; address: string }[];
+        workplaceName: string | null;
         workplacesTotal: number;
       };
       type UiState = "loading" | "results" | "empty" | "error";
@@ -538,15 +506,12 @@ const breadcrumbs = {
       const dataEl = document.getElementById("search-data");
       const payload: {
         specialtyLabels?: Record<string, string>;
+        languageLabels?: Record<string, string>;
         doctorItems?: DoctorItem[];
-        languageOptions?: { key: string; label: string }[];
       } = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : {};
       const specialtyLabels = payload.specialtyLabels || {};
+      const languageLabels = payload.languageLabels || {};
       const doctorItems = payload.doctorItems || [];
-      const languageOptions = payload.languageOptions || [];
-      const languageLabels = Object.fromEntries(
-        languageOptions.map((option) => [option.key, option.label]),
-      );
 
       // ── Mobile shell refs ───────────────────────────
       const listNode = document.getElementById("doctor-list");
@@ -745,7 +710,7 @@ const breadcrumbs = {
         if (name) name.textContent = d.fullName;
 
         const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = d.workplaces[0]?.name ?? "";
+        if (clinic) clinic.textContent = d.workplaceName ?? "";
 
         const meta = li.querySelector("[data-meta]");
         if (meta) {
@@ -803,7 +768,7 @@ const breadcrumbs = {
         }
 
         const clinic = li.querySelector("[data-clinic]");
-        if (clinic) clinic.textContent = d.workplaces[0]?.name ?? "";
+        if (clinic) clinic.textContent = d.workplaceName ?? "";
 
         return frag;
       }
