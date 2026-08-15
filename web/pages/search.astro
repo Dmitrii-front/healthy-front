@@ -21,8 +21,11 @@ import { serializeForJsonIsland } from "../lib/search/serialize";
 const description =
   "Поиск врачей по имени, специальности и клинике. Реальные слоты, проверенные клиники, запись без звонков.";
 
+// Ключом служит специальность в нижнем регистре: то же значение уходит в
+// адресную строку и лежит в specialtyKey проекции, так что подпись находится
+// и для чипа, и для заголовка.
 const specialtyLabels = Object.fromEntries(
-  SPECIALTIES.map((s) => [s.doctorSpecialty, s.label]),
+  SPECIALTIES.map((s) => [s.doctorSpecialty.toLowerCase(), s.label]),
 );
 
 // Форма записи совпадает с будущим поисковым индексом: в следующем MR
@@ -131,7 +134,7 @@ const breadcrumbs = {
         >
           <option value="">Все специальности</option>
           {SPECIALTIES.map((s) => (
-            <option value={s.doctorSpecialty}>{s.label}</option>
+            <option value={s.doctorSpecialty.toLowerCase()}>{s.label}</option>
           ))}
         </select>
       </label>
@@ -346,7 +349,7 @@ const breadcrumbs = {
               <select id="dw-search-specialty" name="specialty" class="dw-pill-control">
                 <option value="">Все специальности</option>
                 {SPECIALTIES.map((s) => (
-                  <option value={s.doctorSpecialty}>{s.label}</option>
+                  <option value={s.doctorSpecialty.toLowerCase()}>{s.label}</option>
                 ))}
               </select>
             </span>
@@ -496,6 +499,11 @@ const breadcrumbs = {
   />
 
   <script>
+    import { filterDoctors } from "../lib/search/filter";
+    import { pluralizeDoctors, pluralizeRu } from "../lib/search/format";
+    import type { SearchState } from "../lib/search/state";
+    import { activeChips, buildSearchQuery, readSearchState } from "../lib/search/state";
+
     (() => {
       type DoctorItem = {
         slug: string;
@@ -514,7 +522,6 @@ const breadcrumbs = {
         workplaces: { name: string; address: string }[];
         workplacesTotal: number;
       };
-      type SearchState = { q: string; specialty: string };
       type UiState = "loading" | "results" | "empty" | "error";
 
       // Данные приезжают островком <script type="application/json"> — см.
@@ -524,9 +531,14 @@ const breadcrumbs = {
       const payload: {
         specialtyLabels?: Record<string, string>;
         doctorItems?: DoctorItem[];
+        languageOptions?: { key: string; label: string }[];
       } = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : {};
       const specialtyLabels = payload.specialtyLabels || {};
       const doctorItems = payload.doctorItems || [];
+      const languageOptions = payload.languageOptions || [];
+      const languageLabels = Object.fromEntries(
+        languageOptions.map((option) => [option.key, option.label]),
+      );
 
       // ── Mobile shell refs ───────────────────────────
       const listNode = document.getElementById("doctor-list");
@@ -540,6 +552,7 @@ const breadcrumbs = {
       const formNode = document.getElementById("search-form");
       const qInputNode = document.querySelector<HTMLInputElement>("#search-q");
       const specSelectNode = document.querySelector<HTMLSelectElement>("#search-specialty");
+      const langSelectNode = document.querySelector<HTMLSelectElement>("#search-lang");
       const templateNode = document.querySelector<HTMLTemplateElement>("#card-template");
       const retryBtn = document.getElementById("retry-btn");
 
@@ -549,6 +562,7 @@ const breadcrumbs = {
       const dwForm = document.getElementById("dw-search-form");
       const dwQ = document.querySelector<HTMLInputElement>("#dw-search-q");
       const dwSpec = document.querySelector<HTMLSelectElement>("#dw-search-specialty");
+      const dwLang = document.querySelector<HTMLSelectElement>("#dw-search-lang");
       const dwCount = document.getElementById("dw-results-count");
       const dwNoun = document.getElementById("dw-results-noun");
       const dwCrumb = document.querySelector("[data-crumb-current]");
@@ -572,7 +586,8 @@ const breadcrumbs = {
         !h1Node ||
         !formNode ||
         !qInputNode ||
-        !specSelectNode
+        !specSelectNode ||
+        !langSelectNode
       ) {
         return;
       }
@@ -590,45 +605,15 @@ const breadcrumbs = {
       const form = formNode;
       const qInput = qInputNode;
       const specSelect = specSelectNode;
+      const langSelect = langSelectNode;
       const template = templateNode;
 
       // Каталог целиком приезжает вместе со страницей — фильтрация идёт
       // синхронно по памяти, без сети и ожидания.
       const allItems = Array.isArray(doctorItems) ? doctorItems : [];
 
-      function applyFilters(items: DoctorItem[], state: SearchState) {
-        const q = state.q.toLowerCase();
-        return items.filter((d) => {
-          if (q) {
-            const haystack = [d.fullName, d.specialty, ...d.subspecializations]
-              .join(" ")
-              .toLowerCase();
-            if (!haystack.includes(q)) return false;
-          }
-          if (state.specialty && d.specialty !== state.specialty) return false;
-          return true;
-        });
-      }
-
-      function pluralize(n: number, forms: readonly [string, string, string]) {
-        const m10 = n % 10, m100 = n % 100;
-        if (m100 >= 11 && m100 <= 14) return forms[2];
-        if (m10 === 1) return forms[0];
-        if (m10 >= 2 && m10 <= 4) return forms[1];
-        return forms[2];
-      }
-      const pDoctors = (n: number) => pluralize(n, ["доктор", "доктора", "докторов"]);
-      const pDoctorsLong = (n: number) => pluralize(n, ["врач", "врача", "врачей"]);
-      const pYears = (n: number) => pluralize(n, ["год опыта", "года опыта", "лет опыта"]);
-      const pYearsShort = (n: number) => pluralize(n, ["год", "года", "лет"]);
-
-      function readState(): SearchState {
-        const p = new URLSearchParams(location.search);
-        return {
-          q: (p.get("q") || "").trim(),
-          specialty: p.get("specialty") || "",
-        };
-      }
+      const pYears = (n: number) => pluralizeRu(n, ["год опыта", "года опыта", "лет опыта"]);
+      const pYearsShort = (n: number) => pluralizeRu(n, ["год", "года", "лет"]);
 
       function setUiState(s: UiState) {
         // Mobile
@@ -652,8 +637,10 @@ const breadcrumbs = {
         // Form prefill — both shells
         qInput.value = state.q;
         specSelect.value = state.specialty;
+        langSelect.value = state.lang;
         if (dwQ) dwQ.value = state.q;
         if (dwSpec) dwSpec.value = state.specialty;
+        if (dwLang) dwLang.value = state.lang;
 
         // H1 + document title
         const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
@@ -685,18 +672,9 @@ const breadcrumbs = {
         renderChips(state);
       }
 
-      function chipPills(state: SearchState) {
-        const out: { key: string; label: string }[] = [];
-        const specialtyLabel = state.specialty ? specialtyLabels[state.specialty] : undefined;
-        if (specialtyLabel) {
-          out.push({ key: "specialty", label: specialtyLabel });
-        }
-        return out;
-      }
-
       function renderChips(state: SearchState) {
         if (!dwChipList || !dwChipReset) return;
-        const pills = chipPills(state);
+        const pills = activeChips(state, specialtyLabels, languageLabels);
         dwChipList.replaceChildren();
         pills.forEach((p) => {
           const btn = document.createElement("button");
@@ -721,10 +699,10 @@ const breadcrumbs = {
         dwChipReset.hidden = pills.length === 0;
       }
 
-      function removeFilter(key: string) {
-        const next = new URLSearchParams(location.search);
-        next.delete(key);
-        const qs = next.toString();
+      function removeFilter(key: keyof SearchState) {
+        const state = readSearchState(location.search);
+        state[key] = "";
+        const qs = buildSearchQuery(state);
         history.pushState({}, "", qs ? "/search?" + qs : "/search");
         load();
       }
@@ -828,7 +806,7 @@ const breadcrumbs = {
           list.appendChild(renderMobileCard(d));
         }
         countEl.textContent = String(total);
-        nounEl.textContent = pDoctors(total);
+        nounEl.textContent = pluralizeDoctors(total);
 
         if (dwList) {
           dwList.replaceChildren();
@@ -838,18 +816,18 @@ const breadcrumbs = {
           }
         }
         if (dwCount) dwCount.textContent = String(total);
-        if (dwNoun) dwNoun.textContent = pDoctorsLong(total);
+        if (dwNoun) dwNoun.textContent = pluralizeDoctors(total);
       }
 
       function load() {
-        const state = readState();
+        const state = readSearchState(location.search);
         renderMeta(state);
-        const filtered = applyFilters(allItems, state);
+        const filtered = filterDoctors(allItems, state);
         if (filtered.length === 0) {
           countEl.textContent = "0";
-          nounEl.textContent = pDoctors(0);
+          nounEl.textContent = pluralizeDoctors(0);
           if (dwCount) dwCount.textContent = "0";
-          if (dwNoun) dwNoun.textContent = pDoctorsLong(0);
+          if (dwNoun) dwNoun.textContent = pluralizeDoctors(0);
           setUiState("empty");
         } else {
           renderResults(filtered, filtered.length);
@@ -857,28 +835,29 @@ const breadcrumbs = {
         }
       }
 
-      // ── Mobile: form submit ─────────────────────────
-      function buildQuery(q: string, specialty: string) {
-        const next = new URLSearchParams();
-        if (q) next.set("q", q);
-        if (specialty) next.set("specialty", specialty);
-        return next.toString();
+      function submitState(state: SearchState) {
+        const qs = buildSearchQuery(state);
+        history.pushState({}, "", qs ? "/search?" + qs : "/search");
+        load();
       }
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        const qs = buildQuery(qInput.value.trim(), specSelect.value);
-        history.pushState({}, "", qs ? "/search?" + qs : "/search");
-        load();
+        submitState({
+          q: qInput.value.trim(),
+          specialty: specSelect.value,
+          lang: langSelect.value,
+        });
       });
 
-      // ── Desktop: form submit ────────────────────────
       if (dwForm && dwQ && dwSpec) {
         dwForm.addEventListener("submit", (e) => {
           e.preventDefault();
-          const qs = buildQuery(dwQ.value.trim(), dwSpec.value);
-          history.pushState({}, "", qs ? "/search?" + qs : "/search");
-          load();
+          submitState({
+            q: dwQ.value.trim(),
+            specialty: dwSpec.value,
+            lang: dwLang ? dwLang.value : "",
+          });
         });
       }
 
