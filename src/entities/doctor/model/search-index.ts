@@ -11,6 +11,7 @@ export interface SearchIndexItem {
   fullName: string
   initials: string
   avatarColor: string
+  avatarUrl: string | null
   specialty: string
   specialtyKey: string
   subspecializations: string[]
@@ -48,6 +49,7 @@ export function toSearchIndexItem(doctor: DoctorProfileView, slug: string): Sear
     fullName: doctor.fullName,
     initials: doctor.initials,
     avatarColor: doctor.avatarColor,
+    avatarUrl: doctor.avatarUrl,
     specialty: doctor.specialization,
     specialtyKey: specialtyKeyOf(doctor.specialization),
     subspecializations: doctor.subspecializations,
