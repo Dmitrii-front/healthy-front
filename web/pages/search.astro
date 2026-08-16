@@ -226,6 +226,7 @@ const breadcrumbs = {
   <script>
     import { formatExperienceLabel, formatPriceKgs, fromSearchIndexWire } from "@/entities/doctor";
     import type { SearchIndexItem, SearchIndexWire } from "@/entities/doctor";
+    import { watchAvatar } from "../lib/avatar";
     import { filterDoctors } from "../lib/search/filter";
     import { pluralizeDoctors } from "../lib/search/format";
     import type { SearchState } from "../lib/search/state";
@@ -424,13 +425,15 @@ const breadcrumbs = {
         // потому у подложки aria-hidden, а у снимка пустой alt.
         const avatar = li.querySelector<HTMLElement>("[data-avatar]");
         const avatarImg = li.querySelector<HTMLImageElement>("[data-avatar-img]");
-        if (avatar && avatarImg && d.avatarUrl) {
-          avatarImg.src = d.avatarUrl;
-          avatarImg.hidden = false;
-          avatar.hidden = true;
-        } else if (avatar) {
+        if (avatar) {
           avatar.textContent = d.initials;
           avatar.style.backgroundColor = d.avatarColor;
+        }
+        if (avatar && avatarImg && d.avatarUrl) {
+          avatar.hidden = true;
+          avatarImg.src = d.avatarUrl;
+          avatarImg.hidden = false;
+          watchAvatar(avatarImg);
         }
 
         // Специальность стоит в разметке дважды: надзаголовком над именем и

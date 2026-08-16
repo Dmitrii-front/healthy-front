@@ -327,9 +327,10 @@ const websiteJsonLd = {
           {doctors.map((d) => (
             <a href={`/doctor/${doctorProfileSlug(d)}`} class="hm-home-doc tap">
               <div class="hm-home-doc-head">
-                {d.avatarUrl ? (
+                {d.avatarUrl && (
                   <img
                     class="hm-home-doc-avatar hm-home-doc-avatar-img"
+                    data-avatar-img
                     src={d.avatarUrl}
                     alt=""
                     loading="lazy"
@@ -337,14 +338,20 @@ const websiteJsonLd = {
                     width="56"
                     height="56"
                   />
-                ) : (
-                  /* aria-hidden: инициалы — это отсутствующее фото, а не
-                     содержание. Имя стоит следующим элементом, и без этого
-                     скринридер читает «П А Петров А.И.». */
-                  <span class="hm-home-doc-avatar" style={`background-color:${d.avatarColor}`} aria-hidden="true">
-                    {d.initials}
-                  </span>
                 )}
+                {/* aria-hidden: инициалы — это отсутствующее фото, а не
+                    содержание. Имя стоит следующим элементом, и без этого
+                    скринридер читает «П А Петров А.И.».
+                    Подложка стоит в разметке и под снимком: на битой ссылке её
+                    показывает watchAvatars, и ищет она её соседом снимка. */}
+                <span
+                  class="hm-home-doc-avatar"
+                  style={`background-color:${d.avatarColor}`}
+                  aria-hidden="true"
+                  hidden={d.avatarUrl !== null}
+                >
+                  {d.initials}
+                </span>
                 <div class="hm-home-doc-titles">
                   <span class="hm-home-doc-name">{d.shortName}</span>
                   <span class="hm-home-doc-spec">{d.specialization}</span>
@@ -743,6 +750,9 @@ const websiteJsonLd = {
       color: var(--n-ink);
     }
     .hm-home-doc-avatar-img { object-fit: cover; background-color: var(--n-line); }
+    /* display у класса перебивает display:none из [hidden] в стилях браузера,
+       и без этой строки снимок с инициалами стоят в карточке разом. */
+    .hm-home-doc-avatar[hidden] { display: none; }
     .hm-home-doc-titles { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
     .hm-home-doc-name {
       font-size: 14px;
@@ -925,4 +935,10 @@ const websiteJsonLd = {
   </style>
 
   <LoginModal />
+
+  <script>
+    import { watchAvatars } from "../lib/avatar";
+
+    watchAvatars();
+  </script>
 </BaseLayout>
