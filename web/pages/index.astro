@@ -230,13 +230,29 @@ const websiteJsonLd = {
           <div class="hm-home-live">
             <div class="hm-home-avatars" aria-hidden="true">
               {doctors.slice(0, HERO_AVATARS).map((d) => (
-                <span
-                  class="hm-home-avatar"
-                  style={`background-color:${d.avatarColor}`}
-                  title={d.fullName}
-                >
-                  {d.initials}
-                </span>
+                <Fragment>
+                  {d.avatarUrl && (
+                    <img
+                      class="hm-home-avatar hm-home-avatar-img"
+                      data-avatar-img
+                      src={d.avatarUrl}
+                      alt=""
+                      title={d.fullName}
+                      loading="lazy"
+                      decoding="async"
+                      width="40"
+                      height="40"
+                    />
+                  )}
+                  <span
+                    class="hm-home-avatar"
+                    style={`background-color:${d.avatarColor}`}
+                    title={d.fullName}
+                    hidden={d.avatarUrl !== null}
+                  >
+                    {d.initials}
+                  </span>
+                </Fragment>
               ))}
               {doctors.length > HERO_AVATARS && (
                 <span class="hm-home-avatar hm-home-avatar-more">
@@ -565,7 +581,16 @@ const websiteJsonLd = {
       color: var(--n-ink);
       box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
-    .hm-home-avatar:first-child { margin-left: 0; }
+    /* min-width: 0 — чтобы снимок ужимался наравне с инициалами: у картинки
+       минимальный размер берётся из неё самой, и на тесной раскладке она одна
+       осталась бы круглой среди сплющенных кружков. */
+    .hm-home-avatar-img { object-fit: cover; min-width: 0; }
+    .hm-home-avatar[hidden] { display: none; }
+    /* Первый в стопке не заезжает на соседа. Второй строкой — тот же первый,
+       когда его снимок не открылся: инициалы встают на место снимка, а не
+       с нахлёстом на край блока. */
+    .hm-home-avatar:first-child,
+    .hm-home-avatar-img:first-child[hidden] + .hm-home-avatar { margin-left: 0; }
     .hm-home-avatar-more { background: var(--teal-softer); color: var(--teal); font-size: 11px; letter-spacing: -0.02em; }
     .hm-home-live-row {
       margin-top: 12px;
