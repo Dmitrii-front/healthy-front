@@ -69,7 +69,10 @@ export function toDoctorListItem(dto: DoctorSearchItemDto): DoctorListItem {
     priceFrom: dto.price_from,
     languages: formatLanguages(dto.languages ?? []),
     languageCodes: (dto.languages ?? []).map((code) => code.toLowerCase()),
-    avatarUrl: dto.avatar_url,
+    // The API types avatar_url as a plain nullable string, so "" and "   " get
+    // through. Blank is not a photo: left as-is it would render <img src="">,
+    // which sends the browser back for the page itself.
+    avatarUrl: dto.avatar_url?.trim() || null,
   }
 }
 

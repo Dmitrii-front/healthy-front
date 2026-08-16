@@ -61,6 +61,19 @@ describe('toDoctorListItem', () => {
 
     expect(item.specialization).toBe('Стоматолог')
   })
+
+  it('считает пустую ссылку на снимок отсутствующей', () => {
+    expect(toDoctorListItem(makeSearchItem({ avatar_url: '' })).avatarUrl).toBeNull()
+    expect(toDoctorListItem(makeSearchItem({ avatar_url: '   ' })).avatarUrl).toBeNull()
+  })
+
+  it('обрезает пробелы вокруг ссылки на снимок', () => {
+    const item = toDoctorListItem(
+      makeSearchItem({ avatar_url: '  https://cdn.example.com/a.jpg  ' }),
+    )
+
+    expect(item.avatarUrl).toBe('https://cdn.example.com/a.jpg')
+  })
 })
 
 describe('toDoctorProfileView', () => {
