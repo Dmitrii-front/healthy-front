@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
 import LoginModal from "../components/auth/LoginModal.astro";
+import DoctorAvatar from "../components/catalog/DoctorAvatar.astro";
 import SiteHeader from "../components/layout/SiteHeader.astro";
 import SiteFooter from "../components/layout/SiteFooter.astro";
 import {
@@ -24,11 +25,12 @@ const doctors = await loadDoctorCatalog();
 
 const HERO_AVATARS = 6;
 
-// Стопка декоративная и никого не ранжирует, поэтому лица в ней важнее порядка
-// каталога: врачи со снимком идут первыми. Внутри групп порядок каталога цел —
-// сортировка стабильна.
+// The stack is decorative and ranks nobody, so faces in it matter more than
+// catalogue order: doctors with a photo come first. Within each group catalogue
+// order survives — the sort is stable. An empty avatarUrl is not a photo, hence
+// Boolean() rather than a null check.
 const heroAvatars = [...doctors]
-  .sort((a, b) => Number(b.avatarUrl !== null) - Number(a.avatarUrl !== null))
+  .sort((a, b) => Number(Boolean(b.avatarUrl)) - Number(Boolean(a.avatarUrl)))
   .slice(0, HERO_AVATARS);
 
 const BANNERS = [
@@ -237,29 +239,14 @@ const websiteJsonLd = {
           <div class="hm-home-live">
             <div class="hm-home-avatars" aria-hidden="true">
               {heroAvatars.map((d) => (
-                <Fragment>
-                  {d.avatarUrl && (
-                    <img
-                      class="hm-home-avatar hm-home-avatar-img"
-                      data-avatar-img
-                      src={d.avatarUrl}
-                      alt=""
-                      title={d.fullName}
-                      loading="lazy"
-                      decoding="async"
-                      width="40"
-                      height="40"
-                    />
-                  )}
-                  <span
-                    class="hm-home-avatar"
-                    style={`background-color:${d.avatarColor}`}
-                    title={d.fullName}
-                    hidden={d.avatarUrl !== null}
-                  >
-                    {d.initials}
-                  </span>
-                </Fragment>
+                <DoctorAvatar
+                  class="hm-home-avatar"
+                  initials={d.initials}
+                  avatarUrl={d.avatarUrl}
+                  color={d.avatarColor}
+                  title={d.fullName}
+                  loading="lazy"
+                />
               ))}
               {doctors.length > HERO_AVATARS && (
                 <span class="hm-home-avatar hm-home-avatar-more">
@@ -350,31 +337,13 @@ const websiteJsonLd = {
           {doctors.map((d) => (
             <a href={`/doctor/${doctorProfileSlug(d)}`} class="hm-home-doc tap">
               <div class="hm-home-doc-head">
-                {d.avatarUrl && (
-                  <img
-                    class="hm-home-doc-avatar hm-home-doc-avatar-img"
-                    data-avatar-img
-                    src={d.avatarUrl}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    width="56"
-                    height="56"
-                  />
-                )}
-                {/* aria-hidden: инициалы — это отсутствующее фото, а не
-                    содержание. Имя стоит следующим элементом, и без этого
-                    скринридер читает «П А Петров А.И.».
-                    Подложка стоит в разметке и под снимком: на битой ссылке её
-                    показывает watchAvatars, и ищет она её соседом снимка. */}
-                <span
+                <DoctorAvatar
                   class="hm-home-doc-avatar"
-                  style={`background-color:${d.avatarColor}`}
-                  aria-hidden="true"
-                  hidden={d.avatarUrl !== null}
-                >
-                  {d.initials}
-                </span>
+                  initials={d.initials}
+                  avatarUrl={d.avatarUrl}
+                  color={d.avatarColor}
+                  loading="lazy"
+                />
                 <div class="hm-home-doc-titles">
                   <span class="hm-home-doc-name">{d.shortName}</span>
                   <span class="hm-home-doc-spec">{d.specialization}</span>
@@ -574,6 +543,11 @@ const websiteJsonLd = {
     .hm-home-live { margin-top: 18px; }
     .hm-home-avatars { display: flex; align-items: center; }
     .hm-home-avatar {
+      /* Every slot in the stack is positioned, the "+N" counter included: a
+         relatively positioned element paints above a static sibling regardless
+         of document order, so leaving the counter static would flip the overlap
+         at the last seam — it would slide under the avatar it follows. */
+      position: relative;
       width: 34px;
       height: 34px;
       margin-left: -10px;
@@ -588,16 +562,7 @@ const websiteJsonLd = {
       color: var(--n-ink);
       box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
-    /* min-width: 0 — чтобы снимок ужимался наравне с инициалами: у картинки
-       минимальный размер берётся из неё самой, и на тесной раскладке она одна
-       осталась бы круглой среди сплющенных кружков. */
-    .hm-home-avatar-img { object-fit: cover; min-width: 0; }
-    .hm-home-avatar[hidden] { display: none; }
-    /* Первый в стопке не заезжает на соседа. Второй строкой — тот же первый,
-       когда его снимок не открылся: инициалы встают на место снимка, а не
-       с нахлёстом на край блока. */
-    .hm-home-avatar:first-child,
-    .hm-home-avatar-img:first-child[hidden] + .hm-home-avatar { margin-left: 0; }
+    .hm-home-avatar:first-child { margin-left: 0; }
     .hm-home-avatar-more { background: var(--teal-softer); color: var(--teal); font-size: 11px; letter-spacing: -0.02em; }
     .hm-home-live-row {
       margin-top: 12px;
@@ -781,10 +746,6 @@ const websiteJsonLd = {
       font-weight: 700;
       color: var(--n-ink);
     }
-    .hm-home-doc-avatar-img { object-fit: cover; background-color: var(--n-line); }
-    /* display у класса перебивает display:none из [hidden] в стилях браузера,
-       и без этой строки снимок с инициалами стоят в карточке разом. */
-    .hm-home-doc-avatar[hidden] { display: none; }
     .hm-home-doc-titles { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
     .hm-home-doc-name {
       font-size: 14px;

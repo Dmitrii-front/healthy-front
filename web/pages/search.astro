@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
 import LoginModal from "../components/auth/LoginModal.astro";
+import DoctorAvatar from "../components/catalog/DoctorAvatar.astro";
 import SiteHeader from "../components/layout/SiteHeader.astro";
 import SiteFooter from "../components/layout/SiteFooter.astro";
 import { SPECIALTIES } from "@/shared/config";
@@ -185,8 +186,7 @@ const breadcrumbs = {
   <template id="card-template">
     <li>
       <a class="hm-card hm-card-link" data-link>
-        <img class="hm-card-photo hm-card-photo-img" data-avatar-img alt="" loading="lazy" decoding="async" hidden />
-        <span class="hm-card-photo" data-avatar aria-hidden="true"></span>
+        <DoctorAvatar class="hm-card-photo" initials="" loading="lazy" deferred />
         <div class="hm-card-info">
           <p class="hm-card-eyebrow" data-eyebrow></p>
           <h3 class="hm-card-name" data-name></h3>
@@ -421,18 +421,17 @@ const breadcrumbs = {
         const link = li.querySelector<HTMLAnchorElement>("[data-link]");
         if (link) link.href = "/doctor/" + d.slug;
 
-        // Инициалы — отсутствующее фото, а не содержание: имя стоит рядом, и
-        // потому у подложки aria-hidden, а у снимка пустой alt.
         const avatar = li.querySelector<HTMLElement>("[data-avatar]");
+        if (avatar) avatar.style.backgroundColor = d.avatarColor;
+        const initials = li.querySelector<HTMLElement>("[data-avatar-initials]");
+        if (initials) initials.textContent = d.initials;
+
         const avatarImg = li.querySelector<HTMLImageElement>("[data-avatar-img]");
-        if (avatar) {
-          avatar.textContent = d.initials;
-          avatar.style.backgroundColor = d.avatarColor;
-        }
-        if (avatar && avatarImg && d.avatarUrl) {
-          avatar.hidden = true;
-          avatarImg.src = d.avatarUrl;
+        if (avatarImg && d.avatarUrl) {
+          // Un-hide before assigning src: a display:none image defeats the
+          // browser's lazy-load deferral, and the card list is not paginated.
           avatarImg.hidden = false;
+          avatarImg.src = d.avatarUrl;
           watchAvatar(avatarImg);
         }
 
@@ -713,10 +712,6 @@ const breadcrumbs = {
       font-weight: 700;
       letter-spacing: -0.02em;
     }
-    /* display у класса перебивает display:none из [hidden] в стилях браузера,
-       и без этой строки фото с инициалами стоят в карточке разом. */
-    .hm-card-photo[hidden] { display: none; }
-    .hm-card-photo-img { object-fit: cover; background-color: var(--n-line-soft); }
 
     .hm-card-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 

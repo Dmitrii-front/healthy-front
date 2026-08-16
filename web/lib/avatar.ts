@@ -1,30 +1,32 @@
 /**
- * Снимок врача лежит в чужом хранилище: ссылка протухает, объект пропадает, а
- * пустая рамка в карточке читается как сломанная вёрстка. На ошибке загрузки
- * место снимка занимают инициалы — та же подложка, что у врачей без фото.
- *
- * Оба состояния уже стоят в разметке подряд: сначала <img>, следом скрытая
- * подложка. Порядок несущий — подложку ищут соседом снимка.
+ * A doctor's photo lives in third-party storage: the link goes stale, the object
+ * disappears, and an empty frame in a card reads as broken layout. The photo is
+ * a layer on top of the initials (see DoctorAvatar.astro), so on a load error it
+ * is enough to drop it — the plate is already underneath.
  */
 
 export function watchAvatar(img: HTMLImageElement): void {
   if (img.src === '') return
 
-  // Снимок мог отвалиться до того, как скрипт дошёл до элемента: error не
-  // всплывает и второй раз не повторится, а у такой картинки complete уже
-  // выставлен при нулевом размере.
-  if (img.complete && img.naturalWidth === 0) showInitials(img)
-  else img.addEventListener('error', () => showInitials(img), { once: true })
-}
+  const settle = () => {
+    // A decoded photo marks the box, and only then does CSS drop the initials.
+    // Keying off the mere presence of an <img> instead would strip the plate for
+    // the whole fetch — and for good on a request that stalls without erroring.
+    if (img.naturalWidth > 0) img.dataset.loaded = ''
+    else img.hidden = true
+  }
 
-export function watchAvatars(root: ParentNode = document): void {
-  for (const img of root.querySelectorAll<HTMLImageElement>('img[data-avatar-img]')) {
-    watchAvatar(img)
+  // The photo may have settled before the script reached the element: neither
+  // load nor error bubbles, and neither fires a second time.
+  if (img.complete) settle()
+  else {
+    img.addEventListener('load', settle, { once: true })
+    img.addEventListener('error', settle, { once: true })
   }
 }
 
-function showInitials(img: HTMLImageElement): void {
-  img.hidden = true
-  const initials = img.nextElementSibling
-  if (initials instanceof HTMLElement) initials.hidden = false
+export function watchAvatars(): void {
+  for (const img of document.querySelectorAll<HTMLImageElement>('img[data-avatar-img]')) {
+    watchAvatar(img)
+  }
 }

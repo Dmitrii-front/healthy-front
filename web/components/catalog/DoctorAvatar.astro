@@ -1,0 +1,98 @@
+---
+/**
+ * A doctor is either a photo or initials on a coloured plate — two layers of a
+ * single box rather than two neighbouring blocks: initials underneath, photo on
+ * top. The photo lives in third-party storage, so the link goes stale and the
+ * object disappears, and an empty frame reads as broken layout. On a load error
+ * watchAvatar simply drops the photo: the plate is already underneath, so there
+ * is nothing to look up or reorder.
+ *
+ * Size, corner radius and plate come from the page via `class` — the hero stack,
+ * the result card and the profile header each have their own.
+ */
+
+interface Props {
+  initials: string;
+  avatarUrl?: string | null;
+  /** Box size, radius and plate — different on every surface. */
+  class: string;
+  /** The doctor's colour under the photo. On the profile the plate is drawn by CSS. */
+  color?: string | null;
+  /** A non-empty alt only where the photo stands in for the doctor's name. */
+  alt?: string;
+  title?: string;
+  loading?: "lazy" | "eager";
+  /**
+   * The result card is assembled by script: the photo has to sit in the markup
+   * up front — empty and hidden — with src and initials filled in at render.
+   */
+  deferred?: boolean;
+}
+
+const {
+  initials,
+  avatarUrl = null,
+  class: boxClass,
+  color = null,
+  alt = "",
+  title,
+  loading,
+  deferred = false,
+} = Astro.props;
+---
+
+<span
+  class:list={["hm-avatar-box", boxClass]}
+  style={color ? `background-color:${color}` : undefined}
+  title={title}
+  data-avatar
+>
+  {/* aria-hidden: initials stand for a missing photo, not for content. The name
+      is right next to them, and without this a screen reader reads
+      "P A Petrov Alexander". */}
+  <span class="hm-avatar-initials" aria-hidden="true" data-avatar-initials>{initials}</span>
+  {/* An empty avatarUrl is not a photo: an <img src=""> would send the browser
+      back for the page itself. Hence a truthiness check, not `!== null`. */}
+  {(avatarUrl || deferred) && (
+    <img
+      class="hm-avatar-img"
+      data-avatar-img
+      src={avatarUrl || undefined}
+      alt={alt}
+      loading={loading}
+      decoding="async"
+      hidden={deferred && !avatarUrl}
+    />
+  )}
+</span>
+
+<style>
+  .hm-avatar-box {
+    position: relative;
+  }
+  /* The photo is out of flow: it covers the initials instead of standing next to
+     them, and repeats the radius of the box. Take the photo away and the plate
+     underneath is already in place. */
+  .hm-avatar-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+  }
+  /* Hiding a broken photo is the component's own job, not something inherited
+     from a framework reset: where that reset is absent the [hidden] photo and
+     the initials would otherwise show at once. */
+  .hm-avatar-img[hidden] {
+    display: none;
+  }
+  /* Once a photo has actually decoded the initials under it are dead weight:
+     they show through a transparent PNG, and they still answer find-in-page and
+     land in a copied selection. Keyed on [data-loaded], which watchAvatar sets,
+     and not on the photo merely existing — that would strip the plate for the
+     whole fetch and leave it blank for good on a request that hangs. */
+  .hm-avatar-box:has(> .hm-avatar-img[data-loaded]) > .hm-avatar-initials {
+    display: none;
+  }
+</style>
