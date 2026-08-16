@@ -24,6 +24,13 @@ const doctors = await loadDoctorCatalog();
 
 const HERO_AVATARS = 6;
 
+// Стопка декоративная и никого не ранжирует, поэтому лица в ней важнее порядка
+// каталога: врачи со снимком идут первыми. Внутри групп порядок каталога цел —
+// сортировка стабильна.
+const heroAvatars = [...doctors]
+  .sort((a, b) => Number(b.avatarUrl !== null) - Number(a.avatarUrl !== null))
+  .slice(0, HERO_AVATARS);
+
 const BANNERS = [
   {
     tag: "Запись к врачу",
@@ -229,7 +236,7 @@ const websiteJsonLd = {
           </p>
           <div class="hm-home-live">
             <div class="hm-home-avatars" aria-hidden="true">
-              {doctors.slice(0, HERO_AVATARS).map((d) => (
+              {heroAvatars.map((d) => (
                 <Fragment>
                   {d.avatarUrl && (
                     <img
