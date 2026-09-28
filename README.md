@@ -77,27 +77,27 @@ The frontend expects a compatible backend API. Without one, API-backed authentic
 
 ## Environment variables
 
-| Variable | Purpose |
-| --- | --- |
-| `PUBLIC_API_URL` | Base URL of the backend API |
+| Variable                 | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `PUBLIC_API_URL`         | Base URL of the backend API                                                      |
 | `PUBLIC_YANDEX_MAPS_KEY` | Browser-visible Yandex Maps JavaScript API key; restrict it by allowed referrers |
 
 Do not commit `.env` files. The checked-in `.env.example` documents the required names and contains no private credential.
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Start the Astro development server |
-| `pnpm build` | Build with Cloudflare deployment variables |
+| Command            | Purpose                                     |
+| ------------------ | ------------------------------------------- |
+| `pnpm dev`         | Start the Astro development server          |
+| `pnpm build`       | Build with Cloudflare deployment variables  |
 | `pnpm build:local` | Build using local environment configuration |
-| `pnpm preview` | Preview a production build |
-| `pnpm test` | Run Vitest once |
-| `pnpm lint` | Run Oxlint with type-aware checks |
-| `pnpm fmt:check` | Check formatting |
-| `pnpm fsd` | Validate Feature-Sliced Design boundaries |
-| `pnpm typecheck` | Run Astro and TypeScript checks |
-| `pnpm check` | Run the configured pre-commit checks |
+| `pnpm preview`     | Preview a production build                  |
+| `pnpm test`        | Run Vitest once                             |
+| `pnpm lint`        | Run Oxlint with type-aware checks           |
+| `pnpm fmt:check`   | Check formatting                            |
+| `pnpm fsd`         | Validate Feature-Sliced Design boundaries   |
+| `pnpm typecheck`   | Run Astro and TypeScript checks             |
+| `pnpm check`       | Run the configured pre-commit checks        |
 
 ## Testing and quality checks
 

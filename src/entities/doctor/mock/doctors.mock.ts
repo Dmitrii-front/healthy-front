@@ -54,10 +54,7 @@ export const DOCTOR_MOCKS: Doctor[] = [
     priceFrom: 12000,
     scheduleNote: 'Принимает по будням 09:00–18:00, суббота — по записи',
     consultationFormats: ['in-person', 'online'],
-    certificates: [
-      'DEMO-CERT-001 — кардиология',
-      'DEMO-CERT-002 — профилактическая медицина',
-    ],
+    certificates: ['DEMO-CERT-001 — кардиология', 'DEMO-CERT-002 — профилактическая медицина'],
     recommendRate: 98,
     clinicHours: 'Ежедневно 08:00–22:00',
   },
@@ -141,10 +138,7 @@ export const DOCTOR_MOCKS: Doctor[] = [
     priceFrom: 11000,
     scheduleNote: 'Приём по записи — будни',
     consultationFormats: ['in-person'],
-    certificates: [
-      'DEMO-CERT-004 — дерматология',
-      'DEMO-CERT-005 — дерматоскопия',
-    ],
+    certificates: ['DEMO-CERT-004 — дерматология', 'DEMO-CERT-005 — дерматоскопия'],
     recommendRate: 97,
     clinicHours: 'Пн–Пт 09:00–19:00',
   },
