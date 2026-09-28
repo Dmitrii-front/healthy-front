@@ -11,6 +11,7 @@ CLAUDE.md
 
 # Astro
 .astro/
+.tanstack/
 .wrangler/
 pnpm-lock.yaml.pre-astro
 
