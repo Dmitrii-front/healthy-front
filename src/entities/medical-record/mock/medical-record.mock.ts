@@ -2,23 +2,23 @@ import type { MedicalRecord } from '../model/types'
 
 // Default medical-record content for the demo patient (overlaid with /auth/me data).
 export const MEDICAL_RECORD_MOCK: MedicalRecord = {
-  firstName: 'Елена',
-  lastName: 'Марш',
-  middleName: 'Сергеевна',
+  firstName: 'Демо',
+  lastName: 'Пациент',
+  middleName: 'Примеровна',
   gender: 'female',
   dob: '1989-03-22',
   avatarUrl: null,
 
-  phone: '+7 776 423 84 19',
-  email: 'elena.marsh@email.com',
-  country: 'Казахстан',
-  city: 'Алматы',
-  region: 'Алматинская обл.',
-  district: 'Медеуский',
-  address: 'ул. Достык 89, кв. 14',
+  phone: '+1 202-555-0100',
+  email: 'demo.patient@example.com',
+  country: 'Демо-страна',
+  city: 'Примерск',
+  region: 'Тестовый регион',
+  district: 'Демонстрационный район',
+  address: 'ул. Примерная, 100, кв. 1',
 
-  emergencyContactName: 'Дамир Марш (муж)',
-  emergencyContactPhone: '+7 701 502 11 67',
+  emergencyContactName: 'Демо Контакт',
+  emergencyContactPhone: '+1 202-555-0101',
 
   bloodGroup: 'II (A)',
   rhFactor: 'Положительный (+)',
@@ -34,8 +34,8 @@ export const MEDICAL_RECORD_MOCK: MedicalRecord = {
   physicalActivityLevel: 'Умеренная (3–4 раза в неделю)',
   dietType: 'Сбалансированное, без ограничений',
 
-  occupation: 'Product-дизайнер',
-  workplace: 'IT-компания, удалённо',
+  occupation: 'Демо-специалист',
+  workplace: 'Компания «Пример»',
   workConditions: 'Сидячая работа, нагрузка на глаза, ночные дедлайны',
   livingConditions: 'Собственная квартира',
 
