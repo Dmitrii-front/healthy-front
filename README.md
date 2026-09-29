@@ -1,12 +1,46 @@
 # Healthy
 
-Healthy is a frontend for discovering doctors, reviewing doctor profiles, starting an appointment booking flow, and using a patient portal. The public product is available at [sdoctorom.health](https://sdoctorom.health).
+Healthy is an Astro and React frontend for discovering doctors, reviewing doctor profiles, starting an appointment booking flow, and using a patient portal. The public product is available at [sdoctorom.health](https://sdoctorom.health).
 
 This repository contains the web frontend only. The production backend, infrastructure accounts, and operational data are not included.
 
 ## Dmitrii's role
 
 Dmitrii Nadtochii developed and maintains the frontend represented in this repository. The Git history preserves automated Cloudflare commits separately from human-authored work.
+
+## Patient Experience
+
+### Doctor discovery
+
+Search and discover healthcare professionals by specialty and availability.
+
+![Healthy doctor discovery and search](docs/screenshots/patient-discovery.png)
+
+### Appointment booking
+
+Review doctor information, locations, available dates, and appointment slots.
+
+![Healthy doctor profile and appointment booking](docs/screenshots/patient-booking.png)
+
+### Patient dashboard
+
+Review healthcare information, previous visits, and follow-up actions from the patient workspace.
+
+![Healthy patient dashboard](docs/screenshots/patient-dashboard.png)
+
+## Doctor Workspace
+
+### Doctor schedule
+
+Weekly scheduling workspace for managing appointment availability and clinical workflow.
+
+![Healthy doctor schedule](docs/screenshots/doctor-schedule.png)
+
+### Patient management
+
+Doctor-facing workspace for reviewing appointment status and navigating patient management.
+
+![Healthy doctor patient management](docs/screenshots/doctor-patients.png)
 
 ## Implemented features
 
@@ -110,12 +144,6 @@ Astro builds the public pages and React application for Cloudflare Workers. `wra
 ## Demo data
 
 The patient, clinician, clinic, contact, insurance, license, and review identities in the mock modules are deliberately fictional. They exist only to demonstrate interface states and are not medical records or real professional credentials.
-
-## Screenshots
-
-- TODO: public landing and doctor search
-- TODO: doctor profile and booking flow
-- TODO: patient dashboard and visit details
 
 ## Portfolio context
 
