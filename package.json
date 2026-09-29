@@ -26,17 +26,17 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.1",
-    "@astrojs/mdx": "^7.0.5",
-    "@astrojs/react": "^6.0.2",
+    "@astrojs/mdx": "^7.0.8",
+    "@astrojs/react": "^6.0.6",
     "@astrojs/sitemap": "^3.7.3",
-    "@hookform/resolvers": "^5.8.0",
+    "@hookform/resolvers": "^5.9.1",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.27",
-    "astro": "^7.2.2",
+    "astro": "^7.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.77.0",
-    "valibot": "^1.4.1",
+    "valibot": "^1.5.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
@@ -60,7 +60,7 @@
     "typescript": "^6.0.3",
     "vite": "^8.0.13",
     "vitest": "^4.1.10",
-    "wrangler": "^4.97.0"
+    "wrangler": "^4.143.0"
   },
   "engines": {
     "node": "24.x"
